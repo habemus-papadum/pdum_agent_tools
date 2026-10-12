@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Spike 013 — Browser Origin probe</title>
+<style>body{font:18px system-ui;max-width:900px;margin:3rem auto;padding:0 1rem}pre{white-space:pre-wrap;background:#f4f4f4;padding:1rem}</style>
+<h1>Codex browser Origin probe</h1>
+<p>This isolated fixture performs only the app-server initialize handshake. No agent turn or model call.</p>
+<pre id="result">Connecting…</pre>
+<script>
+const configuration = "__CONFIG__";
+const result = { expectation: configuration.expectation, origin: location.origin, userAgent: navigator.userAgent, websocketUrl: configuration.websocketUrl, opened: false, messages: [] };
+const socket = new WebSocket(configuration.websocketUrl);
+let finished = false;
+const timer = setTimeout(() => complete(false, 'timeout'), 8000);
+async function complete(passed, reason) {
+  if (finished) return;
+  finished = true;
+  clearTimeout(timer);
+  Object.assign(result, { passed, reason });
+  window.__SPIKE_RESULT__ = result;
+  document.getElementById('result').textContent = JSON.stringify(result, null, 2);
+  if (socket.readyState === WebSocket.OPEN) socket.close();
+  await fetch('/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(result) });
+}
+socket.addEventListener('open', () => {
+  result.opened = true;
+  if (configuration.expectation === 'denied') { complete(false, 'unexpected-open'); return; }
+  socket.send(JSON.stringify({ id: 1, method: 'initialize', params: { clientInfo: { name: 'spike_013_browser', version: '0.0.0' } } }));
+});
+socket.addEventListener('message', (event) => {
+  const message = JSON.parse(event.data);
+  result.messages.push(message);
+  if (message.id === 1) {
+    if (message.result?.userAgent) {
+      socket.send(JSON.stringify({ method: 'initialized' }));
+      result.sentInitialized = true;
+      complete(configuration.expectation === 'allowed', 'initialized');
+    } else complete(false, 'initialize-failed');
+  }
+});
+socket.addEventListener('error', () => { result.errorEvent = true; });
+socket.addEventListener('close', (event) => {
+  result.closeCode = event.code;
+  complete(configuration.expectation === 'denied' && !result.opened && result.errorEvent === true, 'closed');
+});
+</script>
+</html>

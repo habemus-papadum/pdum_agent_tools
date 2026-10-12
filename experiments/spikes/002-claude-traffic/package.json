@@ -1,0 +1,14 @@
+{
+  "name": "@agent-spike/002-claude-traffic",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "probe": "tsx src/probe.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "catalog:"
+  }
+}

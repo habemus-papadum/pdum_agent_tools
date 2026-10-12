@@ -1,0 +1,13 @@
+[project]
+name = "agent-spike-python"
+version = "0.0.0"
+description = "Python experiment starter"
+requires-python = ">=3.14,<3.15"
+dependencies = []
+
+[project.scripts]
+agent-spike-python = "agent_spike_python:main"
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"

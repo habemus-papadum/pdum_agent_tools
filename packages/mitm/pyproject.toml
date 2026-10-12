@@ -1,6 +1,7 @@
 [project]
 name = "habemus-papadum-mitm"
 version = "0.0.0+dev"
+readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "Nehal Patel", email = "nehal@alum.mit.edu" }]
 dependencies = []

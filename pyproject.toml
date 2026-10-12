@@ -1,5 +1,6 @@
 [tool.uv.workspace]
 members = ["packages/*"]
+exclude = ["experiments"]
 
 [tool.uv.sources]
 habemus-papadum-mitm = { workspace = true }
@@ -22,6 +23,7 @@ dev = [
 [tool.ruff]
 target-version = "py312"
 line-length = 120
+extend-exclude = ["experiments"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]

@@ -12,6 +12,17 @@ theme:
 
 nav:
   - Home: index.md
+  - Development: development.md
+  - Research and spikes: research.md
+  - Architecture proposals:
+      - Overview: architecture.md
+      - Agreed design principles: design-principles.md
+      - Codex launcher: specs/codex-launcher.md
+      - MITM sidecar: specs/mitm.md
+  - Implementation plans:
+      - Joint sequence: plans/implementation.md
+      - Codex launcher: plans/codex-launcher.md
+      - MITM sidecar: plans/mitm.md
 
 markdown_extensions:
   - admonition

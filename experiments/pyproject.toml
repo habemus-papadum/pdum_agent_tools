@@ -1,0 +1,14 @@
+[project]
+name = "agent-spike-workspace"
+version = "0.0.0"
+description = "Python workspace for remote agent CLI experiments"
+requires-python = ">=3.14,<3.15"
+dependencies = []
+
+[tool.uv]
+package = false
+constraint-dependencies = ["mitmproxy==12.2.3"]
+build-constraint-dependencies = ["hatchling==1.32.4"]
+
+[tool.uv.workspace]
+members = ["python/*", "spikes/*/python"]

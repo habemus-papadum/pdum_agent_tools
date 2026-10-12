@@ -1,0 +1,12 @@
+{
+  "name": "@agent-spike/011-codex-wasm",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "probe": "node src/probe.mjs",
+    "binding": "node src/probe.mjs --binding-only",
+    "typecheck": "node --check src/probe.mjs && node --check src/binding.mjs",
+    "build": "node --check src/probe.mjs && node --check src/binding.mjs"
+  }
+}

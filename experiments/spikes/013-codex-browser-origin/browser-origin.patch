@@ -1,0 +1,202 @@
+diff --git a/codex-rs/app-server-transport/src/transport/websocket.rs b/codex-rs/app-server-transport/src/transport/websocket.rs
+index a28bdec..0d6f6d4 100644
+--- a/codex-rs/app-server-transport/src/transport/websocket.rs
++++ b/codex-rs/app-server-transport/src/transport/websocket.rs
+@@ -47,6 +47,58 @@ use tracing::warn;
+ /// writer task is healthy, so give them more headroom than internal channels.
+ const WEBSOCKET_OUTBOUND_CHANNEL_CAPACITY: usize = 32 * 1024;
+ const _: () = assert!(WEBSOCKET_OUTBOUND_CHANNEL_CAPACITY > CHANNEL_CAPACITY);
++const SPIKE_BROWSER_ORIGINS_ENV: &str = "CODEX_SPIKE_ALLOWED_BROWSER_ORIGINS";
++
++fn parse_browser_origins(value: &str, bind_address: SocketAddr) -> IoResult<Vec<String>> {
++    if !bind_address.ip().is_loopback() {
++        return Err(std::io::Error::new(
++            std::io::ErrorKind::InvalidInput,
++            "spike browser origins require a loopback listener",
++        ));
++    }
++    let origins: Vec<String> = serde_json::from_str(value).map_err(|_| {
++        std::io::Error::new(
++            std::io::ErrorKind::InvalidInput,
++            "spike browser origins must be a JSON array of exact HTTP(S) origins",
++        )
++    })?;
++    for origin in &origins {
++        let valid = url::Url::parse(origin).is_ok_and(|parsed| {
++            matches!(parsed.scheme(), "http" | "https")
++                && !origin.contains('*')
++                && parsed.origin().ascii_serialization() == *origin
++        });
++        if !valid {
++            return Err(std::io::Error::new(
++                std::io::ErrorKind::InvalidInput,
++                "spike browser origins must be canonical HTTP(S) origins without paths or wildcards",
++            ));
++        }
++    }
++    Ok(origins)
++}
++
++fn load_browser_origins(bind_address: SocketAddr) -> IoResult<Vec<String>> {
++    match std::env::var(SPIKE_BROWSER_ORIGINS_ENV) {
++        Ok(value) => parse_browser_origins(&value, bind_address),
++        Err(std::env::VarError::NotPresent) => Ok(Vec::new()),
++        Err(std::env::VarError::NotUnicode(_)) => Err(std::io::Error::new(
++            std::io::ErrorKind::InvalidInput,
++            "spike browser origins must contain valid Unicode",
++        )),
++    }
++}
++
++fn browser_origin_allowed(headers: &HeaderMap, allowed_origins: &[String]) -> bool {
++    let mut origins = headers.get_all(ORIGIN).iter();
++    let Some(origin) = origins.next() else {
++        return true;
++    };
++    origins.next().is_none()
++        && origin
++            .to_str()
++            .is_ok_and(|origin| allowed_origins.iter().any(|allowed| allowed == origin))
++}
+ 
+ fn colorize(text: &str, style: Style) -> String {
+     text.if_supports_color(Stream::Stderr, |value| value.style(style))
+@@ -87,10 +139,11 @@ async fn health_check_handler() -> StatusCode {
+ }
+ 
+ async fn reject_requests_with_origin_header(
++    State(allowed_origins): State<Arc<Vec<String>>>,
+     request: Request<Body>,
+     next: Next,
+ ) -> Result<Response, StatusCode> {
+-    if request.headers().contains_key(ORIGIN) {
++    if !browser_origin_allowed(request.headers(), &allowed_origins) {
+         warn!(
+             method = %request.method(),
+             uri = %request.uri(),
+@@ -132,6 +185,7 @@ pub async fn start_websocket_acceptor(
+     shutdown_token: CancellationToken,
+     auth_policy: WebsocketAuthPolicy,
+ ) -> IoResult<JoinHandle<()>> {
++    let allowed_origins = Arc::new(load_browser_origins(bind_address)?);
+     if is_unauthenticated_non_loopback_listener(bind_address, &auth_policy) {
+         return Err(std::io::Error::new(
+             std::io::ErrorKind::InvalidInput,
+@@ -149,7 +203,10 @@ pub async fn start_websocket_acceptor(
+         .route("/readyz", get(health_check_handler))
+         .route("/healthz", get(health_check_handler))
+         .fallback(any(websocket_upgrade_handler))
+-        .layer(middleware::from_fn(reject_requests_with_origin_header))
++        .layer(middleware::from_fn_with_state(
++            allowed_origins,
++            reject_requests_with_origin_header,
++        ))
+         .with_state(WebSocketListenerState {
+             transport_event_tx,
+             auth_policy: Arc::new(auth_policy),
+@@ -387,3 +444,7 @@ async fn run_websocket_inbound_loop<M, StreamError>(
+         }
+     }
+ }
++
++#[cfg(test)]
++#[path = "websocket_origin_tests.rs"]
++mod browser_origin_tests;
+diff --git a/codex-rs/app-server-transport/src/transport/websocket_origin_tests.rs b/codex-rs/app-server-transport/src/transport/websocket_origin_tests.rs
+new file mode 100644
+index 0000000..a448a78
+--- /dev/null
++++ b/codex-rs/app-server-transport/src/transport/websocket_origin_tests.rs
+@@ -0,0 +1,92 @@
++use super::browser_origin_allowed;
++use super::parse_browser_origins;
++use axum::http::HeaderMap;
++use axum::http::HeaderValue;
++use axum::http::header::ORIGIN;
++use pretty_assertions::assert_eq;
++
++#[test]
++fn browser_origin_default_preserves_native_clients_and_rejects_browsers() {
++    let mut headers = HeaderMap::new();
++    assert!(browser_origin_allowed(&headers, &[]));
++    headers.insert(ORIGIN, HeaderValue::from_static("http://127.0.0.1:5173"));
++    assert!(!browser_origin_allowed(&headers, &[]));
++}
++
++#[test]
++fn browser_origin_accepts_only_exact_allowlisted_origins() {
++    let allowed = vec!["http://127.0.0.1:5173".to_string()];
++    for (origin, expected) in [
++        ("http://127.0.0.1:5173", true),
++        ("http://127.0.0.1:5174", false),
++        ("https://127.0.0.1:5173", false),
++        ("http://localhost:5173", false),
++        ("http://127.0.0.1:5173.attacker.test", false),
++        ("null", false),
++        ("*", false),
++        ("http://127.0.0.1:5173 http://attacker.test", false),
++        ("http://127.0.0.1:5173,http://attacker.test", false),
++    ] {
++        let mut headers = HeaderMap::new();
++        headers.insert(ORIGIN, HeaderValue::from_str(origin).expect("header value"));
++        assert_eq!(browser_origin_allowed(&headers, &allowed), expected);
++    }
++}
++
++#[test]
++fn browser_origin_rejects_duplicate_headers_even_when_both_are_allowed() {
++    let allowed = vec!["http://127.0.0.1:5173".to_string()];
++    let mut headers = HeaderMap::new();
++    headers.append(ORIGIN, HeaderValue::from_static("http://127.0.0.1:5173"));
++    headers.append(ORIGIN, HeaderValue::from_static("http://127.0.0.1:5173"));
++    assert!(!browser_origin_allowed(&headers, &allowed));
++}
++
++#[test]
++fn browser_origin_parses_multiple_exact_origins() {
++    assert_eq!(
++        parse_browser_origins(
++            r#"["http://127.0.0.1:5173","https://trusted.example"]"#,
++            "127.0.0.1:0".parse().expect("socket address"),
++        )
++        .expect("origin allowlist"),
++        vec![
++            "http://127.0.0.1:5173".to_string(),
++            "https://trusted.example".to_string()
++        ]
++    );
++}
++
++#[test]
++fn browser_origin_rejects_invalid_allowlists() {
++    for value in [
++        "*",
++        "null",
++        r#"["*"]"#,
++        r#"["https://*.example"]"#,
++        r#"["null"]"#,
++        r#"["file:///tmp/page.html"]"#,
++        r#"["http://127.0.0.1:5173/"]"#,
++        r#"["https://trusted.example/path"]"#,
++        r#"["https://trusted.example?query"]"#,
++        r#"["https://trusted.example#fragment"]"#,
++        r#"["https://user:pass@trusted.example"]"#,
++        r#"["https://trusted.example:443"]"#,
++        r#"["https://trusted.example",null]"#,
++    ] {
++        assert!(
++            parse_browser_origins(value, "127.0.0.1:0".parse().expect("socket address")).is_err()
++        );
++    }
++}
++
++#[test]
++fn browser_origin_rejects_non_loopback_opt_in() {
++    assert!(
++        parse_browser_origins(
++            r#"["https://trusted.example"]"#,
++            "0.0.0.0:8080".parse().expect("socket address"),
++        )
++        .is_err()
++    );
++}

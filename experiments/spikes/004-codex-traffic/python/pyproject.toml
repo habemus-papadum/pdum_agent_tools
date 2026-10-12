@@ -1,0 +1,9 @@
+[project]
+name = "spike-codex-traffic"
+version = "0.0.0"
+description = "Raw Codex app-server traffic interception fixtures"
+requires-python = ">=3.14,<3.15"
+dependencies = ["mitmproxy"]
+
+[tool.uv]
+package = false

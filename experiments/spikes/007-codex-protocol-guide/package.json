@@ -1,0 +1,11 @@
+{
+  "name": "@agent-spike/007-codex-protocol-guide",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "tsx src/generate.ts",
+    "test": "tsx --test src/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

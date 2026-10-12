@@ -1,0 +1,37 @@
+{
+  "name": "agent-spike",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=26 <27"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm --filter @agent-spike/experiment-kit build && pnpm -r typecheck",
+    "dev:cli": "pnpm --filter @agent-spike/experiment-kit build && pnpm --filter @agent-spike/cli dev",
+    "dev:web": "pnpm --filter @agent-spike/experiment-kit build && pnpm --filter @agent-spike/web dev",
+    "dev:python": "uv run --package agent-spike-python agent-spike-python",
+    "spike:001": "pnpm --filter @agent-spike/001-claude-sdk-launch probe",
+    "spike:002": "pnpm --filter @agent-spike/002-claude-traffic probe",
+    "spike:003": "pnpm --filter @agent-spike/003-codex-control probe",
+    "spike:004": "pnpm --filter @agent-spike/004-codex-traffic probe",
+    "spike:005": "pnpm --filter @agent-spike/005-codex-auth-storage probe",
+    "spike:006": "pnpm --filter @agent-spike/006-codex-permissions probe",
+    "spike:006:config": "pnpm --filter @agent-spike/006-codex-permissions probe:config",
+    "spike:008": "pnpm --filter @agent-spike/008-luna-websocket probe",
+    "spike:009": "pnpm --filter @agent-spike/009-codex-turn-telemetry probe",
+    "spike:010": "pnpm --filter @agent-spike/010-codex-live-subagents probe",
+    "spike:011": "pnpm --filter @agent-spike/011-codex-wasm probe",
+    "spike:012": "pnpm --filter @agent-spike/012-codex-context-meter probe",
+    "spike:013": "pnpm --filter @agent-spike/013-codex-browser-origin probe",
+    "guide:generate": "pnpm --filter @agent-spike/007-codex-protocol-guide generate",
+    "build:codex": "pnpm --filter @agent-spike/003-codex-control build:codex"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "esbuild": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

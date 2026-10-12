@@ -1,0 +1,14 @@
+{
+  "name": "@agent-spike/001-claude-sdk-launch",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "probe": "tsx src/probe.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "catalog:"
+  }
+}
