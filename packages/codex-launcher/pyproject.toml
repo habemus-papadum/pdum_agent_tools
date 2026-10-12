@@ -5,8 +5,11 @@ readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "Nehal Patel", email = "nehal@alum.mit.edu" }]
 dependencies = [
+    "click>=8.1,<9",
     "platformdirs>=4,<5",
     "psutil>=6,<8",
+    "questionary>=2.1,<3",
+    "rich>=14,<16",
     "tomlkit>=0.13,<1",
     "typer>=0.16,<1",
     "websockets>=15,<17",
@@ -18,6 +21,7 @@ pdum-codex = "pdum.codex_launcher.cli:app"
 [project.optional-dependencies]
 mitm = ["habemus-papadum-mitm"]
 management = ["fastapi>=0.115,<1"]
+federation = ["httpx>=0.28,<1"]
 
 [project.urls]
 Repository = "https://github.com/habemus-papadum/pdum_agent_tools"

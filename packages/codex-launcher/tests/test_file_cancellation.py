@@ -18,6 +18,7 @@ from pdum.codex_launcher import (
     profiles,
     runtime,
     temporary_profile,
+    workflow,
 )
 from pdum.codex_launcher.runtime import dispose_profile, profile_lease
 
@@ -43,8 +44,8 @@ class WriteGate:
 async def test_cancelled_api_key_update_holds_lease_until_both_files_finish(tmp_path, monkeypatch):
     profile = tmp_path / "profile"
     await create_profile(profile, ProfileSpec(executable=sys.executable))
-    gate = WriteGate(profiles.atomic_write, lambda path, content: path.name == "config.toml")
-    monkeypatch.setattr(profiles, "atomic_write", gate)
+    gate = WriteGate(workflow.atomic_write, lambda path, content: path.name == "config.toml")
+    monkeypatch.setattr(workflow, "atomic_write", gate)
     operation = asyncio.create_task(configure_api_key(profile, "CANCELLATION_TEST_KEY"))
     try:
         await asyncio.wait_for(gate.entered.wait(), 2)

@@ -18,6 +18,9 @@ the wider architecture proposals are not all implemented.
 The launcher uses MITM only when selected; its `mitm` extra installs that
 integration. The `management` extra adds an optional FastAPI adapter. Both packages
 export standalone and mountable Typer CLIs.
+The launcher's Rich/Questionary interview manages selective native imports and
+upstream authentication; the optional `federation` extra supports an AWS credential
+helper. See [profile setup and authentication](docs/profiles.md).
 
 ## Operating stance
 

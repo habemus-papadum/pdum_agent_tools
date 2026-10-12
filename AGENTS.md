@@ -37,6 +37,9 @@ for the project layout and commands.
 - Use Typer for both CLIs, exporting mountable apps and app factories. CLI wrappers
   call the async library; mounting/importing must not launch processes or install
   signal handlers. FastAPI may adapt management operations without owning a second runtime.
+- Use Rich for interactive presentation and Questionary's compatible terminal
+  selectors for interviews. Keep the interview separate from persistence/login;
+  previews and cancellation must not mutate profiles.
 - Keep changes focused. Do not introduce shared abstractions or cross-package
   dependencies merely because both packages live in this repository.
 - `experiments/` contains the imported agent-spike research workspace and future

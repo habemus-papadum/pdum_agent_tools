@@ -19,6 +19,12 @@ The suite contains:
 
 - Profile/copy/config and deterministic parser tests, including unknown native
   keys, credential-file snapshots, collisions and executable skill permissions.
+- Real PTY Rich/Questionary interviews with all/none/individual selections and
+  saved configuration; editor cancellation, reserved remainder keys and rollback
+  failure injection. These use synthetic native homes, never developer credentials.
+- Native local plugin/skill discovery and authentication-config acceptance. Local
+  AWS subprocess/HTTP exchange tests verify the federation helper contract, errors,
+  expiry checks and login-process ownership, not live AWS/OpenAI authentication.
 - Real HTTP/TLS/WebSocket servers exercising the actual mitmproxy subprocess:
   streamed bodies, certificate verification, live capture toggles, complete binary
   messages, bad/slow processors, cancellation, process death and durable flush.

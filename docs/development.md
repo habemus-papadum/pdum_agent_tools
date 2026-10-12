@@ -52,6 +52,8 @@ that consistency check.
   keep the launcher's MITM integration optional rather than coupling core imports.
 - Implement both CLIs with Typer and export mountable apps/app factories. CLI
   handlers delegate to library operations, not a second business-logic layer.
+- Use Rich with Questionary terminal selectors for interviews; keep preview,
+  planning, saving and login as separate steps. See [profile workflows](profiles.md).
 - Keep recording/inspection/export off the forwarding path. Start with explicit
   processor hooks and small file/test implementations, not a plugin worker framework.
 
@@ -68,7 +70,8 @@ Use `uv add --package habemus-papadum-mitm DEPENDENCY` or
 `uv add --package habemus-papadum-codex-launcher DEPENDENCY` for runtime dependencies,
 replacing `DEPENDENCY` with the required package. Use `uv add --group dev TOOL` for
 shared development tools. Optional launcher integrations use the `mitm` and
-`management` extras; minimal launcher imports do not require either integration.
+`management` extras; `federation` adds the HTTP token-exchange dependency.
+Minimal launcher imports do not require these integrations.
 
 If editing manifests directly, run `uv lock` deliberately, inspect the resulting
 changes, and rerun `./scripts/setup.sh`. Include the root lockfile with dependency

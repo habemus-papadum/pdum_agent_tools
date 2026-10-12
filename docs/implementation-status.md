@@ -10,6 +10,10 @@ planned option is available. This page records the implemented boundary.
   native TOML preservation, executable selection and clean/inherited environments.
 - Temporary profiles with convenient warning-based file-auth snapshots; native
   ChatGPT login command and API-key environment-reference setup.
+- Rich/Questionary create/configure interview, all/none/individual native imports,
+  pager/editor for unrepresented TOML, preview/diff and stopped-profile save/rollback.
+- Selectable ChatGPT/API-key/AWS federation setup and separate login actions.
+  AWS helpers are accepted by native Codex; actual cloud exchange/renewal is unqualified.
 - One app-server owner per profile using an inherited file lease, PID/birth-identity
   journal, readiness, live status/stop and verified orphan recovery.
 - Foreground CLI or async context lifetime; native Unix backend and optional
@@ -40,10 +44,12 @@ uv run pdum-codex --profile research stop
 ```
 
 Native configuration remains in `<profile>/codex/config.toml`; launcher metadata
-is `<profile>/launcher.toml`. The current CLI requires explicit creation options
-rather than an interview. Source selection currently accepts an exact source
-directory. Capture destinations must be selected at launch, and the JSONL relay
-recorder refuses to overwrite an existing file.
+is `<profile>/launcher.toml`. The interactive interview defaults to the ordinary
+native home for new profiles and the profile itself for configuration. Explicit
+source directories, clean creation and noninteractive flags are supported.
+See [profile setup and authentication](profiles.md) for commands and import limits.
+Capture destinations must be selected at launch, and the JSONL relay recorder
+refuses to overwrite an existing file.
 
 ## MITM
 
@@ -117,7 +123,7 @@ mitmproxy 12.2.3 and websockets 16.1.1. Tests use real local endpoints/processes
 the real Codex TUI; see the [testing policy and commands](testing.md). The paid
 probe used Python 3.14.7. The Linux CI matrix is configured but has not run yet.
 
-All 61 tests pass on each of these Python versions. The final Python 3.14 run
+The initial implementation's 61 tests passed on each of these Python versions. That Python 3.14 run
 reports 86% line coverage including Python subprocesses. Ruff, pre-commit checks,
 the frozen lockfile check, strict MkDocs and both distribution builds also pass.
 
@@ -151,11 +157,19 @@ The relay now fragments transport sends without truncating captured/application
 messages. A real native >16 MiB regression test covers this distinction. Review
 also improved cancellation ownership, processor isolation, and flush watermarks.
 
+The profile-setup follow-up adds real PTY Rich/Questionary interviews and paid-free
+native plugin/skill discovery and authentication-configuration probes, plus real
+local AWS-command/HTTP contract tests. Fixtures in the latter check parsing and
+failure behavior, not successful AWS/OpenAI identity federation. No additional
+model calls or cloud credential changes were made for the profile-setup iteration.
+The expanded suite passes **144 tests on each of Python 3.12.11, 3.13.5 and
+3.14.7** on macOS. The cross-version run also corrected test-only inherited-pipe
+waiting and interpreter re-exec issues without weakening process-identity checks.
+
 ## Not yet qualified or implemented
 
-- Interactive profile interview, fine-grained import categories, temporary-profile
-  inventory/pruning, exact binary pin enforcement and binary distribution.
-- Federation-helper convenience setup and real cloud identity/renewal checks;
+- Temporary-profile inventory/pruning, exact binary pin enforcement and binary distribution.
+- Real cloud identity/renewal checks for the implemented federation helper;
   long-lived credential renewal and fresh interactive ChatGPT login are not
   established by a copied-auth inference check. Existing native config is preserved.
 - Windows/network-filesystem ownership, arbitrary wrappers that close inherited

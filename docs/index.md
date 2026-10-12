@@ -12,6 +12,8 @@ tests and a live native-Codex-client interoperability check.
 Start with [implementation status](implementation-status.md) for commands, APIs,
 observed results and remaining limitations. The [testing guide](testing.md) separates
 ordinary real local tests from explicitly enabled small paid provider probes.
+The [profile setup guide](profiles.md) covers Rich/Questionary interviews,
+selective native imports, editable TOML and upstream authentication workflows.
 
 ## Architecture and implementation proposals
 

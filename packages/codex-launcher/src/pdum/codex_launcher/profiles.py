@@ -316,37 +316,12 @@ async def configure_api_key(directory: Path, environment_variable: str, base_url
     base_url : str or None
         Optional native provider endpoint.
     """
-    from .runtime import profile_lease
+    from .authentication import AuthSpec
+    from .workflow import ProfileEdit, load_profile_draft, prepare_edit, save_profile_edit
 
-    if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", environment_variable) is None:
-        raise ProfileError("Expected an environment variable name, not a token")
-    async with profile_lease(directory) as path:
-
-        def update() -> None:
-            native_path = path / "codex" / "config.toml"
-            document = tomlkit.parse(native_path.read_text())
-            providers = document.setdefault("model_providers", {})
-            provider = {
-                "name": "Profile API key",
-                "env_key": environment_variable,
-                "wire_api": "responses",
-                "requires_openai_auth": False,
-            }
-            if base_url is not None:
-                provider["base_url"] = base_url
-            providers["pdum_api"] = provider
-            document["model_provider"] = "pdum_api"
-            atomic_write(native_path, tomlkit.dumps(document))
-            metadata_path = path / "launcher.toml"
-            metadata = tomlkit.parse(metadata_path.read_text())
-            environment = metadata.setdefault("environment", {})
-            keys = list(environment.get("inherit_keys", []))
-            if environment_variable not in keys:
-                keys.append(environment_variable)
-            environment["inherit_keys"] = keys
-            atomic_write(metadata_path, tomlkit.dumps(metadata))
-
-        await complete_file_operation(update)
+    draft = await load_profile_draft(directory, existing=True)
+    edit = ProfileEdit(auth=AuthSpec("api-key", environment_variable, base_url), import_assets=False)
+    await save_profile_edit(prepare_edit(draft, edit))
 
 
 async def native_config(directory: Path) -> dict:

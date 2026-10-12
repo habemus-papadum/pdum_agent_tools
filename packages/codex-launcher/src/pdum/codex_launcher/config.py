@@ -112,11 +112,13 @@ def read_config(directory: Path) -> LauncherConfig:
         data = tomllib.loads((directory / "launcher.toml").read_text())
     except (OSError, ValueError) as error:
         raise ProfileError(f"Cannot read launcher metadata: {directory / 'launcher.toml'}") from error
-    allowed = {"schema_version", "executable", "environment", "launch"}
+    allowed = {"schema_version", "executable", "environment", "launch", "authentication"}
     if set(data) - allowed:
         raise ProfileError(f"Unknown launcher metadata fields: {', '.join(sorted(set(data) - allowed))}")
     if data.get("schema_version") != 1:
         raise ProfileError("launcher.toml requires schema_version = 1")
+    if not isinstance(data.get("authentication", {}), dict):
+        raise ProfileError("Invalid [authentication] launcher metadata")
     executable = data.get("executable", {})
     environment = data.get("environment", {})
     launch = data.get("launch", {})

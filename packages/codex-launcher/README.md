@@ -19,11 +19,25 @@ Persistent profiles:
 
 ```sh
 uv run pdum-codex profile create research --model gpt-6-luna
-uv run pdum-codex --profile research auth login-chatgpt
+uv run pdum-codex --profile research profile configure
+uv run pdum-codex --profile research auth login
 uv run pdum-codex --profile research launch
 uv run pdum-codex --profile research status
 uv run pdum-codex --profile research stop
 ```
+
+On a terminal, create/configure use Rich previews and Questionary selections.
+New profiles default to importing your native Codex home; use `--clean` for fresh
+settings or `--no-interview` for scripts. Select all/none/individual marketplaces,
+plugins, MCP servers and skills, then accept or edit the remaining native TOML.
+Imports are experimental and preserve unknown settings. Configure starts from
+that profile, not your ordinary developer configuration.
+
+Authentication can preserve native settings, use ChatGPT login, refer to an API-key
+environment variable, or use AWS → OpenAI API federation. Configuration and login
+are separate, with `--login` for a post-save login action. The `federation` extra
+adds the exchange dependency; live AWS mapping/login/renewal qualification remains
+pending. See the [profile guide](https://habemus-papadum.github.io/pdum_agent_tools/profiles/).
 
 The Python API accepts a directory. `async with launch(directory, LaunchOptions(...))`
 owns the process and yields its endpoint, PID and async status/stop operations.
@@ -44,8 +58,8 @@ The first implementation passes real local tests and a small live Luna turn thro
 the vanilla remote CLI, relay and MITM. See [current capabilities and limitations](https://habemus-papadum.github.io/pdum_agent_tools/implementation-status/)
 and the [testing guide](https://habemus-papadum.github.io/pdum_agent_tools/testing/).
 The wider [architecture](https://habemus-papadum.github.io/pdum_agent_tools/specs/codex-launcher/)
-includes unimplemented interview/import conveniences and unqualified federation
-renewal; it is not a promise those features ship now.
+includes further unimplemented conveniences and unqualified federation renewal;
+it is not a promise that every proposed feature ships now.
 
 From the repository root:
 
