@@ -9,10 +9,9 @@ for the project layout and commands.
 
 - The workspace contains `habemus-papadum-mitm` (`pdum.mitm`) and
   `habemus-papadum-codex-launcher` (`pdum.codex_launcher`).
-- Both packages are scaffolds with architecture proposals under `docs/specs/` and
-  implementation plans under `docs/plans/`, not yet approved implementation contracts.
-  Propose interface or schema changes when requested, but do not implement APIs,
-  profile schemas, plugin contracts, or runtime behavior before the design is agreed.
+- Implementation of the agreed architecture is authorized. Use `docs/specs/` and
+  `docs/plans/` as the design baseline; record supported behavior and remaining
+  gates honestly rather than claiming the whole proposal is implemented.
 - Keep MITM functionality independent of AI agents and Codex-specific concerns.
 - Distinguish intended functionality from implemented and tested behavior in documentation.
 - Follow the agreed [trusted-operation principles](docs/design-principles.md): one
@@ -71,6 +70,16 @@ for the project layout and commands.
   and package builds when affected. Do not claim that absent tests have passed.
 - Keep repository/package READMEs and the development guide consistent. Update
   the canonical guidance here rather than duplicating it in `CLAUDE.md`.
+- Prefer real local subprocess/network integration tests and small live provider
+  probes over mocked successful API responses. Fixtures are useful for parser
+  regressions and injected failures, not proof of upstream compatibility.
+- Use `gpt-6-luna` for paid Codex checks, without silently substituting models.
+  Aim for USD 0.05–0.10 per investigation; up to USD 1 is authorized for important
+  validation. Coordinate spend across agents, bound turns/time/retries and record
+  usage plus dated estimates separately from actual subscription billing.
+- The interoperability milestone is the real vanilla Codex remote CLI connecting
+  through our relay to app-server unchanged, including a small live turn. Check
+  actual CLI support instead of assuming `codex exec` accepts a remote endpoint.
 
 ## State hygiene and publication
 

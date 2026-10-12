@@ -1,6 +1,8 @@
 # Joint implementation sequence
 
-**Status:** implementation proposal, not work already performed. Read the
+**Status:** implementation roadmap; a first subset is now implemented and tested.
+See [current status](../implementation-status.md), not this roadmap, for completion
+claims. Read the
 [architecture overview](../architecture.md) and both package architectures first.
 The [launcher plan](codex-launcher.md) and [MITM plan](mitm.md) define detailed tasks;
 this page defines their dependency order and shared completion gates.
@@ -163,8 +165,8 @@ substitute canned inference responses for those acceptance checks.
 Use the requested low-cost model when available, record the exact resolved model,
 and do not silently substitute a more expensive one. Keep each probe bounded in
 turns, output, time, and retries. Stop to inspect unexpectedly growing usage; aim
-for cents and stop at a conservative estimated aggregate USD 0.50 per validation
-batch unless another budget is agreed. Where usage/pricing is insufficient to
+for USD 0.05–0.10 per investigation, with up to USD 1 authorized for important
+validation; coordinate aggregate spend across agents. Where usage/pricing is insufficient to
 enforce a monetary cap, report that uncertainty and rely on the hard execution
 bounds rather than claiming exact spend control. Subscription API-equivalent
 estimates are not invoices.

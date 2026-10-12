@@ -1,44 +1,54 @@
 # habemus-papadum-mitm
 
-Python import: `pdum.mitm`.
+Import: `pdum.mitm`. CLI: `pdum-mitm`.
 
-## Purpose and status
+Generic asyncio-managed mitmproxy sidecar with scoped CA/proxy configuration,
+HTTP(S)/WebSocket capture, runtime recording controls, complete JSONL payloads,
+processor hooks and a mountable Typer CLI. It has no Codex/model knowledge.
 
-The intended package launches a man-in-the-middle (MITM) proxy as a sidecar and
-records traffic. It is general-purpose infrastructure, not an AI-agent integration.
-Extension points for provider-specific functionality are part of the intended
-scope, with proposed interfaces awaiting review.
+```python
+from pathlib import Path
 
-**This package is currently an empty scaffold.** It has no runtime dependencies,
-public API, CLI, proxy implementation, or recording format. The
-[architecture proposal](https://habemus-papadum.github.io/pdum_agent_tools/specs/mitm/)
-recommends the intended behavior and interfaces; it does not finalize them.
+from pdum.mitm import SidecarConfig, open_sidecar
 
-The [implementation plan](https://habemus-papadum.github.io/pdum_agent_tools/plans/mitm/)
-defines staged work and validation gates, not completed implementation.
 
-## Development
+async def inspect_network() -> None:
+    async with open_sidecar(SidecarConfig(capture_dir=Path("artifacts/captures"))) as proxy:
+        environment = proxy.connection.environment({}, trust="openssl")
+        print(proxy.connection.proxy_url)
+        await proxy.configure_capture(True)
+        print(await proxy.status())
+```
 
-The agreed [operating stance](https://habemus-papadum.github.io/pdum_agent_tools/design-principles/)
-trusts the operator's network, consumers, plugins and configured sinks. TCP binds
-default to all interfaces; enabled capture preserves useful payloads without
-mandatory redaction or export gates. Recording uses a separate observation path,
-with no initial payload caps or run quotas; monitor backlog, storage and failures.
-Explicit processor hooks, simple file/test processors and a reusable Typer CLI
-are planned. Keep clear lifecycle ownership and raw captures out of Git/public CI.
+Supply the returned environment to your consumer and keep it inside the context;
+stop the consumer before closing the sidecar. Environment construction never
+changes the parent process or installs a global CA. `trust="node"` and
+`trust="requests"` select other explicit trust conventions.
 
-Work from the repository root:
+Recording starts off. When enabled, files live under a unique run directory with
+`records.jsonl` and `manifest.json`. Capture failures are observable and do not
+deliberately block forwarding. There are no initial payload/run quotas. Monitor
+storage and backlog; captures may contain secrets and must not be committed.
+
+`ProcessorSpec("module:factory", config={...})` selects an importable observer.
+`pdum.mitm.cli.create_app()` returns a fresh Typer app for mounting beneath your
+own command tree. Installed providers are not automatically activated.
+
+Real local HTTP/TLS/WSS tests validate this first implementation. HTTP/2/IPv6,
+semantic SSE decoding, destination switching and archive rotation are not yet
+qualified/implemented. See [current capabilities](https://habemus-papadum.github.io/pdum_agent_tools/implementation-status/)
+and [testing](https://habemus-papadum.github.io/pdum_agent_tools/testing/) rather than
+treating the full [architecture](https://habemus-papadum.github.io/pdum_agent_tools/specs/mitm/) as available behavior.
+
+From the repository root:
 
 ```sh
 ./scripts/setup.sh
-uv run --frozen --all-packages python -c "import pdum.mitm"
+uv run --frozen pytest packages/mitm/tests
+uv run pdum-mitm --help
 uv build --package habemus-papadum-mitm
 ```
 
-Source belongs in `packages/mitm/src/pdum/mitm/` and tests in
-`packages/mitm/tests/`. Do not add `src/pdum/__init__.py`: `pdum` is a shared
-namespace. There are no tests yet.
-
-Use the shared [development guide](https://habemus-papadum.github.io/pdum_agent_tools/development/)
-and [agent instructions](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/AGENTS.md).
-Keep captures and any authentication material private and outside committed files.
+Follow [AGENTS.md](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/AGENTS.md)
+and the [development guide](https://habemus-papadum.github.io/pdum_agent_tools/development/).
+`pdum` is a shared PEP 420 namespace; do not add `src/pdum/__init__.py`.

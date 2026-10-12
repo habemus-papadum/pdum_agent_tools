@@ -13,6 +13,8 @@ theme:
 nav:
   - Home: index.md
   - Development: development.md
+  - Implementation status: implementation-status.md
+  - Testing: testing.md
   - Research and spikes: research.md
   - Architecture proposals:
       - Overview: architecture.md

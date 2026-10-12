@@ -1,9 +1,8 @@
 # Architecture proposals
 
-**Status:** proposed design for review, not implemented functionality. The packages
-remain empty scaffolds. This revision turns the initial requirements and the
-maintainer's follow-up notes into recommended architecture and an implementation
-sequence; accepting a proposal is separate from implementing or validating it.
+**Status:** architecture baseline with a first local implementation. Read
+[implementation status](implementation-status.md) for the supported subset and
+evidence; this proposal still contains future interfaces and qualification gates.
 
 The maintainer has agreed the [trusted-operation principles](design-principles.md):
 one advanced operator and trusted agents/clients inside an operator-controlled
@@ -146,9 +145,8 @@ slice without relitigating those decisions. Source-dependent capabilities are
 validation gates, not promises. Exact processor registration syntax and optional
 FastAPI/exporter timing can remain small follow-on choices.
 
-No dependency additions, runtime code, migrations, authentication changes, or
-release actions are part of this documentation revision. Implementation starts
-only after the relevant design is accepted.
+Implementation was subsequently authorized. Release actions remain human-operated;
+the architecture alone is not evidence that a feature works.
 
 ## Review and research background
 

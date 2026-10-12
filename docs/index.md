@@ -1,16 +1,17 @@
 # pdum_agent_tools
 
 This repository contains two Python packages being developed together in a uv
-workspace. Their infrastructure is in place, and architecture proposals and plans are
-available for review. Implementation has not begun.
+workspace. The first local implementation is working, with real network/process
+tests and a live native-Codex-client interoperability check.
 
 | Package | Intended purpose |
 | --- | --- |
 | [habemus-papadum-mitm](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/packages/mitm/README.md) | A general-purpose MITM sidecar for traffic recording, independent of AI agents. |
 | [habemus-papadum-codex-launcher](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/packages/codex-launcher/README.md) | Named Codex profiles and app-server launch configuration. |
 
-Neither package exposes functional APIs or commands yet. These scope descriptions
-are not specifications or promises of existing features.
+Start with [implementation status](implementation-status.md) for commands, APIs,
+observed results and remaining limitations. The [testing guide](testing.md) separates
+ordinary real local tests from explicitly enabled small paid provider probes.
 
 ## Architecture and implementation proposals
 
@@ -26,8 +27,8 @@ are not specifications or promises of existing features.
 - [Research and spikes](research.md)
 
 The proposals recommend concrete architecture, interfaces, defaults, and phased
-acceptance criteria. They remain subject to review, with compatibility checks and
-deferred features distinguished from implemented functionality.
+acceptance criteria. They are broader than the first implementation, with remaining
+compatibility checks and deferred features distinguished from working functionality.
 
 Start with the [development guide](development.md) for environment setup, conventions,
 validation, and releases. Repository instructions for coding agents are maintained in

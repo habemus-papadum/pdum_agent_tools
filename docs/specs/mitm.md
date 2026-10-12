@@ -1,7 +1,8 @@
 # MITM sidecar — architecture proposal
 
 **Package:** `habemus-papadum-mitm` (`pdum.mitm`)
-**Status:** design proposal, not implemented. The agreed
+**Status:** partially implemented; see [current capabilities](../implementation-status.md)
+and [validation policy](../testing.md). The agreed
 [design principles](../design-principles.md) include foreground ownership,
 inspection-only hooks, no initial capture caps and composable Typer CLIs. These
 supersede earlier defensive defaults and per-extension worker requirements;
@@ -27,8 +28,8 @@ process whose traffic it observes.
 | CLI | Exported Typer app/factory, mountable under another application; optional provider discovery and namespaced commands. |
 | Integration | Launcher or adjacent integration supplies Codex-specific presets/interpretation. Core knows nothing about agents, models, profiles or login. |
 
-No implementation, dependency changes or new live validation accompany this
-proposal. Earlier evidence is identified at the end.
+This proposal remains the wider target. The implementation-status page records
+new validation separately from the historical evidence at the end.
 
 ## 1. Scope and non-goals
 

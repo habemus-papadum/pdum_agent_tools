@@ -3,18 +3,21 @@
 A Python workspace for two packages: a general-purpose man-in-the-middle (MITM)
 sidecar and a Codex app-server profile manager and launcher.
 
-**Status:** infrastructure scaffold with architecture proposals and implementation plans. Both packages
-are empty. The descriptions below state intent, not implemented features.
-There are no runtime APIs or command-line entry points yet.
+**Status:** first working local implementation, with real process/network tests
+and a live vanilla-Codex-client → relay → app-server → MITM → Luna check.
+See [implemented capabilities and limitations](docs/implementation-status.md);
+the wider architecture proposals are not all implemented.
 
 ## Packages
 
-| Distribution | Python import | Intended scope |
+| Distribution | Python import | Scope |
 | --- | --- | --- |
-| [habemus-papadum-mitm](packages/mitm/README.md) | `pdum.mitm` | Launch a MITM sidecar and record traffic, with extension points to be specified. Not specific to AI agents. |
+| [habemus-papadum-mitm](packages/mitm/README.md) | `pdum.mitm` | Async MITM sidecar, scoped CA/proxy settings, streaming HTTP/WSS capture and processor hooks. Not specific to AI agents. |
 | [habemus-papadum-codex-launcher](packages/codex-launcher/README.md) | `pdum.codex_launcher` | Manage named Codex profiles and launch app-server with the selected model, parameters, upstream authentication, and executable. |
 
-Neither package currently has runtime dependencies or depends on the other.
+The launcher uses MITM only when selected; its `mitm` extra installs that
+integration. The `management` extra adds an optional FastAPI adapter. Both packages
+export standalone and mountable Typer CLIs.
 
 ## Operating stance
 
@@ -32,7 +35,7 @@ than size quotas, simple extension hooks, and reusable Typer CLI apps.
 
 See the agreed [design principles](docs/design-principles.md), including the
 distinction between trusted runtime data and what may be published to this public
-repository. These are design decisions, not implemented functionality.
+repository. See the implementation status for supported behavior and remaining work.
 
 The related [research workspace](experiments/README.md) imports the agent-spike
 experiments and remains available for new spikes. Its source, reports, protocol
@@ -41,6 +44,10 @@ See [import provenance and exclusions](experiments/IMPORT.md).
 
 ## Architecture and implementation proposals
 
+- [Implementation status](docs/implementation-status.md): current commands, APIs,
+  live results and unimplemented/untested capabilities.
+- [Testing policy](docs/testing.md): real local integration tests and opt-in small
+  live calls rather than mocked provider-success evidence.
 - [Architecture overview](docs/architecture.md): package boundaries, requirements,
   and cross-package invariants.
 - [Design principles](docs/design-principles.md): agreed trust model, defaults,
@@ -53,9 +60,8 @@ See [import provenance and exclusions](experiments/IMPORT.md).
   with detailed [launcher](docs/plans/codex-launcher.md) and
   [MITM](docs/plans/mitm.md) plans.
 
-These are proposals for review, including recommended interfaces and defaults,
-not finalized contracts or claims of implemented behavior. Compatibility gates
-and deferred capabilities are marked explicitly.
+The architecture remains the broader target. Current behavior is tracked separately
+from proposed interfaces and unqualified compatibility gates.
 
 ## Development
 
@@ -77,13 +83,25 @@ uv lock --check
 uv run --frozen ruff check .
 uv run --frozen ruff format --check .
 uv run --frozen pre-commit run --all-files
+uv run --frozen pytest -m "not live"
 uv run --frozen mkdocs build --strict
 uv build --all-packages
 ```
 
 See the [development guide](docs/development.md) for dependency changes, testing,
-documentation, builds, CI, and the human-operated release process. There are no
-tests yet; CI verifies imports and skips pytest until tests are added.
+documentation, builds, CI, and the human-operated release process. Native Codex
+tests skip when no binary is installed; paid inference runs only through an
+explicitly invoked live probe.
+
+Start an isolated temporary app-server using available file-backed credentials:
+
+```sh
+uv run pdum-codex launch --temp --model gpt-6-luna
+```
+
+Then connect the vanilla CLI with `codex --remote ENDPOINT`, using the printed
+endpoint. This uses your credentials and may incur model usage when you submit a
+prompt. Defaults follow the trusted-network stance above.
 
 ## Repository layout
 
@@ -112,5 +130,4 @@ of `uv build --all-packages` at the repository root.
   [CLAUDE.md](CLAUDE.md) points to the same guidance.
 
 The [documentation site](https://habemus-papadum.github.io/pdum_agent_tools/) is
-published through GitHub Pages. The architecture proposals will be reviewed before
-implementation; usage examples will follow working interfaces.
+published through GitHub Pages after changes are pushed. No release is automatic.

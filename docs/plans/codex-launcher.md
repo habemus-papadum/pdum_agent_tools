@@ -1,6 +1,7 @@
 # Codex launcher — implementation plan
 
-**Status:** proposed delivery plan; no step is implemented. The
+**Status:** delivery roadmap. See [current status](../implementation-status.md) for
+the implemented subset and remaining gates; stages are not all complete. The
 [trusted-operation principles](../design-principles.md) are agreed: no sandbox or
 approval prompts by default, all-interface TCP listening, thin native config,
 warning-based credential reuse and no mandatory client grants/connection expiry.
@@ -261,7 +262,8 @@ Acceptance:
   MITM package's tests. Confirm no raw credentials are published as evidence.
 - Prefer live probes for actual API behavior. Deterministic local failure fixtures
   remain useful for cancellation, corruption, overflow and transport faults. Stay
-  around cents, reassessing before materially exceeding $0.50; no expensive fallback.
+  around USD 0.05–0.10 per investigation, with up to USD 1 authorized for important
+  validation; coordinate spend and use no expensive fallback.
 
 ### L6a. Optional async management adapter
 

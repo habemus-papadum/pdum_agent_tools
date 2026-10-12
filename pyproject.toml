@@ -8,6 +8,8 @@ habemus-papadum-codex-launcher = { workspace = true }
 
 [dependency-groups]
 dev = [
+    "aiohttp>=3.12,<4",
+    "httpx>=0.28,<1",
     "hatch>=1.14.2",
     "pytest>=8.0.0",
     "pytest-asyncio>=1.4.0",
@@ -32,6 +34,10 @@ select = ["E", "F", "W", "I"]
 testpaths = ["packages/mitm/tests", "packages/codex-launcher/tests"]
 addopts = "-s"
 asyncio_mode = "auto"
+markers = [
+    "codex: requires an installed Codex executable, with isolated state and no paid calls",
+    "live: opt-in paid provider integration using isolated credentials and a bounded budget",
+]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -39,4 +45,6 @@ python_functions = ["test_*"]
 [tool.coverage.run]
 source = ["pdum.mitm", "pdum.codex_launcher"]
 relative_files = true
+patch = ["subprocess"]
+parallel = true
 omit = ["*/tests/*", "*/testing.py"]

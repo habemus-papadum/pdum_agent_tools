@@ -4,7 +4,8 @@
 
 **CLI:** `pdum-codex`
 
-**Status:** not implemented. The [design principles](../design-principles.md)
+**Status:** partially implemented; see [current capabilities](../implementation-status.md)
+and [validation policy](../testing.md). The [design principles](../design-principles.md)
 record the agreed trust/config stance and lifecycle, inspection and CLI direction.
 Detailed APIs and compatibility remain proposals. This supersedes earlier
 defensive defaults, capture caps and plugin-worker requirements.
@@ -34,7 +35,8 @@ See the [implementation plan](../plans/codex-launcher.md).
   management adapter can reuse the runtime; defer daemon mode, cloud migration,
   lockdown and a general thread SDK.
 
-Nothing on this page registers an entry point or implements these features.
+This page describes the wider target; the implementation-status page owns current
+command/API availability and validated limitations.
 
 ## 1. Responsibilities and implementation boundaries
 
@@ -610,7 +612,7 @@ This proposal adds no live observations. Evidence was checked on 12 October 2026
 - Prior local spike reports used installed `codex-cli 0.162.1` independently of that
   source pin: 003 checked isolated configuration, 005 checked dummy helper renewal
   over HTTP/SSE, 008 observed live upstream WebSockets, and 013 exercised browser
-  Origin behavior. These are historical evidence, not tests of this empty package.
+  Origin behavior. These are historical evidence, not tests of the new packages.
   The reports are preserved under `experiments/docs/`; see the
   [research index and import notes](../research.md). The vendor checkout itself
   was not copied; its pin and source patch remain reproducible through the import's
@@ -620,4 +622,6 @@ The blocking implementation gates are inherited-lease behavior, exact native
 transport/readiness compatibility, loaded-state isolation, loss-accounted capture,
 live proxy routing, and API-federation renewal. Do not convert a design choice into
 a supported feature until its [plan acceptance criteria](../plans/codex-launcher.md)
-pass. No new Codex login, token exchange or model request was made for this proposal.
+pass. The original proposal used source inspection and prior spikes; subsequent
+package tests and live validation are recorded in the
+[implementation status](../implementation-status.md).

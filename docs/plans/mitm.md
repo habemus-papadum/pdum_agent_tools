@@ -1,6 +1,7 @@
 # MITM sidecar — implementation plan
 
-**Status:** proposed work breakdown; no stage is implemented. Apply the agreed
+**Status:** delivery roadmap. See [current status](../implementation-status.md) for
+the implemented subset and remaining gates. Apply the agreed
 [design principles](../design-principles.md), including asynchronous inspection,
 no initial capture caps and reusable Typer CLI hooks. Do not restore the earlier
 redaction-first, quota-based or per-plugin-worker design. Read the
@@ -204,7 +205,8 @@ transports, observed model, connection/message counts, input/cached/output usage
 and loss/truncation counters. Determine WSS or HTTP fallback from captured
 traffic, not model naming. Use current official pricing for a dated estimate
 separate from billing; do not copy old spike prices as current facts. Keep spend
-near cents and reassess before exceeding the user's roughly $0.50 scale.
+near USD 0.05–0.10 per investigation, with up to USD 1 authorized for important
+validation. Coordinate spend across agents and stop to inspect unexpected usage.
 Synthetic API success is not proof of real upstream behavior.
 
 **Exit gate:** redacted reproduction summary and private local evidence, with no
@@ -222,4 +224,4 @@ probes stay opt-in and outside pull-request CI.
 Before release candidacy, build distributions and strict MkDocs, validate root
 lockfile, run Ruff and test permissions from installed packages. Update README
 examples/capabilities only after passing gates. Release is human-operated.
-This plan does not authorize implementation before approval or publication.
+Implementation is authorized; package publication remains human-operated.

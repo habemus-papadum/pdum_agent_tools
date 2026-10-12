@@ -1,7 +1,7 @@
 # Research and spikes
 
 The original `agent-spike` work is imported under `experiments/`, alongside the
-two package scaffolds. Continue new investigations there; do not confuse historical
+two packages. Continue new investigations there; do not confuse historical
 probe code with an implementation of the architecture proposals.
 
 The import preserves runnable source, current reports/tutorials, the Vite protocol

@@ -118,3 +118,20 @@ rules. Its exact contract needs a separate design. It is not implemented, not a
 first-release prerequisite, and not a reason to build dormant enforcement machinery
 throughout the trusted default path. Existing simple configuration switches may be
 used deliberately without claiming that a complete lockdown mode exists.
+
+## Test reality, not simulated provider success
+
+Implementation is authorized. Prefer real local processes, HTTP/TLS/WebSocket
+peers and installed Codex interoperability checks. Use fixtures for deterministic
+parsing and fault injection, not as substitutes for successful live API behavior.
+For provider checks use `gpt-6-luna`, normally targeting USD 0.05–0.10; important
+investigations may spend up to USD 1. Coordinate aggregate work across agents,
+bound turns/time/retries and report usage plus dated cost estimates rather than
+claiming subscription billing is known. Do not silently select a different model.
+
+The first end-to-end milestone is a vanilla Codex CLI in remote-client mode using
+our relay as if it were the native app-server endpoint, including a short live
+turn. This is an integration test, not a mocked protocol unit test. Determine the
+supported client invocation from the actual binary; do not assume `codex exec`
+supports the same remote mode as the terminal UI. Paid tests are explicitly opt-in
+and never part of ordinary pull-request CI.
