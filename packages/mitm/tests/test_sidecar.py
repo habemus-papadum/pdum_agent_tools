@@ -23,6 +23,8 @@ from cryptography.x509.oid import NameOID
 from pdum.mitm import ProcessorSpec, SidecarConfig, SidecarFailure, open_sidecar
 from pdum.mitm.cli import _processor_spec, create_app
 from pdum.mitm.processors import JsonlProcessor
+from rich.text import Text
+from typer import rich_utils
 from typer.testing import CliRunner
 
 
@@ -382,15 +384,20 @@ async def test_cancellation_during_close_waits_for_owned_child(tmp_path, monkeyp
         assert not handle.connection.ca_cert_path.exists()
 
 
-def test_cli_is_mountable_and_factories_are_independent():
+@pytest.mark.parametrize("force_terminal", [False, True], ids=["plain", "ansi"])
+def test_cli_is_mountable_and_factories_are_independent(monkeypatch, force_terminal):
+    monkeypatch.setattr(rich_utils, "FORCE_TERMINAL", force_terminal)
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.delenv("NO_COLOR", raising=False)
     parent = typer.Typer()
     parent.add_typer(create_app(), name="proxy")
     result = CliRunner().invoke(parent, ["proxy", "run", "--help"])
     assert result.exit_code == 0
-    assert "capture-dir" in result.output
+    assert ("\x1b[" in result.output) is force_terminal
+    assert "capture-dir" in Text.from_ansi(result.output).plain
     result = CliRunner().invoke(create_app(), ["run", "--record"])
     assert result.exit_code != 0
-    assert "requires capture_dir" in result.output
+    assert "requires capture_dir" in Text.from_ansi(result.output).plain
     assert create_app() is not create_app()
     with pytest.raises(ValueError, match="collides"):
         create_app(providers={"run": typer.Typer()})
