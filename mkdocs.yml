@@ -1,0 +1,37 @@
+site_name: pdum_agent_tools
+site_author: Nehal Patel
+site_url: https://habemus-papadum.github.io/pdum_agent_tools/
+repo_url: https://github.com/habemus-papadum/pdum_agent_tools
+repo_name: pdum_agent_tools
+docs_dir: docs
+
+theme:
+  name: material
+  palette:
+    primary: blue grey
+
+nav:
+  - Home: index.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [packages/mitm/src, packages/codex-launcher/src]
+          options:
+            docstring_style: numpy
+            show_submodules: true

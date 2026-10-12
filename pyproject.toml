@@ -1,0 +1,40 @@
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+habemus-papadum-mitm = { workspace = true }
+habemus-papadum-codex-launcher = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "hatch>=1.14.2",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.13.3",
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings>=0.26.1",
+    "mkdocstrings-python>=1.11.1",
+    "pre-commit>=3.7.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["packages/mitm/tests", "packages/codex-launcher/tests"]
+addopts = "-s"
+asyncio_mode = "auto"
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.coverage.run]
+source = ["pdum.mitm", "pdum.codex_launcher"]
+relative_files = true
+omit = ["*/tests/*", "*/testing.py"]

@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.17"
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - name: Install workspace
+        run: uv sync --frozen --all-packages
+      - name: Lint and format checks
+        run: |
+          uv run --frozen ruff check .
+          uv run --frozen ruff format --check .
+      - name: Verify package imports
+        run: uv run --frozen --all-packages python -c "import pdum.mitm; import pdum.codex_launcher"
+      - name: Run tests when present
+        run: |
+          if [ -n "$(find packages -type f -path '*/tests/test_*.py' -print -quit)" ]; then
+            uv run --frozen --all-packages pytest --cov --cov-report=xml --cov-report=term
+          else
+            echo "No tests yet: infrastructure-only scaffold."
+          fi
+      - name: Upload coverage
+        if: ${{ hashFiles('coverage.xml') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: coverage-${{ matrix.python-version }}
+          path: coverage.xml
+      - name: Build documentation
+        if: ${{ matrix.python-version == '3.14' }}
+        run: uv run --frozen mkdocs build --strict
+      - name: Build both distributions
+        if: ${{ matrix.python-version == '3.14' }}
+        run: uv build --all-packages
+      - name: Upload distributions
+        if: ${{ matrix.python-version == '3.14' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: distributions
+          path: dist/*
+          if-no-files-found: error
