@@ -3,17 +3,12 @@ name: Hostfork prepared Linux
 on:
   push:
     branches: [main]
-    paths:
-      - "packages/hostfork/**"
-      - "scripts/check_hostfork_capabilities.py"
-      - ".github/workflows/hostfork.yml"
-      - "pyproject.toml"
-      - "uv.lock"
   pull_request:
     branches: [main]
     paths:
       - "packages/hostfork/**"
       - "scripts/check_hostfork_capabilities.py"
+      - "scripts/check_hostfork_wheel.py"
       - ".github/workflows/hostfork.yml"
       - "pyproject.toml"
       - "uv.lock"
@@ -84,6 +79,11 @@ jobs:
         run: |
           uv run --frozen --all-packages --all-extras pytest packages/hostfork/tests \
             -m "not live" --junitxml=artifacts/hostfork/tests.xml
+      - name: Exercise the built Hostfork wheel
+        run: |
+          uv build --package habemus-papadum-hostfork
+          uv run --frozen --all-packages python scripts/check_hostfork_wheel.py \
+            dist/habemus_papadum_hostfork-*.whl > artifacts/hostfork/wheel.json
       - name: Remove this job's prepared host resources
         if: ${{ always() }}
         shell: bash

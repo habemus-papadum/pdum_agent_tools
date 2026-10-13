@@ -106,8 +106,26 @@ The new `Hostfork prepared Linux` workflow pins Ubuntu 24.04, prepares a user
 manager and a disposable Btrfs image, and requires actual capability probes before
 running tests on Python 3.12 and 3.14. Its sysctl/lingering adjustments are explicit
 **disposable-runner preparation**, with restoration in cleanup; they are not
-library defaults. The workflow and shell syntax were checked locally. Its first
-GitHub-hosted run is pending until the new code is pushed.
+library defaults. On 2026-10-13, the first
+[prepared GitHub run](https://github.com/habemus-papadum/pdum_agent_tools/actions/runs/38430170771)
+passed **118 tests with no skips on each Python version**, including real Btrfs
+allocation/export/recovery, descendant cleanup, deadlines, OOM and CPU limits.
+The observed hosted kernel was `6.17.0-1022-azure`, with systemd
+`255.4-1ubuntu8.17`. Capability reports and JUnit results are attached to that run.
+
+The corresponding [ordinary CI run](https://github.com/habemus-papadum/pdum_agent_tools/actions/runs/38430170973)
+passed all four matrix jobs: **205 passed / 58 skipped** on each Linux Python
+version and **175 passed / 61 skipped** on macOS. These ordinary runners do not
+receive Hostfork preparation; unsupported runtime/storage checks and absent Codex
+binary checks skip explicitly. The prepared workflow supplies the Linux runtime
+qualification. macOS coverage establishes portable API/import behavior only;
+there is no native macOS execution backend yet.
+
+The prepared workflow also builds Hostfork and launches an actual environment
+from the extracted wheel, verifying packaged helper files and cleanup. Every
+push to `main` runs both CI workflows, and the human-operated release workflow
+requires both to succeed for its selected commit. The disposable image validates
+Btrfs functionality; it is not a cloud-volume performance benchmark.
 
 The image selection follows the official [Ubuntu 24.04 runner manifest](https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md).
 Runner images change, and GitHub documents their [fresh-VM lifecycle](https://docs.github.com/en/actions/concepts/runners/github-hosted-runners).

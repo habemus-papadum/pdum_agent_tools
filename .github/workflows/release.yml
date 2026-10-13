@@ -57,14 +57,21 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           for attempt in $(seq 1 60); do
-            row=$(gh run list --workflow ci.yml --commit "$SHA" --event push --limit 1 \
-              --json status,conclusion --jq '.[0] | select(. != null) | [.status, (.conclusion // "")] | @tsv')
-            IFS=$'\t' read -r status conclusion <<< "$row"
-            if [ "$status" = completed ]; then
-              if [ "$conclusion" = success ]; then exit 0; fi
-              echo "::error::CI concluded $conclusion."
-              exit 1
-            fi
+            ready=true
+            for workflow in ci.yml hostfork.yml; do
+              row=$(gh run list --workflow "$workflow" --commit "$SHA" --event push --limit 1 \
+                --json status,conclusion --jq '.[0] | select(. != null) | [.status, (.conclusion // "")] | @tsv')
+              IFS=$'\t' read -r status conclusion <<< "$row"
+              if [ "$status" = completed ]; then
+                if [ "$conclusion" != success ]; then
+                  echo "::error::$workflow concluded $conclusion."
+                  exit 1
+                fi
+              else
+                ready=false
+              fi
+            done
+            if [ "$ready" = true ]; then exit 0; fi
             echo "Waiting for CI ($attempt/60)."
             sleep 30
           done

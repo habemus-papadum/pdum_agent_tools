@@ -155,8 +155,11 @@ Do not edit versions by hand or use built development artifacts as release artif
 The workflow accepts `bump` (`patch`, `minor`, or `major`), `skip_ci_check` (default
 false), and `dry_run` (default true). It uses the highest `vX.Y.Z` tag as the last
 release, or `0.0.0` when no tag exists. It requires a successful **push-triggered**
-`ci.yml` run for the selected commit unless the maintainer explicitly overrides
+`ci.yml` and `hostfork.yml` run for the selected commit unless the maintainer explicitly overrides
 the gate; a manual CI run does not satisfy that particular gate.
+The prepared Hostfork workflow runs on every push to `main`, including documentation
+changes, so both gates can qualify the same release commit. Pull requests retain
+path filtering for the prepared workflow.
 
 A dry run prepares the version changes on the runner but does not commit, tag, or
 publish. A real release requires the `PYPI_API_TOKEN` repository secret, checks that
