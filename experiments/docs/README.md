@@ -6,6 +6,10 @@ Each spike has runnable code under `spikes/` and a short summary here. Generated
 
 - [Authenticating Codex app-server to OpenAI](tutorials/codex-upstream-auth.md): upstream ChatGPT login, API keys, externally managed tokens, and workload identity federation. This is not client-to-app-server WebSocket authentication.
 
+## Investigation plans
+
+- [014 — Claude Code app server](spikes/014-claude-app-server-proposal.md): compare launch strategies, reuse browser/Node SDK control logic and session helpers, and test shared clients, recovery, transport independence, and unmodified CLI compatibility. Implemented as a research harness; see the result and remaining live qualification gates below.
+
 ## Spike results
 
 | Spike | Main result | Summary |
@@ -25,6 +29,9 @@ Each spike has runnable code under `spikes/` and a short summary here. Generated
 | 011 | Unmodified Codex fails browser/WASI target checks; a small Rust/WASM host-WebSocket binding works, but the engine needs a substantial port. | [Browser WASM feasibility](spikes/011-codex-wasm.md) |
 | 012 | The CLI derives context remaining from usage events with a 12,000-token display baseline; replay explains why the small Luna runs display 100%. | [CLI context meter](spikes/012-codex-context-meter.md) |
 | 013 | A small opt-in loopback Origin allowlist lets a real browser initialize app-server; default denial and existing authorization remain intact. | [Browser WebSocket patch](spikes/013-codex-browser-origin.md) |
+| 014 | Official SDK clients work through a direct relay; two raw controllers duplicate callbacks. The initial ownership recommendation is revised by 016. | [Claude app server](spikes/014-claude-app-server.md) |
+| 015 | Native `agents --json` discovers running sessions; terminal `attach` uses a separate local supervisor/PTY transport. | [Claude session discovery](spikes/015-claude-agents-discovery.md) |
+| 016 | Official browser SDK plus a small history/worker API supports shared profiles, live fork/resume and disconnect-ended sessions. | [Claude client sessions report](spikes/016-claude-client-sessions.md) |
 | 020 | Async host-derived environments, a shell CLI, multiple commands and durable failure/cleanup evidence work in real namespace tests. | [Hostfork runtime](spikes/020-hostfork-runtime.md) |
 | 021 | Prepared Btrfs snapshots preserve native tree behavior; overlays remain useful, and deletion differs from reclamation. | [Hostfork storage](spikes/021-hostfork-storage.md) |
 | 022 | Shared services need explicit path semantics; 200 environments cleaned up, with Python helpers dominating overhead. | [Hostfork compatibility and scale](spikes/022-hostfork-compatibility.md) |
@@ -69,6 +76,14 @@ provide another capture if those private artifacts are unavailable.
 pages to validate allowed/denied origins. Build the separate binary first with
 `pnpm --filter @agent-spike/013-codex-browser-origin build:native`; see the summary
 for the source patch and prerequisite baseline build. It makes no model calls.
+
+`pnpm spike:014` runs credential-free Claude launch/control, manager and storage
+probes; `--live` explicitly enables Haiku qualification. `pnpm spike:015` tests
+native session discovery and terminal attachment without inference. The
+[Claude architecture proposal](proposals/claude-app-server-architecture.md) organizes
+the follow-up work around client-owned SDK queries and a thin relay.
+`pnpm spike:016` runs credential-free profile/lifecycle probes; its separate
+`probe:browser --live` harness exercises the actual browser flow with Haiku.
 
 Capture terminology used by these experiments:
 

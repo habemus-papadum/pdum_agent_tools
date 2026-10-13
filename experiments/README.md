@@ -104,6 +104,13 @@ explains the meter's baseline, rounding, and source of context-window metadata.
 allowlist to the pinned app-server source. Its separate native binary and two-page
 browser probe leave the installed Codex executable unchanged.
 
+The [Claude app-server spike](docs/spikes/014-claude-app-server.md) runs as
+`pnpm spike:014` without credentials by default. Its browser/client, storage,
+shared-control and recovery findings inform a separate
+[architecture proposal](docs/proposals/claude-app-server-architecture.md).
+`pnpm spike:015` investigates native `claude agents --json` and terminal attach
+using isolated local state, without model requests.
+
 ## Check and build
 
 ```sh
@@ -123,3 +130,8 @@ uv run --package agent-spike-python agent-spike-python
   Use `workspace:*` for internal TypeScript dependencies and catalogs for external ones.
 - Keep generated output under ignored `artifacts/`. Keep authentication profiles
   outside the checkout; never commit credentials or raw captures.
+
+The [client-session follow-up](docs/spikes/016-claude-client-sessions.md) tests
+client-owned official SDK queries, a separate history API, shared profiles and
+disconnect cleanup. Run `pnpm spike:016` for credential-free checks; see its
+[README](spikes/016-claude-client-sessions/README.md) for the live browser flow.

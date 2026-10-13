@@ -1,0 +1,18 @@
+{
+  "name": "@agent-spike/016-claude-client-sessions",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "probe": "tsx src/probe.ts",
+    "probe:browser": "tsx src/browser-server.ts",
+    "test": "tsx --test src/*.test.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "catalog:",
+    "ws": "catalog:"
+  },
+  "devDependencies": { "@types/ws": "catalog:" }
+}

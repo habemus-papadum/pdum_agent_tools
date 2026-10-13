@@ -26,7 +26,10 @@
     "spike:012": "pnpm --filter @agent-spike/012-codex-context-meter probe",
     "spike:013": "pnpm --filter @agent-spike/013-codex-browser-origin probe",
     "guide:generate": "pnpm --filter @agent-spike/007-codex-protocol-guide generate",
-    "build:codex": "pnpm --filter @agent-spike/003-codex-control build:codex"
+    "build:codex": "pnpm --filter @agent-spike/003-codex-control build:codex",
+    "spike:014": "pnpm --filter @agent-spike/014-claude-app-server probe",
+    "spike:015": "pnpm --filter @agent-spike/015-claude-agents-discovery probe",
+    "spike:016": "pnpm --filter @agent-spike/016-claude-client-sessions probe"
   },
   "devDependencies": {
     "@types/node": "catalog:",

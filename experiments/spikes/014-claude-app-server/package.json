@@ -1,0 +1,22 @@
+{
+  "name": "@agent-spike/014-claude-app-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "probe": "tsx src/probe.ts",
+    "test": "tsx --test src/*.test.ts",
+    "probe:launch": "tsx src/launch-probe.ts",
+    "probe:storage": "tsx src/storage-probe.ts",
+    "probe:browser": "tsx src/browser-server.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "catalog:",
+    "ws": "catalog:"
+  },
+  "devDependencies": {
+    "@types/ws": "catalog:"
+  }
+}
