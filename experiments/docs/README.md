@@ -25,6 +25,16 @@ Each spike has runnable code under `spikes/` and a short summary here. Generated
 | 011 | Unmodified Codex fails browser/WASI target checks; a small Rust/WASM host-WebSocket binding works, but the engine needs a substantial port. | [Browser WASM feasibility](spikes/011-codex-wasm.md) |
 | 012 | The CLI derives context remaining from usage events with a 12,000-token display baseline; replay explains why the small Luna runs display 100%. | [CLI context meter](spikes/012-codex-context-meter.md) |
 | 013 | A small opt-in loopback Origin allowlist lets a real browser initialize app-server; default denial and existing authorization remain intact. | [Browser WebSocket patch](spikes/013-codex-browser-origin.md) |
+| 020 | Async host-derived environments, a shell CLI, multiple commands and durable failure/cleanup evidence work in real namespace tests. | [Hostfork runtime](spikes/020-hostfork-runtime.md) |
+| 021 | Prepared Btrfs snapshots preserve native tree behavior; overlays remain useful, and deletion differs from reclamation. | [Hostfork storage](spikes/021-hostfork-storage.md) |
+| 022 | Shared services need explicit path semantics; 200 environments cleaned up, with Python helpers dominating overhead. | [Hostfork compatibility and scale](spikes/022-hostfork-compatibility.md) |
+| 023 | Independent cgroup deadlines, CPU limits and real OOM reporting work; partial evidence survives several controller failures. | [Hostfork lifetime](spikes/023-hostfork-lifetime.md) |
+| 024 | Python retains its subprocess handle while a systemd scope bounds library/native descendants; adoption must precede execution. | [Python-owned launch and scope deadlines](spikes/024-hostfork-scope.md) |
+
+For the current Hostfork direction, read the [architecture findings](../../docs/specs/hostfork/spike-findings.md).
+Spikes 020–024 use only the Python research workspace and local Linux facilities;
+they do not need the JavaScript setup or paid model calls. Run their commands from
+`experiments/` after `uv sync --frozen --all-packages`.
 
 From the repository root, install with `pnpm install` and `uv sync --all-packages`,
 then run `pnpm spike:001`, `pnpm spike:002`, or `pnpm spike:003`. The third probe

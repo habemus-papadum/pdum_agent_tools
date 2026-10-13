@@ -1,0 +1,115 @@
+name: Hostfork prepared Linux
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/hostfork/**"
+      - "scripts/check_hostfork_capabilities.py"
+      - ".github/workflows/hostfork.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/hostfork/**"
+      - "scripts/check_hostfork_capabilities.py"
+      - ".github/workflows/hostfork.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hostfork-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepared-host:
+    # Pin the image family: ubuntu-latest can change its kernel/systemd baseline.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
+    env:
+      PDUM_HOSTFORK_REQUIRE_LINUX: "1"
+      PDUM_HOSTFORK_REQUIRE_BTRFS: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.17"
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - name: Install workspace
+        run: uv sync --frozen --all-packages --all-extras
+      - name: Explicitly prepare this disposable runner
+        shell: bash
+        run: |
+          hf_scratch=$(mktemp -d "$RUNNER_TEMP/pdum-hostfork.XXXXXX")
+          printf 'PDUM_HOSTFORK_CI_SCRATCH=%s\n' "$hf_scratch" >> "$GITHUB_ENV"
+          sudo apt-get update
+          sudo apt-get install --yes btrfs-progs dbus-user-session
+
+          # Ubuntu restricts unprivileged user namespaces through AppArmor.
+          # This policy change is confined to the disposable CI VM, never doctor.
+          if test -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns; then
+            cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns > "$hf_scratch/apparmor-original"
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          hf_uid=$(id -u)
+          hf_linger=$(loginctl show-user "$hf_uid" --property=Linger --value || true)
+          printf '%s\n' "$hf_linger" > "$hf_scratch/linger-original"
+          sudo loginctl enable-linger "$(id -un)"
+          sudo systemctl start "user@$hf_uid.service"
+          printf 'XDG_RUNTIME_DIR=/run/user/%s\n' "$hf_uid" >> "$GITHUB_ENV"
+          printf 'DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%s/bus\n' "$hf_uid" >> "$GITHUB_ENV"
+
+          # Format only a newly created regular file under this job's unique root.
+          truncate -s 1G "$hf_scratch/pool.img"
+          sudo mkfs.btrfs -q "$hf_scratch/pool.img"
+          mkdir "$hf_scratch/pool"
+          sudo mount -o loop,user_subvol_rm_allowed "$hf_scratch/pool.img" "$hf_scratch/pool"
+          sudo chown "$(id -u):$(id -g)" "$hf_scratch/pool"
+          printf 'PDUM_HOSTFORK_TEST_BTRFS_ROOT=%s/pool\n' "$hf_scratch" >> "$GITHUB_ENV"
+      - name: Require actual runtime capabilities
+        run: |
+          uv run --frozen --all-packages python scripts/check_hostfork_capabilities.py \
+            --probe --require-linux --output artifacts/hostfork/capabilities.json
+      - name: Exercise process ownership, recovery, and prepared storage
+        run: |
+          uv run --frozen --all-packages --all-extras pytest packages/hostfork/tests \
+            -m "not live" --junitxml=artifacts/hostfork/tests.xml
+      - name: Remove this job's prepared host resources
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          if test -n "${PDUM_HOSTFORK_CI_SCRATCH:-}"; then
+            hf_scratch=$PDUM_HOSTFORK_CI_SCRATCH
+            hf_cleanup_status=0
+            if mountpoint -q "$hf_scratch/pool"; then
+              sudo umount "$hf_scratch/pool" || hf_cleanup_status=1
+            fi
+            if test -f "$hf_scratch/apparmor-original"; then
+              sudo sysctl -w "kernel.apparmor_restrict_unprivileged_userns=$(cat "$hf_scratch/apparmor-original")" \
+                || hf_cleanup_status=1
+            fi
+            if test -f "$hf_scratch/linger-original" && test "$(cat "$hf_scratch/linger-original")" != yes; then
+              sudo loginctl disable-linger "$(id -un)" || hf_cleanup_status=1
+            fi
+            if ! mountpoint -q "$hf_scratch/pool"; then
+              rm -f "$hf_scratch/pool.img"
+            fi
+            exit "$hf_cleanup_status"
+          fi
+      - name: Upload controlled diagnostic evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: hostfork-linux-${{ matrix.python-version }}
+          path: artifacts/hostfork/
+          if-no-files-found: warn

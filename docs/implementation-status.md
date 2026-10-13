@@ -187,3 +187,11 @@ nor FastAPI installed; the two wheels together launch an independent MITM worker
 and a managed sidecar/app-server. Both installed Typer apps mount under a parent
 CLI. Wheels preserve the `pdum` namespace and include typing markers.
 No package release or GitHub deployment is part of this implementation session.
+
+## Hostfork
+
+The third distribution, `habemus-papadum-hostfork`, implements the Linux async
+library, Typer CLI, copy/overlay/prepared-Btrfs storage, systemd deadlines, direct
+Python-owned subprocesses and persistent recovery. See the [guide](hostfork.md)
+and [validation record](hostfork-validation.md) for supported behavior and
+remaining platform/qualification gates. It is independent of both existing packages.

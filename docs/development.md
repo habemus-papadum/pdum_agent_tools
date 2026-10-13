@@ -1,7 +1,7 @@
 # Development
 
 Run the commands on this page from the repository root. This is a workspace for
-two distributions, not a third root package. See [implementation status](implementation-status.md)
+three distributions; the root is not itself a distribution. See [implementation status](implementation-status.md)
 for supported package behavior and [testing](testing.md) for the evidence policy.
 
 The imported `experiments/` tree is a separate research workspace, intentionally
@@ -30,7 +30,7 @@ Install uv and clone the repository, then run:
 ```
 
 The script runs `uv sync --frozen --all-packages --all-extras` and installs the pre-commit hook.
-Both packages and the root development tools share `.venv` and `uv.lock`.
+All packages and the root development tools share `.venv` and `uv.lock`.
 The `.python-version` file selects Python 3.14. Package metadata allows Python 3.12+;
 CI exercises 3.12, 3.13, and 3.14 using uv 0.12.17.
 
@@ -42,6 +42,7 @@ that consistency check.
 
 - `packages/mitm/src/pdum/mitm/` contains `pdum.mitm`.
 - `packages/codex-launcher/src/pdum/codex_launcher/` contains `pdum.codex_launcher`.
+- `packages/hostfork/src/pdum/hostfork/` contains `pdum.hostfork`.
 - Each package owns its manifest, README, and `tests/` directory.
 - `pdum` is a PEP 420 namespace shared by the distributions. Do not add an
   `__init__.py` at the `src/pdum/` level. Keep each module's `py.typed` marker.
@@ -50,7 +51,7 @@ that consistency check.
 - Use type annotations and NumPy-style docstrings for public interfaces.
 - Keep the MITM package generic. Do not put Codex-specific behavior into it or
   keep the launcher's MITM integration optional rather than coupling core imports.
-- Implement both CLIs with Typer and export mountable apps/app factories. CLI
+- Implement the CLIs with Typer and export mountable apps/app factories. CLI
   handlers delegate to library operations, not a second business-logic layer.
 - Use Rich with Questionary terminal selectors for interviews; keep preview,
   planning, saving and login as separate steps. See [profile workflows](profiles.md).
@@ -66,9 +67,10 @@ normal Codex instance or install system-wide interception settings.
 
 ## Dependencies
 
-Use `uv add --package habemus-papadum-mitm DEPENDENCY` or
-`uv add --package habemus-papadum-codex-launcher DEPENDENCY` for runtime dependencies,
-replacing `DEPENDENCY` with the required package. Use `uv add --group dev TOOL` for
+Use `uv add --package DISTRIBUTION DEPENDENCY` for runtime dependencies, selecting
+`habemus-papadum-mitm`, `habemus-papadum-codex-launcher` or
+`habemus-papadum-hostfork` as the consuming distribution.
+Use `uv add --group dev TOOL` for
 shared development tools. Optional launcher integrations use the `mitm` and
 `management` extras; `federation` adds the HTTP token-exchange dependency.
 Minimal launcher imports do not require these integrations.
@@ -85,7 +87,7 @@ uv lock --check
 uv run --frozen ruff check .
 uv run --frozen ruff format --check .
 uv run --frozen pre-commit run --all-files
-uv run --frozen --all-packages python -c "import pdum.mitm; import pdum.codex_launcher"
+uv run --frozen --all-packages python -c "import pdum.mitm; import pdum.codex_launcher; import pdum.hostfork"
 ```
 
 To apply formatting, use `uv run --frozen ruff format .`. The installed pre-commit
@@ -102,6 +104,10 @@ uv run --frozen --all-packages --all-extras pytest packages/mitm/tests
 uv run --frozen --all-packages --all-extras pytest packages/codex-launcher/tests
 uv run --frozen --all-packages --all-extras pytest --cov --cov-report=xml --cov-report=term
 ```
+
+Hostfork tests use real Linux namespaces/cgroups when available and visibly skip
+capability-dependent cases elsewhere. The prepared Linux workflow requires those
+capabilities and a disposable Btrfs pool. See [Hostfork validation](hostfork-validation.md).
 
 Pytest discovers `test_*.py` files, `Test*` classes, and `test_*` functions. Shared
 settings enable asyncio auto mode and disable output capture with `-s`.
@@ -128,7 +134,7 @@ wheels under ignored `dist/`. To build one package, use
 The `CI` workflow runs on pushes to `main`, pull requests targeting `main`, and manual
 dispatches. It checks lint, formatting, imports and tests with subprocess coverage
 on Linux Python 3.12–3.14 and macOS Python 3.14. The Linux Python 3.14 job also builds
-the docs and both distributions. Paid tests are excluded. No Codex binary is
+the docs and all distributions. Paid tests are excluded. No Codex binary is
 installed by this workflow, so native interoperability tests skip there unless a
 binary is provided. Build and coverage artifacts are not package releases.
 
@@ -142,7 +148,7 @@ is already configured. Local edits are not published until pushed and deployed.
 Releases are **human-operated** through the `release` workflow on `main`. Agents
 must not dispatch it or publish packages. No release is part of normal setup or checks.
 
-The two distributions share a version in lockstep. Between releases their manifests
+The three distributions share a version in lockstep. Between releases their manifests
 carry the last release version plus `+dev`; the initial marker is `0.0.0+dev`.
 Do not edit versions by hand or use built development artifacts as release artifacts.
 
@@ -154,8 +160,8 @@ the gate; a manual CI run does not satisfy that particular gate.
 
 A dry run prepares the version changes on the runner but does not commit, tag, or
 publish. A real release requires the `PYPI_API_TOKEN` repository secret, checks that
-`main` still matches the selected commit, commits both versions and the lockfile,
-tags and pushes, builds both distributions, publishes them to PyPI, creates a GitHub
+`main` still matches the selected commit, commits all versions and the lockfile,
+tags and pushes, builds all distributions, publishes them to PyPI, creates a GitHub
 release, and returns the manifests to the new version plus `+dev`.
 
 There is no automatic publishing on ordinary pushes or tag events. Publishing and

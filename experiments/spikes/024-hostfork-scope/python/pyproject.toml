@@ -1,0 +1,16 @@
+[project]
+name = "hostfork-scope-spike"
+version = "0.0.0"
+description = "Research adapter for Python-owned processes and systemd scopes"
+requires-python = ">=3.14,<3.15"
+dependencies = ["dbus-next>=0.2.3,<0.3", "hostfork-spike"]
+
+[tool.uv.sources]
+hostfork-spike = { workspace = true }
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hostfork_scope_spike"]

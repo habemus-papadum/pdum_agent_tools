@@ -44,7 +44,7 @@ jobs:
           uv run --frozen ruff check .
           uv run --frozen ruff format --check .
       - name: Verify package imports
-        run: uv run --frozen --all-packages python -c "import pdum.mitm; import pdum.codex_launcher"
+        run: uv run --frozen --all-packages python -c "import pdum.mitm; import pdum.codex_launcher; import pdum.hostfork"
       - name: Run local integration and unit tests
         run: uv run --frozen --all-packages --all-extras pytest -m "not live" --cov --cov-report=xml --cov-report=term
       - name: Upload coverage
@@ -56,7 +56,7 @@ jobs:
       - name: Build documentation
         if: ${{ matrix.python-version == '3.14' && matrix.os == 'ubuntu-latest' }}
         run: uv run --frozen mkdocs build --strict
-      - name: Build both distributions
+      - name: Build workspace distributions
         if: ${{ matrix.python-version == '3.14' && matrix.os == 'ubuntu-latest' }}
         run: uv build --all-packages
       - name: Upload distributions

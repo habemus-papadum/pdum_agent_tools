@@ -1,7 +1,7 @@
 # pdum_agent_tools
 
-A Python workspace for two packages: a general-purpose man-in-the-middle (MITM)
-sidecar and a Codex app-server profile manager and launcher.
+A Python workspace for a general-purpose MITM sidecar, a Codex app-server
+profile manager/launcher, and Hostfork host-derived Linux environments.
 
 **Status:** first working local implementation, with real process/network tests
 and a live vanilla-Codex-client → relay → app-server → MITM → Luna check.
@@ -14,9 +14,10 @@ the wider architecture proposals are not all implemented.
 | --- | --- | --- |
 | [habemus-papadum-mitm](packages/mitm/README.md) | `pdum.mitm` | Async MITM sidecar, scoped CA/proxy settings, streaming HTTP/WSS capture and processor hooks. Not specific to AI agents. |
 | [habemus-papadum-codex-launcher](packages/codex-launcher/README.md) | `pdum.codex_launcher` | Manage named Codex profiles and launch app-server with the selected model, parameters, upstream authentication, and executable. |
+| [habemus-papadum-hostfork](packages/hostfork/README.md) | `pdum.hostfork` | Host-derived views, private storage, ordinary Python subprocesses, independent deadlines and recovery. |
 
 The launcher uses MITM only when selected; its `mitm` extra installs that
-integration. The `management` extra adds an optional FastAPI adapter. Both packages
+integration. The `management` extra adds an optional FastAPI adapter. All three packages
 export standalone and mountable Typer CLIs.
 The launcher's Rich/Questionary interview manages selective native imports and
 upstream authentication; the optional `federation` extra supports an AWS credential
@@ -42,7 +43,7 @@ repository. See the implementation status for supported behavior and remaining w
 
 The related [research workspace](experiments/README.md) imports the agent-spike
 experiments and remains available for new spikes. Its source, reports, protocol
-guide, and dependency locks are kept separate from the two package distributions.
+guide, and dependency locks are kept separate from the production package distributions.
 See [import provenance and exclusions](experiments/IMPORT.md).
 
 ## Architecture and implementation proposals
@@ -59,6 +60,11 @@ See [import provenance and exclusions](experiments/IMPORT.md).
   launch lifecycle, optional relaying, and MITM integration.
 - [MITM sidecar](docs/specs/mitm.md): generic proxy lifecycle, recording, extensions,
   and runtime capture controls.
+- [Hostfork architecture](docs/specs/hostfork/architecture.md) and
+  [implementation plan](docs/plans/hostfork.md): host-derived environments,
+  private storage, process ownership and recovery, with Linux first and a future
+  macOS backend in mind. See the [Hostfork guide](docs/hostfork.md) for the Linux
+  implementation and [qualification limits](docs/hostfork-validation.md).
 - [Implementation sequence](docs/plans/implementation.md): joint delivery gates,
   with detailed [launcher](docs/plans/codex-launcher.md) and
   [MITM](docs/plans/mitm.md) plans.
@@ -78,7 +84,7 @@ cd pdum_agent_tools
 ./scripts/setup.sh
 ```
 
-Setup installs both workspace members and development tools from `uv.lock`, then
+Setup installs all workspace members and development tools from `uv.lock`, then
 installs the pre-commit hook. Common checks:
 
 ```sh
@@ -111,6 +117,7 @@ prompt. Defaults follow the trusted-network stance above.
 ```text
 packages/mitm/             habemus-papadum-mitm
 packages/codex-launcher/   habemus-papadum-codex-launcher
+packages/hostfork/         habemus-papadum-hostfork
 experiments/              Independent pnpm/uv research workspace and spike reports
 docs/                     MkDocs source
 scripts/setup.sh          Local environment and hook setup

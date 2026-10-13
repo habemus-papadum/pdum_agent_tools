@@ -13,6 +13,14 @@ original checkout. Findings are preserved, not newly verified by the import.
 
 ## Read the findings
 
+The [Hostfork spike findings](specs/hostfork/spike-findings.md) summarize the current
+storage, compatibility, scale and lifetime experiments. Their runnable code and
+individual reports are under `experiments/spikes/020-*` through `024-*`; these are
+research implementations, separate from the two distributable packages.
+The resulting [Hostfork architecture](specs/hostfork/architecture.md) and
+[implementation plan](plans/hostfork.md) distinguish proposed delivery from those
+measured experiments.
+
 Local checkout paths below have corresponding repository links for site readers:
 
 - [`experiments/README.md`](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/README.md): setup and available commands.

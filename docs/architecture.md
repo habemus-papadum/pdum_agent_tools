@@ -17,7 +17,7 @@ and compatibility still require implementation evidence.
 
 ## Start here
 
-The system has two independently useful parts:
+The workspace has three independently useful parts:
 
 - **`pdum.codex_launcher`** owns a Codex profile and its managed process: selecting
   configuration, preparing authentication, starting and stopping app-server, and
@@ -25,6 +25,10 @@ The system has two independently useful parts:
 - **`pdum.mitm`** owns a generic network interception sidecar: routing selected
   traffic, capturing application-level exchanges, and changing recording policy
   while forwarding continues. It has no knowledge of Codex accounts or models.
+
+- **`pdum.hostfork`** owns host-derived Linux views, private trees, process groups,
+  independent deadlines and recoverable evidence. Applications compose it through
+  its async library or CLI; it has no dependency on either package above.
 
 The launcher composes the sidecar when requested. The MITM package never imports
 the launcher. Sharing a repository does not require sharing a process supervisor,
@@ -63,6 +67,8 @@ recording on does not retrofit interception onto a direct/tunneled connection.
 | [Agreed design principles](design-principles.md) | The settled trust/default/hygiene stance; do not reintroduce defensive defaults without discussing a requirements change. |
 | [Launcher architecture](specs/codex-launcher.md) | Profile layout and selection, temporary profiles, upstream authentication, async ownership, transports, and relay behavior. |
 | [MITM architecture](specs/mitm.md) | Engine and process boundaries, proxy/trust configuration, capture fidelity/monitoring, processor hooks, and live controls. |
+| [Hostfork motivation](specs/hostfork/motivation.md) and [compatibility](specs/hostfork/host-compatibility.md) | Host-derived environments, storage choices and failure modes. Linux implementation: [guide](hostfork.md); future backends remain proposed. |
+| [Hostfork architecture](specs/hostfork/architecture.md) and [implementation plan](plans/hostfork.md) | Proposed library, host tools, Linux ownership/recovery and future backend boundaries, informed by spikes 020–024. |
 | [Joint implementation sequence](plans/implementation.md) | Dependencies between packages, shared acceptance gates, and what to implement first. |
 | [Launcher implementation plan](plans/codex-launcher.md) | Launcher work packages and their completion criteria. |
 | [MITM implementation plan](plans/mitm.md) | Sidecar work packages and their completion criteria. |
@@ -90,7 +96,7 @@ plan summarize composition, not a third competing API specification.
 | Enable/disable recording and change destinations without restarting the consumer | MITM; launcher exposes the integration |
 | Full observed payloads without initial capture-size caps; monitor backlog/storage and report failures without stopping healthy traffic | Both observation surfaces |
 | Explicit processor hooks, small local/test sinks, optional discovery and CLI contributions | Each package's observation boundary; Codex interpretation in launcher or adjacent integration |
-| Exported mountable Typer apps/factories | Both packages |
+| Exported mountable Typer apps/factories | All packages |
 | Optional small async FastAPI management adapter | Launcher follow-on using the existing owner |
 | Remote profile migration and daemon mode | Deferred, not initial delivery |
 

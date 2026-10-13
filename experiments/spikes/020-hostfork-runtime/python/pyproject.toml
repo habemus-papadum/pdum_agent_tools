@@ -1,0 +1,16 @@
+[project]
+name = "hostfork-spike"
+version = "0.0.0"
+description = "Experimental host-derived Linux environments; not a security sandbox"
+requires-python = ">=3.14,<3.15"
+dependencies = ["typer>=0.16,<1", "rich>=14,<15"]
+
+[project.scripts]
+hostfork-spike = "hostfork_spike.cli:app"
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hostfork_spike"]

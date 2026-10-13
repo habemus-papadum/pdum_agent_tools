@@ -1,6 +1,6 @@
 # pdum_agent_tools
 
-This repository contains two Python packages being developed together in a uv
+This repository contains three Python packages being developed together in a uv
 workspace. The first local implementation is working, with real network/process
 tests and a live native-Codex-client interoperability check.
 
@@ -8,6 +8,7 @@ tests and a live native-Codex-client interoperability check.
 | --- | --- |
 | [habemus-papadum-mitm](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/packages/mitm/README.md) | A general-purpose MITM sidecar for traffic recording, independent of AI agents. |
 | [habemus-papadum-codex-launcher](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/packages/codex-launcher/README.md) | Named Codex profiles and app-server launch configuration. |
+| [habemus-papadum-hostfork](hostfork.md) | Host-derived Linux environments, private storage, process ownership and recovery. |
 
 Start with [implementation status](implementation-status.md) for commands, APIs,
 observed results and remaining limitations. The [testing guide](testing.md) separates
@@ -23,6 +24,9 @@ selective native imports, editable TOML and upstream authentication workflows.
 - [Architecture overview](architecture.md)
 - [Codex launcher](specs/codex-launcher.md)
 - [MITM sidecar](specs/mitm.md)
+- [Hostfork](hostfork.md), Linux environments with private storage and independent deadlines
+- [Hostfork architecture](specs/hostfork/architecture.md) and [implementation plan](plans/hostfork.md)
+- [Hostfork compatibility and storage](specs/hostfork/host-compatibility.md)
 - [Joint implementation sequence](plans/implementation.md)
 - [Launcher implementation plan](plans/codex-launcher.md)
 - [MITM implementation plan](plans/mitm.md)

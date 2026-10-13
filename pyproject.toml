@@ -5,6 +5,7 @@ exclude = ["experiments"]
 [tool.uv.sources]
 habemus-papadum-mitm = { workspace = true }
 habemus-papadum-codex-launcher = { workspace = true }
+habemus-papadum-hostfork = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -31,19 +32,21 @@ extend-exclude = ["experiments"]
 select = ["E", "F", "W", "I"]
 
 [tool.pytest.ini_options]
-testpaths = ["packages/mitm/tests", "packages/codex-launcher/tests"]
-addopts = "-s"
+testpaths = ["packages/mitm/tests", "packages/codex-launcher/tests", "packages/hostfork/tests"]
+addopts = "-s --import-mode=importlib"
 asyncio_mode = "auto"
 markers = [
     "codex: requires an installed Codex executable, with isolated state and no paid calls",
     "live: opt-in paid provider integration using isolated credentials and a bounded budget",
+    "hostfork_linux: requires Linux namespaces, a systemd user manager and cgroup v2",
+    "hostfork_btrfs: requires an explicitly prepared disposable Btrfs test pool",
 ]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 
 [tool.coverage.run]
-source = ["pdum.mitm", "pdum.codex_launcher"]
+source = ["pdum.mitm", "pdum.codex_launcher", "pdum.hostfork"]
 relative_files = true
 patch = ["subprocess"]
 parallel = true

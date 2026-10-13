@@ -15,6 +15,9 @@ nav:
   - Development: development.md
   - Implementation status: implementation-status.md
   - Profile setup and authentication: profiles.md
+  - Hostfork:
+      - Operator and API guide: hostfork.md
+      - Validation and limits: hostfork-validation.md
   - Testing: testing.md
   - Research and spikes: research.md
   - Architecture proposals:
@@ -22,10 +25,17 @@ nav:
       - Agreed design principles: design-principles.md
       - Codex launcher: specs/codex-launcher.md
       - MITM sidecar: specs/mitm.md
+      - Hostfork:
+          - Architecture: specs/hostfork/architecture.md
+          - Motivation and direction: specs/hostfork/motivation.md
+          - Host compatibility and storage: specs/hostfork/host-compatibility.md
+          - Measured spike findings: specs/hostfork/spike-findings.md
+          - Earlier design exploration: specs/hostfork/design-notes.md
   - Implementation plans:
       - Joint sequence: plans/implementation.md
       - Codex launcher: plans/codex-launcher.md
       - MITM sidecar: plans/mitm.md
+      - Hostfork: plans/hostfork.md
 
 markdown_extensions:
   - admonition
@@ -45,7 +55,7 @@ plugins:
       default_handler: python
       handlers:
         python:
-          paths: [packages/mitm/src, packages/codex-launcher/src]
+          paths: [packages/mitm/src, packages/codex-launcher/src, packages/hostfork/src]
           options:
             docstring_style: numpy
             show_submodules: true

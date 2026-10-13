@@ -60,6 +60,11 @@ patch.
 
 The individual [spike summaries](docs/README.md) contain their run and build commands.
 
+For Hostfork research, start with the [runtime/shell quickstart](spikes/020-hostfork-runtime/README.md)
+and [architecture findings](../docs/specs/hostfork/spike-findings.md). Spikes 020–024
+test prepared Btrfs storage, host services, concurrency, deadlines and failure
+evidence using local Linux facilities. They need only this workspace's uv setup.
+
 Both lockfiles are committed. For reproducible installs, use
 `pnpm install --frozen-lockfile` and `uv sync --all-packages --locked`.
 

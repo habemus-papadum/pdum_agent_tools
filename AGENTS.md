@@ -7,8 +7,9 @@ for the project layout and commands.
 
 ## Scope and design
 
-- The workspace contains `habemus-papadum-mitm` (`pdum.mitm`) and
-  `habemus-papadum-codex-launcher` (`pdum.codex_launcher`).
+- The workspace contains `habemus-papadum-mitm` (`pdum.mitm`),
+  `habemus-papadum-codex-launcher` (`pdum.codex_launcher`), and
+  `habemus-papadum-hostfork` (`pdum.hostfork`).
 - Implementation of the agreed architecture is authorized. Use `docs/specs/` and
   `docs/plans/` as the design baseline; record supported behavior and remaining
   gates honestly rather than claiming the whole proposal is implemented.
@@ -26,7 +27,9 @@ for the project layout and commands.
   instead of repeated consent gates. Trusted runtime captures may include secrets;
   simple optional masking is fine, comprehensive redaction is not a prerequisite.
 - Keep launch application-owned/foreground, with PID-aware status and cleanup;
-  no daemon or attach-to-existing mode initially. MITM is absent unless requested.
+  no daemon or attach-to-existing mode initially for MITM/launcher. MITM is absent
+  unless requested. Hostfork explicitly supports detached environments and reopening
+  management by recorded identity; it does not restore previous asyncio pipe handles.
 - Keep observation inspection-only and asynchronous: copying/enqueueing must not
   wait for parsing, recording or export. Monitor capture backlog/storage; do not
   introduce initial payload caps, truncation thresholds, queue-admission limits
@@ -34,17 +37,17 @@ for the project layout and commands.
 - Build simple explicit processor hooks and local/test implementations first.
   Optional discovery/CLI extensions do not require per-plugin worker processes.
   Keep Codex interpretation in the launcher or an adjacent integration package.
-- Use Typer for both CLIs, exporting mountable apps and app factories. CLI wrappers
+- Use Typer for the CLIs, exporting mountable apps and app factories. CLI wrappers
   call the async library; mounting/importing must not launch processes or install
   signal handlers. FastAPI may adapt management operations without owning a second runtime.
 - Use Rich for interactive presentation and Questionary's compatible terminal
   selectors for interviews. Keep the interview separate from persistence/login;
   previews and cancellation must not mutate profiles.
 - Keep changes focused. Do not introduce shared abstractions or cross-package
-  dependencies merely because both packages live in this repository.
+  dependencies merely because packages live in this repository.
 - `experiments/` contains the imported agent-spike research workspace and future
   spikes. Read its own `AGENTS.md` before editing it. Research findings are not
-  automatically implementation contracts for the two distributable packages.
+  automatically implementation contracts for the distributable packages.
 
 ## Python and dependencies
 
@@ -99,7 +102,7 @@ for the project layout and commands.
 ## Git and releases
 
 - Do not commit, push, or create branches unless asked.
-- Do not hand-edit package versions. Both distributions follow the lockstep
+- Do not hand-edit package versions. All distributions follow the lockstep
   version managed by the human-operated release workflow.
 - Do not dispatch the release workflow, publish packages, or create/rewrite release
   tags. Explain the process when asked; leave release execution to the maintainer.
