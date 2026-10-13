@@ -1,6 +1,6 @@
 [project]
 name = "habemus-papadum-hostfork"
-version = "0.0.0+dev"
+version = "0.1.0"
 description = "Host-derived environments with independent process ownership and recoverable private storage"
 readme = "README.md"
 requires-python = ">=3.12"
