@@ -1119,7 +1119,7 @@ wheels = [
 
 [[package]]
 name = "habemus-papadum-codex-launcher"
-version = "0.1.0"
+version = "0.1.0+dev"
 source = { editable = "packages/codex-launcher" }
 dependencies = [
     { name = "click" },
@@ -1161,7 +1161,7 @@ provides-extras = ["mitm", "management", "federation"]
 
 [[package]]
 name = "habemus-papadum-hostfork"
-version = "0.1.0"
+version = "0.1.0+dev"
 source = { editable = "packages/hostfork" }
 dependencies = [
     { name = "dbus-next", marker = "sys_platform == 'linux'" },
@@ -1178,7 +1178,7 @@ requires-dist = [
 
 [[package]]
 name = "habemus-papadum-mitm"
-version = "0.1.0"
+version = "0.1.0+dev"
 source = { editable = "packages/mitm" }
 dependencies = [
     { name = "certifi" },
