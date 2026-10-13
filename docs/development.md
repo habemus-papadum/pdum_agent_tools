@@ -127,7 +127,8 @@ readers, and each package's README is also its distribution description.
 The docs build writes to ignored `site/`. Hatchling builds source distributions and
 wheels under ignored `dist/`. To build one package, use
 `uv build --package habemus-papadum-mitm` or
-`uv build --package habemus-papadum-codex-launcher`. Building does not publish anything.
+`uv build --package habemus-papadum-codex-launcher`, or
+`uv build --package habemus-papadum-hostfork`. Building does not publish anything.
 
 ## CI and Pages
 
@@ -154,21 +155,41 @@ Do not edit versions by hand or use built development artifacts as release artif
 
 The workflow accepts `bump` (`patch`, `minor`, or `major`), `skip_ci_check` (default
 false), and `dry_run` (default true). It uses the highest `vX.Y.Z` tag as the last
-release, or `0.0.0` when no tag exists. It requires a successful **push-triggered**
-`ci.yml` and `hostfork.yml` run for the selected commit unless the maintainer explicitly overrides
+release, or `0.0.0` when no tag exists. It requires successful **push-triggered**
+`ci.yml` and `hostfork.yml` runs for the selected commit unless the maintainer explicitly overrides
 the gate; a manual CI run does not satisfy that particular gate.
 The prepared Hostfork workflow runs on every push to `main`, including documentation
 changes, so both gates can qualify the same release commit. Pull requests retain
 path filtering for the prepared workflow.
 
-A dry run prepares the version changes on the runner but does not commit, tag, or
-publish. A real release requires the `PYPI_API_TOKEN` repository secret, checks that
+A dry run prepares the version changes and builds all three distributions on the
+runner but does not commit, tag, or publish. A real release requires the
+`PYPI_API_TOKEN` repository secret, builds before creating public refs, checks that
 `main` still matches the selected commit, commits all versions and the lockfile,
-tags and pushes, builds all distributions, publishes them to PyPI, creates a GitHub
+tags and pushes, publishes the prepared distributions to PyPI, creates a GitHub
 release, and returns the manifests to the new version plus `+dev`.
+
+For a first release, configure the publishing credential, select `main` in the
+workflow UI, and run with `dry_run=true`. After reviewing the planned version and
+successful builds, the maintainer can run the same bump with `dry_run=false` and
+leave `skip_ci_check=false`. The default minor bump starts at `0.1.0` when there
+are no release tags. Development wheels containing `+dev` are not the artifacts
+to upload.
+
+The release workflow uses `GITHUB_TOKEN` for its Git pushes and GitHub release.
+Those events [do not trigger other workflows](https://docs.github.com/en/actions/concepts/security/github_token),
+so its release event does not automatically redeploy Pages or run CI on the
+version-only commits. Source documentation is deployed by the preceding human
+push; use a manual documentation deployment if a release-specific refresh is needed.
 
 There is no automatic publishing on ordinary pushes or tag events. Publishing and
 the full release workflow have not been exercised for these packages. If a release
 fails partway through, inspect its run, pushed tags, and registry state before any
-retry; these steps are not a single atomic transaction. Do not delete or reuse a
-published version to conceal a partial release.
+retry; these steps are not a single atomic transaction. In particular, a failure
+after the tag is pushed can leave manifests at the release version, so a blind
+rerun fails the normal `+dev` baseline check. If upload was partial, recover the
+original release artifacts and publish only the missing files, verify all three
+projects and the GitHub release, then restore the lockstep development versions
+with `uv version` and `uv lock`. Release artifacts are uploaded before PyPI
+publication; a build or earlier upload failure has no PyPI artifacts to recover.
+Do not delete or reuse a published version to conceal a partial release.

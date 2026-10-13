@@ -102,6 +102,8 @@ jobs:
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
           git --no-pager diff -- packages/mitm/pyproject.toml packages/codex-launcher/pyproject.toml packages/hostfork/pyproject.toml
           echo "Prepared v$version; dry-run mode: ${{ inputs.dry_run }}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Build prepared release distributions
+        run: uv build --all-packages
       - name: Commit and tag the release
         if: ${{ !inputs.dry_run }}
         env:
@@ -116,9 +118,6 @@ jobs:
           git commit -m "$VERSION"
           git tag -a "$TAG" -m "$VERSION"
           git push --atomic origin HEAD:main "refs/tags/$TAG"
-      - name: Build from the release commit
-        if: ${{ !inputs.dry_run }}
-        run: uv build --all-packages
       - name: Preserve release artifacts
         if: ${{ !inputs.dry_run }}
         uses: actions/upload-artifact@v6
