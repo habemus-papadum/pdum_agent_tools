@@ -44,7 +44,7 @@ jobs:
           uv run --frozen ruff check .
           uv run --frozen ruff format --check .
       - name: Verify package imports
-        run: uv run --frozen --all-packages python -c "import pdum.mitm; import pdum.codex_launcher; import pdum.hostfork"
+        run: uv run --frozen --all-packages python -c "import pdum.mitm; import pdum.codex_launcher; import pdum.hostfork; import pdum.claude_launcher"
       - name: Run local integration and unit tests
         run: uv run --frozen --all-packages --all-extras pytest -m "not live" --cov --cov-report=xml --cov-report=term
       - name: Upload coverage

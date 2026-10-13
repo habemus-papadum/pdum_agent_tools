@@ -15,6 +15,9 @@ nav:
   - Development: development.md
   - Implementation status: implementation-status.md
   - Profile setup and authentication: profiles.md
+  - Claude launcher:
+      - Operator and API guide: claude.md
+      - Qualification report: claude-validation.md
   - Hostfork:
       - Operator and API guide: hostfork.md
       - Validation and limits: hostfork-validation.md
@@ -24,6 +27,7 @@ nav:
       - Overview: architecture.md
       - Agreed design principles: design-principles.md
       - Codex launcher: specs/codex-launcher.md
+      - Claude launcher: specs/claude-launcher.md
       - MITM sidecar: specs/mitm.md
       - Hostfork:
           - Architecture: specs/hostfork/architecture.md
@@ -34,6 +38,7 @@ nav:
   - Implementation plans:
       - Joint sequence: plans/implementation.md
       - Codex launcher: plans/codex-launcher.md
+      - Claude launcher: plans/claude-launcher.md
       - MITM sidecar: plans/mitm.md
       - Hostfork: plans/hostfork.md
 
@@ -55,7 +60,7 @@ plugins:
       default_handler: python
       handlers:
         python:
-          paths: [packages/mitm/src, packages/codex-launcher/src, packages/hostfork/src]
+          paths: [packages/mitm/src, packages/codex-launcher/src, packages/hostfork/src, packages/claude-launcher/src]
           options:
             docstring_style: numpy
             show_submodules: true

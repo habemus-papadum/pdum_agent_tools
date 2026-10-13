@@ -17,7 +17,7 @@ and compatibility still require implementation evidence.
 
 ## Start here
 
-The workspace has three independently useful parts:
+The workspace has four independently useful parts:
 
 - **`pdum.codex_launcher`** owns a Codex profile and its managed process: selecting
   configuration, preparing authentication, starting and stopping app-server, and
@@ -29,6 +29,12 @@ The workspace has three independently useful parts:
 - **`pdum.hostfork`** owns host-derived Linux views, private trees, process groups,
   independent deadlines and recoverable evidence. Applications compose it through
   its async library or CLI; it has no dependency on either package above.
+
+- **`pdum.claude_launcher`** owns Claude profiles and foreground native workers,
+  while official browser/Node SDKs own live conversations. Its separate management
+  API uses official Python SDK history helpers. Several workers share a profile;
+  each connected controller owns one worker. See the [Claude specification](specs/claude-launcher.md)
+  and [qualification report](claude-validation.md). It has no dependency on Codex.
 
 The launcher composes the sidecar when requested. The MITM package never imports
 the launcher. Sharing a repository does not require sharing a process supervisor,
@@ -77,6 +83,10 @@ The package architectures own their respective contracts. This page and the join
 plan summarize composition, not a third competing API specification.
 
 ## Requirements retained from the discussion
+
+The launcher rows below describe Codex. Claude uses its own
+[specification](specs/claude-launcher.md), especially multiple workers per profile,
+client-owned SDK queries and disconnect-ending worker lifetimes.
 
 | Requirement | Design owner |
 | --- | --- |

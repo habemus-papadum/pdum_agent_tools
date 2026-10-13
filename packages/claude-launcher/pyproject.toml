@@ -1,0 +1,34 @@
+[project]
+name = "habemus-papadum-claude-launcher"
+version = "0.1.0+dev"
+description = "Isolated Claude profiles and a foreground relay for official SDK clients"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{ name = "Nehal Patel", email = "nehal@alum.mit.edu" }]
+dependencies = [
+    "claude-agent-sdk==0.2.165",
+    "platformdirs>=4,<5",
+    "psutil>=6,<8",
+    "questionary>=2.1,<3",
+    "rich>=14,<16",
+    "typer>=0.16,<1",
+    "websockets>=15,<17",
+]
+
+[project.scripts]
+pdum-claude = "pdum.claude_launcher.cli:app"
+
+[project.optional-dependencies]
+management = ["fastapi>=0.115,<1", "uvicorn>=0.35,<1"]
+mitm = ["habemus-papadum-mitm"]
+
+[project.urls]
+Repository = "https://github.com/habemus-papadum/pdum_agent_tools"
+Documentation = "https://habemus-papadum.github.io/pdum_agent_tools/"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pdum"]

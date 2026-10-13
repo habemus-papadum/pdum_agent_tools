@@ -30,7 +30,7 @@ or an application authorization system on the default path.
 | Profiles | Self-contained directories; native Codex configuration stays native. Launcher metadata covers only launcher-owned concerns. |
 | Temporary work | Clean or cloned temporary profiles are first-class. Cloning and credential reuse should be quick, predictable, and warning-based rather than permission-gated. |
 | Process lifetime | Foreground CLI or application-owned async context; no daemon, automatic restart or attach-to-existing mode initially. tmux/Docker can supply external supervision. |
-| Profile ownership | One managed app-server per profile. Record server PID and process identity; make status and verified stop/cleanup straightforward. |
+| Profile ownership | Codex has one managed app-server per profile. Claude permits multiple independent workers per profile. Record owned PIDs and process identity; make status and verified stop/cleanup straightforward. |
 | MITM | No sidecar by default. Explicit interception starts with the consumer; recording can start off and be toggled later without replacing its connection. |
 | Captures | Recording is off until enabled. Then preserve complete observed application payloads without initial size caps, truncation thresholds or run quotas. Redaction is optional. |
 | Observation | Copy messages into a separate asynchronous inspection path. Recording, parsing and export must not gate or mutate forwarding. Report observer failures rather than stopping healthy traffic. |
@@ -49,7 +49,8 @@ to the intended service and is separate from application access control.
 Retain safeguards that prevent accidents and make experiments reproducible:
 
 - Resolve the requested profile unambiguously. Avoid accidental state sharing,
-  source-profile writes, output overwrites, and concurrent owners of one profile.
+  source-profile writes and output overwrites. Codex's exclusive profile owner is
+  distinct from Claude's intentional sharing by independent workers.
 - Give each run identifiable paths and lifecycle ownership. Recover stale state
   without killing an unrelated process or deleting a directory someone still uses.
 - Keep environment/proxy/CA changes scoped to the launched process. Do not silently

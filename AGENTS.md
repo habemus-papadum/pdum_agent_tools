@@ -8,12 +8,19 @@ for the project layout and commands.
 ## Scope and design
 
 - The workspace contains `habemus-papadum-mitm` (`pdum.mitm`),
-  `habemus-papadum-codex-launcher` (`pdum.codex_launcher`), and
-  `habemus-papadum-hostfork` (`pdum.hostfork`).
+  `habemus-papadum-codex-launcher` (`pdum.codex_launcher`),
+  `habemus-papadum-hostfork` (`pdum.hostfork`), and
+  `habemus-papadum-claude-launcher` (`pdum.claude_launcher`).
 - Implementation of the agreed architecture is authorized. Use `docs/specs/` and
   `docs/plans/` as the design baseline; record supported behavior and remaining
   gates honestly rather than claiming the whole proposal is implemented.
 - Keep MITM functionality independent of AI agents and Codex-specific concerns.
+- Claude live clients are the official browser and Node SDKs. The Python launcher
+  owns profiles/processes and relays bytes; it never owns a second conversation
+  query. Multiple workers may share one Claude profile. Disconnect ends its worker.
+  Use official SDK history helpers; do not reverse-engineer native recovery internals.
+  API keys, explicit existing-login reuse and native dedicated-profile login are
+  the first authentication strategies. Qualify login early with operator help.
 - Distinguish intended functionality from implemented and tested behavior in documentation.
 - Follow the agreed [trusted-operation principles](docs/design-principles.md): one
   advanced operator, trusted agents/clients inside an operator-controlled network.
@@ -83,6 +90,8 @@ for the project layout and commands.
   Aim for USD 0.05–0.10 per investigation; up to USD 1 is authorized for important
   validation. Coordinate spend across agents, bound turns/time/retries and record
   usage plus dated estimates separately from actual subscription billing.
+- Use Haiku for small Claude compatibility checks, with explicit experiment
+  turn/spend bounds and a usage ledger. Runtime defaults do not inherit probe quotas.
 - The interoperability milestone is the real vanilla Codex remote CLI connecting
   through our relay to app-server unchanged, including a small live turn. Check
   actual CLI support instead of assuming `codex exec` accepts a remote endpoint.

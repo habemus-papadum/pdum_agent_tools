@@ -4,7 +4,23 @@ The repository now has a tested local implementation, not just scaffolds. The
 architecture documents remain the broader target; they are not a claim that every
 planned option is available. This page records the implemented boundary.
 
-## Launcher
+## Claude launcher
+
+The new, unreleased `pdum.claude_launcher` package implements profile creation,
+API-key references, existing-login reuse and native dedicated-profile login commands;
+an async foreground manager with lazy native workers; raw SDK relaying; official
+Python SDK history helpers; a mountable Typer CLI and optional FastAPI management
+adapter; asynchronous protocol recording/usage and optional generic MITM composition.
+
+Real Node SDK control, callback, inference, concurrent workers, fork/resume and cleanup
+passed against the Python implementation, including one captured upstream streaming
+response through MITM. Dedicated-profile native login and a subsequent live turn
+also passed. Genuine API-key inference and actual-browser client qualification
+remain explicit gates. Earlier TypeScript spike results are not
+substitutes for these checks. See the [guide](claude.md), [qualification report](claude-validation.md)
+and [delivery plan](plans/claude-launcher.md) for evidence and limitations.
+
+## Codex launcher
 
 - Async directory-based profiles, atomic creation and source copying, unknown
   native TOML preservation, executable selection and clean/inherited environments.

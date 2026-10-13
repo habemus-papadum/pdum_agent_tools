@@ -1,5 +1,14 @@
 # Proposed Claude runtime architecture and work plan
 
+**Production follow-up, 2026-10-13:** the operator subsequently approved a Python
+launcher with official browser/Node clients. The
+[production specification](../../../docs/specs/claude-launcher.md),
+[implementation plan](../../../docs/plans/claude-launcher.md) and
+[qualification report](../../../docs/claude-validation.md) now own that delivery.
+Official Python SDK history helpers replace the proposed Node host helpers after
+separate qualification. The research recommendation and evidence below are retained
+as the record of the TypeScript spikes.
+
 **Recommendation, revised 2026-10-13:** keep the official SDK query in the
 client. A foreground host manager launches one unmodified Claude Code worker
 per client session and relays its protocol. A separate, small management API

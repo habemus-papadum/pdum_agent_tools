@@ -1,7 +1,7 @@
 # Development
 
 Run the commands on this page from the repository root. This is a workspace for
-three distributions; the root is not itself a distribution. See [implementation status](implementation-status.md)
+four distributions; the root is not itself a distribution. See [implementation status](implementation-status.md)
 for supported package behavior and [testing](testing.md) for the evidence policy.
 
 The imported `experiments/` tree is a separate research workspace, intentionally
@@ -43,6 +43,7 @@ that consistency check.
 - `packages/mitm/src/pdum/mitm/` contains `pdum.mitm`.
 - `packages/codex-launcher/src/pdum/codex_launcher/` contains `pdum.codex_launcher`.
 - `packages/hostfork/src/pdum/hostfork/` contains `pdum.hostfork`.
+- `packages/claude-launcher/src/pdum/claude_launcher/` contains `pdum.claude_launcher`.
 - Each package owns its manifest, README, and `tests/` directory.
 - `pdum` is a PEP 420 namespace shared by the distributions. Do not add an
   `__init__.py` at the `src/pdum/` level. Keep each module's `py.typed` marker.
@@ -69,7 +70,7 @@ normal Codex instance or install system-wide interception settings.
 
 Use `uv add --package DISTRIBUTION DEPENDENCY` for runtime dependencies, selecting
 `habemus-papadum-mitm`, `habemus-papadum-codex-launcher` or
-`habemus-papadum-hostfork` as the consuming distribution.
+`habemus-papadum-hostfork` or `habemus-papadum-claude-launcher` as the consuming distribution.
 Use `uv add --group dev TOOL` for
 shared development tools. Optional launcher integrations use the `mitm` and
 `management` extras; `federation` adds the HTTP token-exchange dependency.
@@ -87,7 +88,7 @@ uv lock --check
 uv run --frozen ruff check .
 uv run --frozen ruff format --check .
 uv run --frozen pre-commit run --all-files
-uv run --frozen --all-packages python -c "import pdum.mitm; import pdum.codex_launcher; import pdum.hostfork"
+uv run --frozen --all-packages python -c "import pdum.mitm; import pdum.codex_launcher; import pdum.hostfork; import pdum.claude_launcher"
 ```
 
 To apply formatting, use `uv run --frozen ruff format .`. The installed pre-commit
@@ -128,7 +129,8 @@ The docs build writes to ignored `site/`. Hatchling builds source distributions 
 wheels under ignored `dist/`. To build one package, use
 `uv build --package habemus-papadum-mitm` or
 `uv build --package habemus-papadum-codex-launcher`, or
-`uv build --package habemus-papadum-hostfork`. Building does not publish anything.
+`uv build --package habemus-papadum-hostfork`, or
+`uv build --package habemus-papadum-claude-launcher`. Building does not publish anything.
 
 ## CI and Pages
 
@@ -149,7 +151,7 @@ is already configured. Local edits are not published until pushed and deployed.
 Releases are **human-operated** through the `release` workflow on `main`. Agents
 must not dispatch it or publish packages. No release is part of normal setup or checks.
 
-The three distributions share a version in lockstep. Between releases their manifests
+The four distributions share a version in lockstep. Between releases their manifests
 carry the last release version plus `+dev`; the initial marker is `0.0.0+dev`.
 Do not edit versions by hand or use built development artifacts as release artifacts.
 
@@ -162,7 +164,7 @@ The prepared Hostfork workflow runs on every push to `main`, including documenta
 changes, so both gates can qualify the same release commit. Pull requests retain
 path filtering for the prepared workflow.
 
-A dry run prepares the version changes and builds all three distributions on the
+A dry run prepares the version changes and builds all four distributions on the
 runner but does not commit, tag, or publish. A real release requires the
 `PYPI_API_TOKEN` repository secret, builds before creating public refs, checks that
 `main` still matches the selected commit, commits all versions and the lockfile,
@@ -182,14 +184,27 @@ so its release event does not automatically redeploy Pages or run CI on the
 version-only commits. Source documentation is deployed by the preceding human
 push; use a manual documentation deployment if a release-specific refresh is needed.
 
-There is no automatic publishing on ordinary pushes or tag events. Publishing and
-the full release workflow have not been exercised for these packages. If a release
+There is no automatic publishing on ordinary pushes or tag events. The original three packages were published successfully as v0.1.0 on 2026-10-13.
+The new Claude launcher has not been published yet; it joins the lockstep workflow
+for a future maintainer-operated release. If a release
 fails partway through, inspect its run, pushed tags, and registry state before any
 retry; these steps are not a single atomic transaction. In particular, a failure
 after the tag is pushed can leave manifests at the release version, so a blind
 rerun fails the normal `+dev` baseline check. If upload was partial, recover the
-original release artifacts and publish only the missing files, verify all three
-projects and the GitHub release, then restore the lockstep development versions
+original release artifacts and publish only the missing files, verify every published
+project and the GitHub release, then restore the lockstep development versions
 with `uv version` and `uv lock`. Release artifacts are uploaded before PyPI
 publication; a build or earlier upload failure has no PyPI artifacts to recover.
 Do not delete or reuse a published version to conceal a partial release.
+
+## Claude client qualification
+
+The [Claude launcher](claude.md) uses the official Python SDK for saved history,
+with the official TypeScript SDK in browser/Node clients. Its optional `management`
+extra includes the HTTP server; `mitm` composes the generic sidecar.
+The small `examples/claude-client/` pnpm project has its own pinned dependencies
+and is separate from both the root Python workspace and `experiments/`. Build it
+with `pnpm install --frozen-lockfile` and `pnpm build` in that directory.
+Live Haiku probes are explicit; record usage, SDK estimates and missing-result
+uncertainty. See the [qualification report](claude-validation.md) for evidence
+and gates. Ordinary CI never supplies provider credentials or submits prompts.

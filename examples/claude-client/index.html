@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Claude launcher client qualification</title>
+<style>body { font: 16px system-ui; max-width: 70rem; margin: 3rem auto; padding: 1rem; } button,input { font: inherit; padding: .5rem; } pre { white-space: pre-wrap; overflow-wrap: anywhere; }</style>
+<h1>Claude launcher client qualification</h1>
+<p>The official browser SDK connects to a Python-managed Claude worker.</p>
+<label>Profile <input id="profile" value="default"></label>
+<button id="initialize">Check initialization and controls</button>
+<button id="live">Run one paid Haiku turn</button>
+<p>The paid check requests a short response with tools disabled, one turn and a $0.05 SDK budget. Choose a Haiku profile. Usage is reported separately from subscription billing.</p>
+<pre id="output">Ready</pre>
+<script type="module" src="./browser.js"></script>
+</html>

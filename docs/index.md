@@ -1,6 +1,6 @@
 # pdum_agent_tools
 
-This repository contains three Python packages being developed together in a uv
+This repository contains four Python packages being developed together in a uv
 workspace. The first local implementation is working, with real network/process
 tests and a live native-Codex-client interoperability check.
 
@@ -9,6 +9,7 @@ tests and a live native-Codex-client interoperability check.
 | [habemus-papadum-mitm](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/packages/mitm/README.md) | A general-purpose MITM sidecar for traffic recording, independent of AI agents. |
 | [habemus-papadum-codex-launcher](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/packages/codex-launcher/README.md) | Named Codex profiles and app-server launch configuration. |
 | [habemus-papadum-hostfork](hostfork.md) | Host-derived Linux environments, private storage, process ownership and recovery. |
+| [habemus-papadum-claude-launcher](claude.md) | Isolated Claude profiles and independent workers for official browser/Node SDK clients; new, unreleased package. |
 
 Start with [implementation status](implementation-status.md) for commands, APIs,
 observed results and remaining limitations. The [testing guide](testing.md) separates
@@ -23,6 +24,8 @@ selective native imports, editable TOML and upstream authentication workflows.
   inspection without initial capture quotas, and reusable Typer CLIs.
 - [Architecture overview](architecture.md)
 - [Codex launcher](specs/codex-launcher.md)
+- [Claude launcher](claude.md), [architecture](specs/claude-launcher.md),
+  [delivery plan](plans/claude-launcher.md) and [qualification report](claude-validation.md)
 - [MITM sidecar](specs/mitm.md)
 - [Hostfork](hostfork.md), Linux environments with private storage and independent deadlines
 - [Hostfork architecture](specs/hostfork/architecture.md) and [implementation plan](plans/hostfork.md)
