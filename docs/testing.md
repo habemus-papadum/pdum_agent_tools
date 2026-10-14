@@ -34,6 +34,10 @@ The suite contains:
   profiles, real remote TUI, native large-message fragmentation, competing launches,
   process cleanup and orphan recovery. These skip if `codex` is absent. They do
   not copy normal credentials or request inference.
+- Installed-Claude tests marked `claude`: credential-free native initialization,
+  user/project configuration discovery, instructions, local plugins and MCP child
+  cleanup through the official Node SDK. The deeper profile tests need Node and
+  the pinned example dependencies; missing prerequisites are explicit skips.
 
 Fixtures are appropriate for malformed parser input and process failure injection.
 A deliberately sleeping local executable tests process ownership, not provider
@@ -56,6 +60,24 @@ Built-wheel smoke tests use only declared runtime dependencies, verify core laun
 operation without MITM/FastAPI installed, then exercise an installed MITM worker
 and managed sidecar/app-server. Restore the normal root uv development environment
 after packaging checks; do not create package-local environments or lockfiles.
+
+## Credential-free Claude compatibility
+
+After `pnpm install --frozen-lockfile` in `examples/claude-client/`, run:
+
+```sh
+uv run --frozen python scripts/check_claude_clients.py --clients 4 --rounds 2 --timeout 120
+uv run --frozen pytest packages/claude-launcher/tests/test_profiles_native.py
+```
+
+The script requires real native Claude and Node executables and verifies SDK
+initialization, interrupt, repeated concurrency and process cleanup. It uses a
+temporary home and a logged-out native profile; no user prompt or credential is
+supplied. Its total deadline and concurrency settings apply only to qualification.
+The new Linux CI job installs pinned executables and runs these checks, but has
+not yet run remotely. Actual Chrome and live provider results are recorded
+separately in the [Claude qualification report](claude-validation.md); the
+[checkpoint](claude-handoff.md) identifies the remaining browser and platform checks.
 
 ## Opt-in live CLI compatibility
 

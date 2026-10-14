@@ -1,8 +1,8 @@
 # Research and spikes
 
 The original `agent-spike` work is imported under `experiments/`, alongside the
-two packages. Continue new investigations there; do not confuse historical
-probe code with an implementation of the architecture proposals.
+workspace's four Python packages. Continue new investigations there; historical
+probe code remains separate from implementations of the architecture proposals.
 
 The import preserves runnable source, current reports/tutorials, the Vite protocol
 guide, and pnpm/uv workspace locks. It does not copy credentials, captured traffic,
@@ -13,13 +13,27 @@ original checkout. Findings are preserved, not newly verified by the import.
 
 ## Read the findings
 
+Start with the [combined Codex client findings](codex-client-findings.md), completed
+14 October 2026. Spikes 025–034 cover history/replay, session administration,
+late joins, remote files/processes, images and shared health/cost analysis.
+The overview links every individual report and records the recommendation,
+measured usage and remaining checks. No new library was introduced. The
+[original proposal](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/proposals/codex-client-feasibility-spikes.md)
+preserves the questions and scope.
+
 The [Hostfork spike findings](specs/hostfork/spike-findings.md) summarize the current
 storage, compatibility, scale and lifetime experiments. Their runnable code and
 individual reports are under `experiments/spikes/020-*` through `024-*`; these are
-research implementations, separate from the two distributable packages.
+research implementations, separate from the distributable packages.
 The resulting [Hostfork architecture](specs/hostfork/architecture.md) and
 [implementation plan](plans/hostfork.md) distinguish proposed delivery from those
 measured experiments.
+
+Claude spikes 014–016 led to the separate Python launcher. The
+[current guide](claude.md), [qualification report](claude-validation.md) and
+[checkpoint/follow-up](claude-handoff.md) describe that implementation, including
+real browser/Node checks. The research reports retain their earlier TypeScript
+architecture and evidence; their pending work is not the current package status.
 
 Local checkout paths below have corresponding repository links for site readers:
 
@@ -54,8 +68,9 @@ individual reports. Type-checking/building does not run live model experiments.
 Do not copy the old environment or captures just to make missing-evidence probes
 appear reproducible.
 
-The root Python package CI continues to check only the two distributable packages;
-it does not install research dependencies or automatically run paid experiments.
+The root Python CI configuration covers the four distributable packages and the
+separate official Claude client example. It does not install research dependencies
+or automatically run paid experiments.
 Research validation and live probes are explicit commands. A separate no-secret
 research CI job can be introduced later without widening the package release job.
 

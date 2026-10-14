@@ -17,12 +17,15 @@ nav:
   - Profile setup and authentication: profiles.md
   - Claude launcher:
       - Operator and API guide: claude.md
+      - Checkpoint and follow-up: claude-handoff.md
       - Qualification report: claude-validation.md
+      - Profile isolation: claude-profile-isolation.md
   - Hostfork:
       - Operator and API guide: hostfork.md
       - Validation and limits: hostfork-validation.md
   - Testing: testing.md
   - Research and spikes: research.md
+  - Codex client findings: codex-client-findings.md
   - Architecture proposals:
       - Overview: architecture.md
       - Agreed design principles: design-principles.md

@@ -10,10 +10,13 @@ through the official SDK's history helpers.
 The first implementation is available in this workspace and has not been published.
 Official Node SDK control, callbacks, a live Haiku turn, saved-history reads and
 optional MITM capture passed. Dedicated native login and a subsequent live turn
-also passed. Genuine API-key inference and actual-browser qualification remain open. See the
+also passed. Actual Chrome/API-key checks passed live streaming, client-owned hooks,
+concurrent workers, history, fork/resume recall and cleanup against this host. See the
 [guide](https://habemus-papadum.github.io/pdum_agent_tools/claude/),
 [architecture](https://habemus-papadum.github.io/pdum_agent_tools/specs/claude-launcher/)
 and [qualification report](https://habemus-papadum.github.io/pdum_agent_tools/claude-validation/).
+The [checkpoint and follow-up](https://habemus-papadum.github.io/pdum_agent_tools/claude-handoff/)
+records remaining Linux, browser-interaction and credential-renewal qualification.
 
 ```sh
 uv run pdum-claude profile create research --workspace /path/to/project --auth native
@@ -46,4 +49,9 @@ separate from subscription billing; missing result usage is unknown.
 
 The official browser and Node client examples live in `examples/claude-client/`.
 Node uses the SDK's public spawn-transport adapter; the browser uses its WebSocket
-entry. They are compatibility examples rather than a complete chat application.
+entry. The browser includes profile selection, saved history, new/resume/fork,
+streaming chat, interrupt and end-session controls. Visible Chrome checks passed
+the core workflow and tab-close cleanup; mid-turn UI interruption and interactive
+permission controls remain unqualified. Native fixtures verify profile-specific agents, commands,
+skills, instructions, plugins and MCP configuration, with selected project
+configuration intentionally shared.

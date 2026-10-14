@@ -3,9 +3,12 @@
 **Status:** implementation roadmap; a first subset is now implemented and tested.
 See [current status](../implementation-status.md), not this roadmap, for completion
 claims. Read the
-[architecture overview](../architecture.md) and both package architectures first.
+[architecture overview](../architecture.md) and the Codex/MITM architectures first.
 The [launcher plan](codex-launcher.md) and [MITM plan](mitm.md) define detailed tasks;
 this page defines their dependency order and shared completion gates.
+The later Claude and Hostfork tracks have their own [Claude plan](claude-launcher.md)
+and [Hostfork plan](hostfork.md). See the [Claude checkpoint](../claude-handoff.md)
+for its current stopping point and next steps.
 
 The [trusted-operation stance](../design-principles.md) is already agreed. Implement
 sandbox/approvals off, all-interface TCP binds and long-lived client connections
@@ -175,7 +178,8 @@ Keep raw captures and credential-bearing output private under ignored local
 artifact paths, not in CI uploads by default. Published evidence includes versions,
 commands, sanitized summaries, limitations, and whether it came from source
 inspection, a local service, or a live upstream run. Existing spike results are
-background evidence, not tests of these still-unimplemented packages.
+background evidence; package compatibility requires checks against the package
+implementation itself.
 
 ## Deferred work
 

@@ -66,3 +66,40 @@ jobs:
           name: distributions
           path: dist/*
           if-no-files-found: error
+
+  claude-clients:
+    name: Claude official Node SDK / native launcher (credential-free)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.17"
+          python-version: "3.14"
+          enable-cache: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "26.10.0"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "11.9.0"
+      - name: Install workspace and pinned official client example
+        run: |
+          uv sync --frozen --all-packages --all-extras
+          pnpm --dir examples/claude-client install --frozen-lockfile
+          pnpm --dir examples/claude-client build
+      - name: Install pinned native Claude on the disposable runner
+        env:
+          DISABLE_AUTOUPDATER: "1"
+          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+        # Official versioned native installer: https://code.claude.com/docs/en/setup#install-a-specific-version
+        run: |
+          curl -fsSL https://claude.ai/install.sh -o "$RUNNER_TEMP/install-claude.sh"
+          bash "$RUNNER_TEMP/install-claude.sh" 2.1.296
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          test "$("$HOME/.local/bin/claude" --version)" = "2.1.296 (Claude Code)"
+      - name: Check credential-free concurrent SDK controls and worker cleanup
+        run: uv run --frozen --all-packages --all-extras python scripts/check_claude_clients.py --clients 4 --rounds 2 --timeout 120
+      - name: Check native profile and instruction isolation
+        run: uv run --frozen --all-packages --all-extras pytest packages/claude-launcher/tests/test_profiles_native.py -m "not live"

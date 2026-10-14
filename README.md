@@ -4,7 +4,9 @@ A Python workspace for a general-purpose MITM sidecar, Codex and Claude profile
 managers/launchers, and Hostfork host-derived Linux environments.
 
 **Status:** first working local implementation, with real process/network tests
-and a live vanilla-Codex-client → relay → app-server → MITM → Luna check.
+and a live vanilla-Codex-client → relay → app-server → MITM → Luna check. The new,
+unreleased Claude launcher also passed official browser/Node SDK Haiku flows on
+macOS; see its [checkpoint and follow-up](docs/claude-handoff.md).
 See [implemented capabilities and limitations](docs/implementation-status.md);
 the wider architecture proposals are not all implemented.
 
@@ -17,10 +19,10 @@ the wider architecture proposals are not all implemented.
 | [habemus-papadum-hostfork](packages/hostfork/README.md) | `pdum.hostfork` | Host-derived views, private storage, ordinary Python subprocesses, independent deadlines and recovery. |
 | [habemus-papadum-claude-launcher](packages/claude-launcher/README.md) | `pdum.claude_launcher` | Isolated Claude profiles, foreground workers for official browser/Node SDK clients, and saved-history management. New, unreleased package. |
 
-The launcher uses MITM only when selected; its `mitm` extra installs that
-integration. The `management` extra adds an optional FastAPI adapter. All four packages
-export standalone and mountable Typer CLIs.
-The launcher's Rich/Questionary interview manages selective native imports and
+The Codex and Claude launchers use MITM only when selected; their `mitm` extras
+install that integration. Their `management` extras add optional FastAPI adapters.
+All four packages export standalone and mountable Typer CLIs.
+The Codex launcher's Rich/Questionary interview manages selective native imports and
 upstream authentication; the optional `federation` extra supports an AWS credential
 helper. See [profile setup and authentication](docs/profiles.md).
 
@@ -46,6 +48,9 @@ The related [research workspace](experiments/README.md) imports the agent-spike
 experiments and remains available for new spikes. Its source, reports, protocol
 guide, and dependency locks are kept separate from the production package distributions.
 See [import provenance and exclusions](experiments/IMPORT.md).
+The [Codex client feasibility findings](docs/codex-client-findings.md) summarize
+the completed 025–034 round and link its history, administration, live-control,
+remote-operation and observability evidence.
 
 ## Architecture and implementation proposals
 

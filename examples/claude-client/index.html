@@ -1,14 +1,89 @@
 <!doctype html>
 <html lang="en">
-<meta charset="utf-8">
-<title>Claude launcher client qualification</title>
-<style>body { font: 16px system-ui; max-width: 70rem; margin: 3rem auto; padding: 1rem; } button,input { font: inherit; padding: .5rem; } pre { white-space: pre-wrap; overflow-wrap: anywhere; }</style>
-<h1>Claude launcher client qualification</h1>
-<p>The official browser SDK connects to a Python-managed Claude worker.</p>
-<label>Profile <input id="profile" value="default"></label>
-<button id="initialize">Check initialization and controls</button>
-<button id="live">Run one paid Haiku turn</button>
-<p>The paid check requests a short response with tools disabled, one turn and a $0.05 SDK budget. Choose a Haiku profile. Usage is reported separately from subscription billing.</p>
-<pre id="output">Ready</pre>
-<script type="module" src="./browser.js"></script>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Claude launcher</title>
+  <style>
+    :root { color-scheme: light dark; font: 15px/1.5 system-ui, sans-serif; --bg: #f7f7f5; --panel: #fff; --ink: #202720; --muted: #667067; --line: #dfe4df; --accent: #245b3f; --error: #a02727; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); }
+    button, input, textarea, select { font: inherit; }
+    button, input, textarea, select { border: 1px solid var(--line); border-radius: .45rem; background: var(--panel); color: inherit; padding: .5rem .7rem; }
+    button { cursor: pointer; } button:hover:enabled { border-color: var(--accent); } button:disabled { opacity: .45; cursor: default; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: white; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    h1, h2, p { margin: 0; } h1 { font-size: 1.2rem; } h2 { font-size: 1rem; }
+    small, .muted { color: var(--muted); } .row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+    header { padding: 1rem 1.4rem; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
+    #connection { font-size: .9rem; } #connection[data-state="ready"] { color: var(--accent); }
+    .layout { display: grid; grid-template-columns: 19rem minmax(0, 1fr); min-height: calc(100dvh - 4.4rem); }
+    aside { padding: 1.2rem; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 1rem; }
+    aside label { display: grid; gap: .35rem; } #profile { width: 100%; } #profile-detail { overflow-wrap: anywhere; font-size: .8rem; }
+    #sessions { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: .4rem; max-height: 55dvh; overflow: auto; }
+    #sessions button { display: block; text-align: left; width: 100%; } #sessions button[aria-current="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
+    .session-title { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } #sessions small { display: block; font-size: .75rem; }
+    main { min-width: 0; display: flex; flex-direction: column; }
+    .conversation-head { padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--line); display: grid; gap: .7rem; }
+    #conversation-title { overflow-wrap: anywhere; } #conversation-detail { font: .75rem ui-monospace, monospace; overflow-wrap: anywhere; }
+    #error { margin: 1rem 1.5rem 0; padding: .7rem 1rem; border: 1px solid var(--error); border-radius: .45rem; color: var(--error); white-space: pre-wrap; overflow-wrap: anywhere; }
+    [hidden] { display: none !important; }
+    #messages { padding: 1.5rem; display: grid; align-content: start; gap: 1rem; flex: 1; overflow-wrap: anywhere; }
+    #empty { color: var(--muted); max-width: 38rem; padding: 2rem 0; }
+    .message { padding: .9rem 1rem; border: 1px solid var(--line); border-radius: .6rem; background: var(--panel); min-width: 0; }
+    .message[data-role="user"] { background: color-mix(in srgb, var(--accent) 5%, var(--panel)); }
+    .message > strong { font-size: .8rem; color: var(--muted); display: block; margin-bottom: .3rem; }
+    .message pre, details pre { font: .85rem/1.55 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; margin: .4rem 0; }
+    .message .text { white-space: pre-wrap; } .message details { margin: .4rem 0; } summary { cursor: pointer; color: var(--muted); }
+    #callbacks { margin: 0 1.5rem; display: grid; gap: .5rem; } .callback { border: 1px solid var(--accent); border-radius: .5rem; padding: 1rem; background: var(--panel); }
+    #composer { padding: 1rem 1.5rem; border-top: 1px solid var(--line); display: grid; gap: .65rem; position: sticky; bottom: 0; background: var(--bg); }
+    #prompt { width: 100%; resize: vertical; min-height: 5rem; max-height: 20rem; } #usage { margin-left: auto; font-size: .8rem; }
+    .qualification { margin-top: auto; border-top: 1px solid var(--line); padding-top: 1rem; font-size: .8rem; }
+    .qualification .row { margin: .5rem 0; } .qualification button { font-size: .8rem; } #output { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 20rem; overflow: auto; }
+    #events { margin: 0 1.5rem 1rem; font-size: .8rem; } #event-list { padding-left: 1.2rem; max-height: 10rem; overflow: auto; }
+    @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--line); } #sessions { max-height: 12rem; } .qualification { margin-top: 0; } .conversation-head, #messages, #composer { padding: 1rem; } }
+    @media (prefers-color-scheme: dark) { :root { --bg: #171b18; --panel: #202621; --ink: #e1e8e2; --muted: #a2afa5; --line: #39443c; --accent: #71bc91; --error: #f09595; } button.primary { color: #122318; } }
+  </style>
+</head>
+<body>
+  <header><h1>Claude launcher</h1><span id="connection" role="status" data-state="idle">Loading profiles…</span></header>
+  <div class="layout">
+    <aside aria-label="Profiles and conversations">
+      <label for="profile">Profile<select id="profile" disabled><option>Loading…</option></select></label>
+      <p id="profile-detail" class="muted"></p>
+      <div class="row"><button id="new" class="primary" disabled>New conversation</button><button id="refresh" disabled>Refresh</button></div>
+      <h2>Saved conversations</h2>
+      <p id="history-state" class="muted" role="status"></p>
+      <ul id="sessions"></ul>
+      <details class="qualification">
+        <summary>Compatibility checks</summary>
+        <p>Use a Haiku profile for paid checks. One turn, tools disabled, $0.05 SDK budget; estimated usage is separate from billing.</p>
+        <div class="row"><button id="initialize" disabled>Check connection</button><button id="live" disabled>Run paid check</button></div>
+        <pre id="output">Ready</pre>
+      </details>
+    </aside>
+    <main>
+      <div class="conversation-head">
+        <h2 id="conversation-title">New conversation</h2>
+        <p id="conversation-detail" class="muted">Choose a profile, then start a conversation or open saved history.</p>
+        <div class="row"><button id="resume" disabled>Resume</button><button id="fork" disabled>Fork and continue</button><button id="rename" disabled>Rename</button><button id="end" disabled>End session</button></div>
+        <form id="rename-form" class="row" hidden>
+          <label for="rename-title">Title</label><input id="rename-title" name="title" autocomplete="off">
+          <button id="rename-save" type="submit">Save title</button><button id="rename-cancel" type="button">Cancel</button>
+        </form>
+      </div>
+      <p id="error" role="alert" hidden></p>
+      <div id="messages" aria-label="Conversation"><p id="empty">Your conversation will appear here. Saved conversations can be read without starting a worker.</p></div>
+      <section id="callbacks" aria-label="Claude requests"></section>
+      <details id="events"><summary>Activity</summary><ul id="event-list"></ul></details>
+      <form id="composer">
+        <label for="prompt" class="muted">Message Claude</label>
+        <textarea id="prompt" placeholder="Send a message…" disabled></textarea>
+        <div class="row"><button id="send" type="submit" class="primary" disabled>Send</button><button id="interrupt" type="button" disabled>Interrupt</button><span id="usage" aria-live="polite"></span></div>
+        <small id="lifetime">Closing this tab or ending the session stops its worker. Resume saved history explicitly to continue.</small>
+      </form>
+    </main>
+  </div>
+  <script type="module" src="./browser.js"></script>
+</body>
 </html>

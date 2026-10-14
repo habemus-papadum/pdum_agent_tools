@@ -141,6 +141,11 @@ the docs and all distributions. Paid tests are excluded. No Codex binary is
 installed by this workflow, so native interoperability tests skip there unless a
 binary is provided. Build and coverage artifacts are not package releases.
 
+A separate Claude client job installs native Claude 2.1.296, Node 26.10.0 and
+pnpm 11.9.0 on Linux, builds the pinned official SDK example, and runs credential-free
+concurrency and profile-isolation checks. It submits no model prompts and receives
+no provider credentials. This newly prepared job has not yet run on GitHub.
+
 The `Deploy documentation` workflow builds and deploys the MkDocs site to GitHub
 Pages on pushes to `main`; it also declares published-release and manual triggers.
 Deployment requires the repository's Pages source to be **GitHub Actions**, which
@@ -207,4 +212,13 @@ and is separate from both the root Python workspace and `experiments/`. Build it
 with `pnpm install --frozen-lockfile` and `pnpm build` in that directory.
 Live Haiku probes are explicit; record usage, SDK estimates and missing-result
 uncertainty. See the [qualification report](claude-validation.md) for evidence
-and gates. Ordinary CI never supplies provider credentials or submits prompts.
+and gates, and the [checkpoint](claude-handoff.md) for prioritized follow-up work.
+Ordinary CI never supplies provider credentials or submits prompts.
+
+With native Claude and Node installed, run `uv run --frozen python
+scripts/check_claude_clients.py --clients 4 --rounds 2 --timeout 120` from the
+repository root. It checks the real official Node SDK against an isolated Python
+manager and native worker, including repeated concurrent clients and cleanup.
+Native profile tests additionally verify agents, skills, instructions, plugins
+and MCP configuration with disposable local fixtures; they visibly skip when
+the native binary, Node or installed example SDK is absent.

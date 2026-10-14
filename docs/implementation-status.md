@@ -15,12 +15,26 @@ adapter; asynchronous protocol recording/usage and optional generic MITM composi
 Real Node SDK control, callback, inference, concurrent workers, fork/resume and cleanup
 passed against the Python implementation, including one captured upstream streaming
 response through MITM. Dedicated-profile native login and a subsequent live turn
-also passed. Genuine API-key inference and actual-browser client qualification
-remain explicit gates. Earlier TypeScript spike results are not
-substitutes for these checks. See the [guide](claude.md), [qualification report](claude-validation.md)
+also passed. Actual Chrome/API-key checks passed streaming inference, concurrent
+workers, client-owned hooks, saved history, fork/resume recall and cleanup against
+this Python host. See the [guide](claude.md), [qualification report](claude-validation.md)
 and [delivery plan](plans/claude-launcher.md) for evidence and limitations.
 
+Native tests also establish [profile customization isolation](claude-profile-isolation.md),
+and a credential-free Node check passes four concurrent clients across two rounds.
+The browser example includes a basic profile/history/chat workflow; visible controls
+passed live chat, history, rename, resume/fork initialization, profile switching and
+tab-close cleanup. Mid-turn UI interruption and interactive permission controls
+remain unqualified. A pinned Linux compatibility CI job is prepared but has not run.
+The [Claude checkpoint and follow-up](claude-handoff.md) records the stopping point
+and priorities for resuming work.
+
 ## Codex launcher
+
+The separate [Codex client feasibility round](codex-client-findings.md) now
+qualifies native history/admin, multiple-client, remote-tool and observation
+behavior. Its proposed client/analysis layers remain research, not additional
+public APIs implemented by this launcher.
 
 - Async directory-based profiles, atomic creation and source copying, unknown
   native TOML preservation, executable selection and clean/inherited environments.

@@ -9,6 +9,13 @@ Official Python SDK history helpers replace the proposed Node host helpers after
 separate qualification. The research recommendation and evidence below are retained
 as the record of the TypeScript spikes.
 
+**Checkpoint, 2026-10-13:** the Python implementation has now passed live browser
+and Node qualification, the three initial authentication paths and native profile
+isolation checks. The package is unreleased; Linux qualification remains pending.
+See the [handoff](../../../docs/claude-handoff.md) for what to pick up next.
+References below to unimplemented production work or future qualification describe
+the earlier research checkpoint, not the current Python package status.
+
 **Recommendation, revised 2026-10-13:** keep the official SDK query in the
 client. A foreground host manager launches one unmodified Claude Code worker
 per client session and relays its protocol. A separate, small management API

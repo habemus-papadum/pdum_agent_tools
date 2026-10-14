@@ -2,12 +2,28 @@
 
 Each spike has runnable code under `spikes/` and a short summary here. Generated evidence lives under the ignored `artifacts/` directory.
 
+**Codex feasibility round, 2026-10-14:** read the
+[combined findings](../../docs/codex-client-findings.md) for a high-level account
+of spikes 025–034, their architectural implications and the shared usage ledger.
+The individual reports below preserve exact protocol evidence and remaining limits.
+
+**Claude checkpoint, 2026-10-13:** spikes 014–016 have a separately implemented
+Python follow-up with qualified official browser/Node clients. Read the current
+[handoff](../../docs/claude-handoff.md) and [qualification report](../../docs/claude-validation.md)
+for completed work and remaining gates. Historical results below retain their
+original scope, recommendations and cost ledgers.
+
 ## Tutorials
 
 - [Authenticating Codex app-server to OpenAI](tutorials/codex-upstream-auth.md): upstream ChatGPT login, API keys, externally managed tokens, and workload identity federation. This is not client-to-app-server WebSocket authentication.
 
 ## Investigation plans
 
+- [025–034 — Codex client feasibility](proposals/codex-client-feasibility-spikes.md):
+  executed round covering history/replay, admin state, joining live threads,
+  branching, remote files/processes, images, health, costs and observation plugins.
+  The proposal preserves original questions; results distinguish tested behavior
+  from the remaining subcases. No new client library was introduced.
 - [014 — Claude Code app server](spikes/014-claude-app-server-proposal.md): compare launch strategies, reuse browser/Node SDK control logic and session helpers, and test shared clients, recovery, transport independence, and unmodified CLI compatibility. Implemented as a research harness; see the result and remaining live qualification gates below.
 
 ## Spike results
@@ -37,15 +53,26 @@ Each spike has runnable code under `spikes/` and a short summary here. Generated
 | 022 | Shared services need explicit path semantics; 200 environments cleaned up, with Python helpers dominating overhead. | [Hostfork compatibility and scale](spikes/022-hostfork-compatibility.md) |
 | 023 | Independent cgroup deadlines, CPU limits and real OOM reporting work; partial evidence survives several controller failures. | [Hostfork lifetime](spikes/023-hostfork-lifetime.md) |
 | 024 | Python retains its subprocess handle while a systemd scope bounds library/native descendants; adoption must precede execution. | [Python-owned launch and scope deadlines](spikes/024-hostfork-scope.md) |
+| 025 | Clean pinned source builds; 269 named messages versus 266 installed, with working runtime experimental gating. | [Version/source baseline](spikes/025-codex-baseline.md) |
+| 026 | Native attachments support tags/notes; read markers work in the source build. Catalogue rows and search need reconciliation. | [Session administration](spikes/026-codex-session-admin.md) |
+| 027 | History-only reads do not load an agent; legacy omissions and native output truncation prevent complete event replay. | [History and replay](spikes/027-codex-history-replay.md) |
+| 028 | Multiple responders work; late joins can miss partial text, submissions are not idempotent, and work survives disconnect. | [Joining live threads](spikes/028-codex-joins.md) |
+| 029 | Fork/revert affect conversation history, not files. Queue insertion and active-goal resume can start work. | [Branching and continuation](spikes/029-codex-forks.md) |
+| 030 | Native file and streaming terminal operations work without inference, including through a real browser. | [Files and processes](spikes/030-codex-remote-operations.md) |
+| 031 | Browser inline images work; local-image UI history depends on asset access, and HTTP image URLs are rejected. | [Rich input and assets](spikes/031-codex-rich-inputs.md) |
+| 032 | Useful advisory health is possible, but idle turns can retain work and client events omit some failures. | [Health and swarm evidence](spikes/032-codex-health.md) |
+| 033 | Shared accounting deduplicates replay/forks; native telemetry exposes costs missing from client counters. | [Usage and cost](spikes/033-codex-accounting.md) |
+| 034 | Live client, launcher processor and offline analysis agree; local OTLP adds coverage. Hosted Logfire is untested. | [Observation and telemetry](spikes/034-codex-observation.md) |
 
 For the current Hostfork direction, read the [architecture findings](../../docs/specs/hostfork/spike-findings.md).
 Spikes 020–024 use only the Python research workspace and local Linux facilities;
 they do not need the JavaScript setup or paid model calls. Run their commands from
 `experiments/` after `uv sync --frozen --all-packages`.
 
-From the repository root, install with `pnpm install` and `uv sync --all-packages`,
+From `experiments/`, install with `pnpm install` and `uv sync --all-packages`,
 then run `pnpm spike:001`, `pnpm spike:002`, or `pnpm spike:003`. The third probe
-requires `git submodule update --init --recursive` and `pnpm build:codex` first.
+requires the [vendor checkout](../vendor/README.md) and `pnpm build:codex` first;
+this imported workspace has no Codex submodule.
 See each summary for the exact scope of its probe and the evidence collected.
 
 Run `pnpm spike:004`, `pnpm spike:005`, and `pnpm spike:006` for the new fixture

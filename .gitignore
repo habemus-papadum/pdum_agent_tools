@@ -13,6 +13,8 @@ coverage.xml
 htmlcov/
 .env
 .env.*
+.emv
+.emv.*
 .DS_Store
 artifacts/
 todo.md

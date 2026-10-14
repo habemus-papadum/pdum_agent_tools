@@ -1,7 +1,8 @@
 # Official Claude SDK clients
 
-These private examples qualify the published TypeScript SDK against the Python
-launcher. They are not Python package runtime dependencies. Node 22+ is required.
+These private examples provide a small browser conversation workflow and qualify
+the published TypeScript SDK against the Python launcher. They are not Python
+package runtime dependencies. Node 22+ is required to build or use the Node example.
 The browser example needs a normal browser with WebSocket support.
 
 ```sh
@@ -12,9 +13,59 @@ pnpm build
 
 Serve `dist/` from the launcher's management app, with API requests on the same
 origin. The Python API's `example_directory` option or the CLI's `--example-dir`
-option mounts this directory at `/example/`. Open `/example/`, enter a configured
-profile name, and choose the initialization check. It makes no provider request.
-The second button explicitly runs one paid turn; use a Haiku profile.
+option mounts this directory at `/example/`. For example, from the repository root:
+
+```sh
+uv run --frozen pdum-claude launch --all-profiles --example-dir examples/claude-client/dist
+```
+
+Open the printed management address at `/example/`. The page lists profiles already
+configured on that manager; authentication and profile creation stay on the host.
+
+## Browser workflow
+
+1. Choose a profile. Its model and workspace are shown below the selector.
+2. Read a saved conversation, or choose **New conversation**. Reading saved history
+   makes no model request and starts no worker. New opens a worker and initializes
+   the official SDK; inference begins only when you send a message.
+3. Use **Resume** to open the selected history in a new worker, or **Fork and continue**
+   to create a separate saved conversation and open that fork. Neither action copies
+   the workspace or sends a prompt automatically.
+4. Send messages, read streamed text and expandable tool input/results, or interrupt
+   the current turn. Cmd/Ctrl+Enter sends. The displayed usage estimate is the SDK's
+   cumulative conversation estimate, including earlier turns on resume.
+5. Choose **End session** before changing profile or conversation. Closing the tab
+   also closes the SDK and requests worker cleanup. A lost connection is displayed;
+   the page never reconnects or resubmits prompts automatically. Saved history can
+   be resumed explicitly.
+
+One tab manages one live worker. Separate tabs can use the same profile independently.
+The ordinary chat sends no turn, token, or budget limit and inherits the manager's
+launch defaults. There are no provider credentials in browser requests or storage.
+The SDK owns its query, prompt stream, hooks, callbacks, interrupt and close. Profile
+selection, history, fork/rename and worker lifecycle use the separate management API.
+
+This is a small example, not a full Claude UI. It displays text and tool details,
+with images represented by a placeholder. A native tool-permission request has
+**Allow once** and **Deny** controls; launcher defaults still disable permission
+prompts. AskUserQuestion, unsupported native dialogs and MCP elicitation forms are
+cancelled with an activity entry; the operator can answer questions in chat instead.
+Rich tool interactions, image/file attachments and dialog forms
+are not implemented. Actual Chrome checks passed a live API-key turn, history
+selection, rename, resume/fork initialization, profile switching and tab-close
+cleanup. The four-turn browser probe passed concurrency and fork/resume recall.
+Permission controls and mid-turn UI interruption still need live qualification;
+SDK interrupt control and client-owned prompt hooks passed. See the
+[qualification report](../../docs/claude-validation.md) for versions and costs.
+The [checkpoint and follow-up](../../docs/claude-handoff.md) records the remaining
+work when development resumes.
+
+## Compatibility checks
+
+Expand **Compatibility checks** while no chat worker is active. **Check connection**
+initializes the SDK and exercises controls without a provider request. **Run paid
+check** explicitly runs one bounded turn; use a Haiku profile. The existing browser
+automation API below remains available.
 
 For the official Node entry point:
 

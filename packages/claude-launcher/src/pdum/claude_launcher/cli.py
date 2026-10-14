@@ -170,9 +170,16 @@ async def _serve(
                     log_level="warning",
                 )
             )
-            console.print(f"Claude manager: http://{host}:{port}; profiles: {', '.join(profiles)}")
-            console.print("Workers start on SDK attachment and stop on client disconnect. Ctrl-C stops the manager.")
-            await server.serve()
+            with server.config.bind_socket() as listener:
+                bound_port = listener.getsockname()[1]
+                url_host = f"[{host}]" if ":" in host else host
+                console.print(
+                    f"Claude manager: http://{url_host}:{bound_port}; profiles: {', '.join(profiles)}", markup=False
+                )
+                console.print(
+                    "Workers start on SDK attachment and stop on client disconnect. Ctrl-C stops the manager."
+                )
+                await server.serve(sockets=[listener])
     finally:
         await hub.close()
         if manager is not None:

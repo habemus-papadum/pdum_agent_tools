@@ -1,5 +1,12 @@
 # Claude Code app server spike proposal
 
+> **Follow-up status, 2026-10-13:** this proposal was investigated in
+> [014](014-claude-app-server.md) and revised by [016](016-claude-client-sessions.md).
+> The agreed lifetime is now client disconnect ending its worker, with the official
+> SDK query owned by the client. A separate Python launcher has passed live
+> browser/Node qualification. See the [checkpoint and next steps](../../../docs/claude-handoff.md)
+> for current status; the original proposal below is retained as historical context.
+
 **Status: proposed, 2026-10-13.** Can a small manager expose Claude Code to browser and Node clients, reuse the Agent SDK's control logic, and keep sessions independent of client connections? The promising starting point is the official browser SDK connected to a manager that launches one Claude Code process per active conversation. Compatibility, shared-client ownership, and recovery remain hypotheses to test.
 
 The experiment should choose a launch strategy, establish which SDK components can be reused, and identify the minimum server responsibilities. Success means a demonstrated path to an app server with profiles, concurrent sessions, storage operations, and replaceable transports. It does not require full Codex protocol parity or a production implementation.

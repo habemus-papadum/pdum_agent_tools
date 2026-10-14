@@ -7,7 +7,9 @@ a profile. Disconnect ends the worker, while its saved conversation remains on d
 
 This is a new, unreleased package. See the [specification](specs/claude-launcher.md),
 [delivery plan](plans/claude-launcher.md) and [qualification report](claude-validation.md).
-Browser compatibility is an explicit acceptance gate, not implied by Node success.
+Browser and Node compatibility have each passed live checks against the Python host.
+The [2026-10-13 checkpoint](claude-handoff.md) records the stopping point and the
+prioritized work to pick up next.
 
 ## Setup and authentication
 
@@ -64,8 +66,13 @@ interview are not implemented yet.
 `--setting-sources user,project` is the creation default. Project settings are
 deliberately shared by workers using that workspace; `--setting-sources user`
 selects only profile user settings. This prevents accidental config collisions,
-not host-policy enforcement or filesystem sandboxing. Full plugin/MCP/instruction
-isolation is not yet qualified. Credentials never go to browser clients.
+not host-policy enforcement or filesystem sandboxing. Native fixture tests verify
+separate user agents, commands, skills, instructions, plugins and MCP configuration;
+selected project configuration is shared. `local` must be selected explicitly to
+include `.claude/settings.local.json` and `CLAUDE.local.md`. See the
+[isolation report](claude-profile-isolation.md) for tested behavior and limits,
+including managed policy and authenticated customization syncing.
+Credentials never go to browser clients.
 
 Temporary work is available through `launch --temp --workspace PATH`. Its default
 auth is `reuse-login`, with a concise warning. `--auth api-key` or `--auth native`
@@ -75,7 +82,8 @@ manager and workers stop; use a named profile when saved history should survive.
 ## Launch and management
 
 The foreground CLI listens on `0.0.0.0:8765` by default. Override `--host` and
-`--port` as needed. `launch --all-profiles` registers all profiles under the selected
+`--port` as needed; `--port 0` selects an available port and prints the actual
+endpoint. `launch --all-profiles` registers all profiles under the selected
 root; one selected profile is sufficient for multiple concurrent clients. Workers
 start only when their allocated WebSocket is attached. Closing the SDK, losing the
 connection, explicit stop or manager shutdown ends the owned worker. There is no
@@ -146,9 +154,22 @@ manager. The browser SDK uses its native WebSocket option; the Node entry uses
 the public `spawnClaudeCodeProcess` transport adapter. Both keep conversation
 controls and hook callbacks inside the official client query.
 
+The browser page offers profile selection, saved-history browsing, new/resume/fork,
+rename, streamed conversation text, interrupt and end-session controls. Reading
+history starts no worker. Sending a message can incur model usage; ordinary chat
+inherits the manager's defaults without probe turn or spend limits. Separate tabs
+can use the same profile. Tab closure ends the owned worker; lost prompts are never
+automatically replayed. Actual Chrome checks passed a live API-key turn, history
+selection, rename, resume/fork initialization, profile switching and tab-close
+cleanup. The four-turn browser probe also passed concurrent workers and marker
+recall after fork/resume. Mid-turn UI interruption remains unqualified.
+
 The browser build currently needs a small `process` shim. Native terminal attach,
 desktop/phone Remote Control and live Python SDK clients are not supported by this
-delivery. These examples are compatibility probes, not a complete chat application.
+delivery. The small browser example displays text and tool details; file/image input,
+AskUserQuestion, native dialog forms and MCP elicitation forms remain unsupported.
+Unsupported forms are visibly cancelled; simple tool-permission controls are
+implemented but still unqualified in a real browser.
 
 ## Observation and MITM
 

@@ -1,8 +1,14 @@
 # Optional Codex research checkout
 
-The imported experiments do **not** contain a Codex Git submodule, source checkout
+The imported experiments do **not** track a Codex Git submodule, source checkout
 or compiled executable. This preserves the source identity without copying a
 large nested repository into `pdum_agent_tools`.
+
+**Local qualification, 2026-10-14:** [Spike 025](../docs/spikes/025-codex-baseline.md)
+restored the clean pin below into ignored `vendor/codex` and built
+`artifacts/003-codex-control/target/debug/codex`. Its report records hashes,
+toolchain and schema differences from installed 0.162.1. This local build is not
+part of a fresh clone; the commands below remain the setup procedure.
 
 - Fork: `https://github.com/habemus-papadum/codex.git`
 - Upstream: `https://github.com/openai/codex.git`
@@ -53,4 +59,5 @@ git -C vendor/codex apply --reverse "$PWD/spikes/013-codex-browser-origin/browse
 ```
 
 These instructions do not authorize committing, pushing or publishing a custom
-Codex build, and the import has not fetched, built or tested this checkout.
+Codex build. The original import did not fetch/build it; the separately recorded
+025 round did, without applying the browser patch.

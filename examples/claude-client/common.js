@@ -15,6 +15,7 @@ export class InputQueue {
       this.waiting = undefined;
       waiting({ done: false, value });
     } else this.values.push(value);
+    return value.uuid;
   }
 
   close() {
@@ -217,9 +218,10 @@ export async function fullProbe(connect, { baseUrl, profileId, otherProfileId, l
     const [first, second] = await Promise.all([open(undefined, hook), open(undefined, hook)]);
     check(first.worker.id !== second.worker.id && first.worker.conversationId !== second.worker.conversationId,
       "Two same-profile SDK clients have independent workers and conversations");
-    const marker = "PDUM_CLAUDE_MEMORY_2026";
+    const marker = "PDUM_CLAUDE_CONTEXT_2026";
     const [saved, independent] = await Promise.all([
-      turn(first, `Remember this exact marker: ${marker}. Reply exactly SAVED.`),
+      turn(first, `This is a transcript continuity test. The conversation's marker is ${marker}. ` +
+        "Keep it only in this conversation; do not save memory or use tools. Reply exactly SAVED."),
       turn(second, "Reply exactly SECOND."),
     ]);
     check(saved.result.includes("SAVED") && independent.result.includes("SECOND"),
@@ -245,11 +247,11 @@ export async function fullProbe(connect, { baseUrl, profileId, otherProfileId, l
     check(JSON.stringify((await api(baseUrl, sourcePath)).messages) === JSON.stringify(source.messages),
       "Fork preserves source messages");
     const forked = await open(fork.session_id);
-    const forkResult = await turn(forked, "What exact marker did I ask you to remember? Reply only with that marker.");
+    const forkResult = await turn(forked, "What is this conversation's exact marker? Reply only with that marker; do not use tools.");
     check(forkResult.result.includes(marker), "Fork resumes inherited context in a new worker");
     await close(forked);
     const resumed = await open(first.worker.conversationId);
-    const resumeResult = await turn(resumed, "What exact marker did I ask you to remember? Reply only with that marker.");
+    const resumeResult = await turn(resumed, "What is this conversation's exact marker? Reply only with that marker; do not use tools.");
     check(resumeResult.result.includes(marker), "Explicit resume recalls original context in a new worker");
     await close(resumed);
     report.status = "passed";

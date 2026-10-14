@@ -25,7 +25,8 @@ selective native imports, editable TOML and upstream authentication workflows.
 - [Architecture overview](architecture.md)
 - [Codex launcher](specs/codex-launcher.md)
 - [Claude launcher](claude.md), [architecture](specs/claude-launcher.md),
-  [delivery plan](plans/claude-launcher.md) and [qualification report](claude-validation.md)
+  [delivery plan](plans/claude-launcher.md), [qualification report](claude-validation.md)
+  and [checkpoint/follow-up](claude-handoff.md)
 - [MITM sidecar](specs/mitm.md)
 - [Hostfork](hostfork.md), Linux environments with private storage and independent deadlines
 - [Hostfork architecture](specs/hostfork/architecture.md) and [implementation plan](plans/hostfork.md)
@@ -34,6 +35,8 @@ selective native imports, editable TOML and upstream authentication workflows.
 - [Launcher implementation plan](plans/codex-launcher.md)
 - [MITM implementation plan](plans/mitm.md)
 - [Research and spikes](research.md)
+- [Codex client feasibility findings](codex-client-findings.md): combined results
+  from spikes 025–034, before designing new client libraries.
 
 The proposals recommend concrete architecture, interfaces, defaults, and phased
 acceptance criteria. They are broader than the first implementation, with remaining

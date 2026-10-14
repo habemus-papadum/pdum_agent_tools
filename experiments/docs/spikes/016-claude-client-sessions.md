@@ -1,5 +1,10 @@
 # Claude client sessions: thin relay and profile management
 
+> **Python follow-up, 2026-10-13:** the separate launcher now has real browser/Node
+> qualification. Its [checkpoint](../../../docs/claude-handoff.md) and
+> [qualification report](../../../docs/claude-validation.md) record the current
+> status and next steps. This report retains the TypeScript spike's evidence.
+
 **Result, 2026-10-13:** the proposed starting point works for the tested paths.
 Keep the official SDK in the client, launch an unmodified Claude Code worker
 for each client session, and stop that worker when its client disconnects.
