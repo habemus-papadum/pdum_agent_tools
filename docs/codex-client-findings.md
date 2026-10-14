@@ -6,6 +6,10 @@ and terminals. The main architectural requirement is to keep three activities
 distinct: browsing saved history, joining live work, and recording what actually
 happened. They overlap, but none substitutes fully for the others.
 
+The follow-on [API design](specs/codex-client.md) and
+[implementation plan](plans/codex-client.md) are now drafted for review.
+Their proposed interfaces are separate from the observed results below.
+
 I recommend a thin native-protocol client with shared analysis functions, using
 the existing launcher for profiles, processes, relaying and observation. Use
 native session organization where it works. Add a recording capability for

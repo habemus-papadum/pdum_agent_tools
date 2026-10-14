@@ -30,6 +30,7 @@ nav:
       - Overview: architecture.md
       - Agreed design principles: design-principles.md
       - Codex launcher: specs/codex-launcher.md
+      - Codex client API: specs/codex-client.md
       - Claude launcher: specs/claude-launcher.md
       - MITM sidecar: specs/mitm.md
       - Hostfork:
@@ -41,6 +42,7 @@ nav:
   - Implementation plans:
       - Joint sequence: plans/implementation.md
       - Codex launcher: plans/codex-launcher.md
+      - Codex client: plans/codex-client.md
       - Claude launcher: plans/claude-launcher.md
       - MITM sidecar: plans/mitm.md
       - Hostfork: plans/hostfork.md

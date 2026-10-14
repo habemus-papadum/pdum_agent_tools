@@ -10,6 +10,11 @@ The later Claude and Hostfork tracks have their own [Claude plan](claude-launche
 and [Hostfork plan](hostfork.md). See the [Claude checkpoint](../claude-handoff.md)
 for its current stopping point and next steps.
 
+The follow-on [Codex client plan](codex-client.md) and
+[API design](../specs/codex-client.md) are proposed after spikes 025–034. They have
+an explicit review gate before construction and do not change the implemented
+Python launcher or MITM boundaries in this roadmap.
+
 The [trusted-operation stance](../design-principles.md) is already agreed. Implement
 sandbox/approvals off, all-interface TCP binds and long-lived client connections
 without mandatory grants, Origin gates or arbitrary expiry. Keep native config
@@ -185,7 +190,8 @@ implementation itself.
 
 Lockdown mode, detached daemon/attach workflows, distributed ownership, live
 home-directory replication, cloud backup/restore and a general thread SDK are
-outside the initial delivery. Strong plugin-process isolation and capture quotas
+outside the initial Python delivery. A separate [Codex client plan](codex-client.md)
+now proposes the browser/Node SDK follow-on, awaiting review. Strong plugin-process isolation and capture quotas
 are later guardrail discussions, not hidden requirements. FastAPI management and
 small remote exporters are optional follow-ons using the early hooks.
 State portability needs its own snapshot-consistency

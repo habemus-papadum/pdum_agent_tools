@@ -82,6 +82,11 @@ recording on does not retrofit interception onto a direct/tunneled connection.
 The package architectures own their respective contracts. This page and the joint
 plan summarize composition, not a third competing API specification.
 
+Following spikes 025–034, the [Codex client API design](specs/codex-client.md) and
+[implementation plan](plans/codex-client.md) propose a separate browser/Node
+TypeScript client, with history, live control and shared analysis. They await
+review before implementation; the four Python packages above retain their owners.
+
 ## Requirements retained from the discussion
 
 The launcher rows below describe Codex. Claude uses its own

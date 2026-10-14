@@ -10,6 +10,10 @@ Python 3.14-only uv environment/lock and pnpm catalog/lock. Run research command
 from that directory, not the repository root. See [research and spikes](research.md)
 for setup and the distinction between research checks and package CI.
 
+A [Codex client workspace](plans/codex-client.md#proposed-repository-organization)
+is proposed under `typescript/`, with its own pnpm lock and browser/Node tests.
+It awaits design review and does not yet add setup commands or dependencies here.
+
 ## Operating stance
 
 Follow the [agreed design principles](design-principles.md). The default runtime

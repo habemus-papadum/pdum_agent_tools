@@ -35,6 +35,8 @@ The separate [Codex client feasibility round](codex-client-findings.md) now
 qualifies native history/admin, multiple-client, remote-tool and observation
 behavior. Its proposed client/analysis layers remain research, not additional
 public APIs implemented by this launcher.
+The [client API design](specs/codex-client.md) and
+[delivery plan](plans/codex-client.md) await review before a TypeScript package is built.
 
 - Async directory-based profiles, atomic creation and source copying, unknown
   native TOML preservation, executable selection and clean/inherited environments.

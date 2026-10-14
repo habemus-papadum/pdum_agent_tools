@@ -21,6 +21,10 @@ measured usage and remaining checks. No new library was introduced. The
 [original proposal](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/proposals/codex-client-feasibility-spikes.md)
 preserves the questions and scope.
 
+The follow-on [API design](specs/codex-client.md) and
+[implementation plan](plans/codex-client.md) translate those findings into a
+proposed TypeScript client. They are ready for review; construction has not begun.
+
 The [Hostfork spike findings](specs/hostfork/spike-findings.md) summarize the current
 storage, compatibility, scale and lifetime experiments. Their runnable code and
 individual reports are under `experiments/spikes/020-*` through `024-*`; these are

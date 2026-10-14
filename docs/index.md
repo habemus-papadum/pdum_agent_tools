@@ -24,6 +24,8 @@ selective native imports, editable TOML and upstream authentication workflows.
   inspection without initial capture quotas, and reusable Typer CLIs.
 - [Architecture overview](architecture.md)
 - [Codex launcher](specs/codex-launcher.md)
+- [Codex client API design](specs/codex-client.md) and
+  [implementation plan](plans/codex-client.md), proposed for review before construction
 - [Claude launcher](claude.md), [architecture](specs/claude-launcher.md),
   [delivery plan](plans/claude-launcher.md), [qualification report](claude-validation.md)
   and [checkpoint/follow-up](claude-handoff.md)

@@ -51,6 +51,9 @@ See [import provenance and exclusions](experiments/IMPORT.md).
 The [Codex client feasibility findings](docs/codex-client-findings.md) summarize
 the completed 025–034 round and link its history, administration, live-control,
 remote-operation and observability evidence.
+The follow-on [client API design](docs/specs/codex-client.md) and
+[implementation plan](docs/plans/codex-client.md) are drafted for review;
+the TypeScript package has not been implemented.
 
 ## Architecture and implementation proposals
 
