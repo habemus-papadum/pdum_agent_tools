@@ -27,10 +27,10 @@ or an application authorization system on the default path.
 | TCP listeners | All host interfaces (`0.0.0.0` for IPv4; explicit `::`/dual-stack support where tested), with configurable bind addresses. |
 | Client access | Trusted-network access; no launcher-issued capability, login ceremony, Origin allowlist, or mandatory application TLS layer. |
 | Long-running connections | No arbitrary authorization/idle expiry and no forced reconnect after 15 minutes. Shutdown, failures and genuine transport limits still apply. |
-| Profiles | Self-contained directories; native Codex configuration stays native. Launcher metadata covers only launcher-owned concerns. |
+| Profiles | A profile directory is a Codex home with launcher metadata in `.pdum/`; the user's own home is the `--default` profile. Native Codex configuration stays native, and launch passes choices as `-c` overrides instead of editing it. |
 | Temporary work | Clean or cloned temporary profiles are first-class. Cloning and credential reuse should be quick, predictable, and warning-based rather than permission-gated. |
-| Process lifetime | Foreground CLI or application-owned async context; no daemon, automatic restart or attach-to-existing mode initially. tmux/Docker can supply external supervision. |
-| Profile ownership | Codex has one managed app-server per profile. Claude permits multiple independent workers per profile. Record owned PIDs and process identity; make status and verified stop/cleanup straightforward. |
+| Process lifetime | Foreground CLI or application-owned async context; no launcher daemon or automatic restart. Attaching to a foreign server is an explicit testing affordance. tmux/Docker can supply external supervision. |
+| Profile ownership | Codex coordinates concurrent processes in one home natively, so the launcher records each run it starts and inspects homes rather than holding an exclusive lease. Claude permits multiple independent workers per profile. Record owned PIDs and process identity; make status and verified stop/cleanup straightforward. |
 | MITM | No sidecar by default. Explicit interception starts with the consumer; recording can start off and be toggled later without replacing its connection. |
 | Captures | Recording is off until enabled. Then preserve complete observed application payloads without initial size caps, truncation thresholds or run quotas. Redaction is optional. |
 | Observation | Copy messages into a separate asynchronous inspection path. Recording, parsing and export must not gate or mutate forwarding. Report observer failures rather than stopping healthy traffic. |
@@ -49,8 +49,8 @@ to the intended service and is separate from application access control.
 Retain safeguards that prevent accidents and make experiments reproducible:
 
 - Resolve the requested profile unambiguously. Avoid accidental state sharing,
-  source-profile writes and output overwrites. Codex's exclusive profile owner is
-  distinct from Claude's intentional sharing by independent workers.
+  source-profile writes and output overwrites. Several app-servers may share one
+  Codex home, as Codex itself supports; disposal refuses while anything uses it.
 - Give each run identifiable paths and lifecycle ownership. Recover stale state
   without killing an unrelated process or deleting a directory someone still uses.
 - Keep environment/proxy/CA changes scoped to the launched process. Do not silently

@@ -19,10 +19,11 @@ See the [implementation plan](../plans/codex-launcher.md).
   integration concerns; do not maintain a second native configuration schema.
 - Persistent and temporary profiles are first-class. Copy settings directly;
   make credential reuse convenient and warning-based, not permission-gated.
-- Own one app-server per profile using `asyncio` and a machine-local lease.
-  Run foreground/application-owned; record PID/process identity for easy status
-  and cleanup. No daemon or attach-to-existing mode initially. Initial hosts are
-  macOS/Linux on local filesystems.
+- Own each launched app-server with `asyncio`, foreground/application-owned,
+  recording PID/process identity per run. Do not gate a profile to one server:
+  Codex coordinates concurrent processes in a home natively, and read-only
+  inspection reports every process using it. No launcher daemon; attaching to a
+  foreign server is a testing affordance. Initial hosts are macOS/Linux on local filesystems.
 - Default sandbox off, approval prompts off and all-interface TCP listeners.
   Trust clients inside the operator's network; no required grants or timed reconnects.
 - Support Unix and WebSocket endpoints. The inspected Unix transport is
@@ -70,13 +71,15 @@ CLI selection is deliberately exclusive:
 
 | Input | Resolution |
 | --- | --- |
+| `--default` | The Codex home the user's own CLI resolves: `$CODEX_HOME` or `~/.codex`. Environment isolation off; never created or disposed |
 | `--profile-dir /absolute/path` | Exact directory; cannot combine with either selector below |
 | `--profile NAME` | Name under the default root |
 | `--profiles-dir ROOT --profile NAME` | Name under that explicit root |
 | `profile list [--profiles-dir ROOT]` | Enumerate that root, without selecting a profile |
 | `launch --temp` | New private temporary profile; cannot select a persistent target |
 
-There is no implicit `default` profile for launch, login, or mutation. Names match
+`--default` is not a special code path: it resolves a directory and selects the
+bare-home defaults below. Any Codex home is launchable without launcher metadata. Names match
 `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`, excluding `.` and `..`; no separators or traversal.
 Explicit paths may contain spaces. Resolve existing path aliases before locking;
 use the resolved directory's device/inode as an additional identity check. Reject
@@ -85,21 +88,24 @@ silently create a missing profile while launching it. These checks prevent path
 collisions and unintended writes, not every theoretically untrusted filesystem arrangement.
 
 ```text
-<profile>/
-  launcher.toml             small launcher-owned configuration
-  codex/
-    config.toml             native Codex model/provider/permission settings
-    auth.json               native file-backed credentials when used
-    skills/                 explicitly imported profile-local skills
-    ...                     Codex-owned history, databases, caches and other state
-  home/                     isolated HOME and XDG configuration roots
-  work/                     neutral initial working directory
-  runtime/
-    lease.lock              persistent lock inode; never unlink to unlock
-    owner.json              atomic, non-secret ownership journal
-    control.sock            private launcher-control socket while running
-    runs/<run-id>/           run manifest and opt-in diagnostics/captures
+<profile>/                  a Codex home; CODEX_HOME points here
+  config.toml               native Codex model/provider/permission settings
+  auth.json                 native file-backed credentials when used
+  skills/ sessions/ ...     Codex-owned history, databases, caches and other state
+  .pdum/
+    launcher.toml           small launcher-owned configuration; absent for a bare home
+    home/                   isolated HOME and XDG roots when isolation is on
+    work/                   neutral working directory when isolation is on
+    runtime/
+      mutation.lock         short lock serializing launcher edits, logins and disposal
+      runs/<run-id>/        owner.json run record plus stdout/stderr logs
+      tmp/                  TMPDIR when isolation is on
 ```
+
+A bare home without `.pdum/launcher.toml` launches with environment isolation off
+and the parent environment inherited, so the server behaves like the user's CLI.
+A managed profile defaults to isolation on and a clean environment. Nothing in
+Codex enumerates the home root, and Codex keeps dotted state of its own there.
 
 Create directories with mode `0700` and files with `0600`. Profile identity is the
 directory, not a copied UUID; cloned directories are new profiles. Native sockets
@@ -110,9 +116,9 @@ that cannot be identified reliably are outside the first support contract.
 
 ### Configuration ownership
 
-Use a small `launcher.toml` with `schema_version = 1` only for fields we own:
-executable selection, process environment, selected authentication setup,
-endpoints/timeouts and optional MITM configuration. Validate those fields for
+Use a small `launcher.toml` with `schema_version = 2` only for fields we own:
+executable selection, process environment and its `isolate` flag, selected
+authentication setup, endpoints/timeouts and optional MITM configuration. Validate those fields for
 typos/incompatible values, not native Codex config against a second schema.
 Do not introduce a configuration inheritance/merge framework.
 
@@ -134,10 +140,13 @@ shutdown_timeout_seconds = 15
 enabled = false
 ```
 
-Model, reasoning, MCP, provider and permissions stay in native `codex/config.toml`.
+Model, reasoning, MCP, provider and permissions stay in native `config.toml`.
 Copy that file verbatim when possible. Preserve unknown keys; use a round-trip
 TOML editor or the native config interface for small requested edits. Codex
-validates its own configuration.
+validates its own configuration. Launch never writes it: `--model` and `-c`
+become `codex app-server -c key=value` arguments for that process only, which
+is why a permissive launcher run never changes the user's daily TUI settings.
+Explicit create/configure/auth commands edit the selected profile, the default included.
 
 Record observed binary version/digest and effective launch choices. Store helper
 or environment/file references only where needed, avoiding duplication of values
@@ -329,56 +338,57 @@ Exposed TCP binds default to `0.0.0.0`, with configurable addresses/tested IPv6.
 No compulsory client tokens, Origin allowlists, TLS layer or connection-age limit.
 Unix/loopback may still be internal wiring. Lockdown is a separate future mode.
 
-## 6. Lease and asynchronous process lifecycle
+## 6. Run records, inspection and asynchronous process lifecycle
 
-### One managed owner, including an orphaned app-server
+### Many runs per home, each recorded
 
-On macOS/Linux, acquire a nonblocking exclusive `flock` on the persistent
-`runtime/lease.lock` inode. All launcher mutations, including login, imports into an
-existing profile and executable/auth edits, use this lease. Inspection is read-only.
-Do not implement ownership as `exists(lockfile)`, a PID file, or delete-to-unlock.
+Codex coordinates concurrent processes in one home itself: per-thread writer locks,
+WAL-mode SQLite with a busy timeout, and maintenance locks for compression,
+migration and vacuuming. The user's ordinary home is routinely written by the
+managed daemon, the TUI and editor extensions at once. The launcher therefore
+holds no exclusive per-profile lease. Each launch or login writes its own record
+under `.pdum/runtime/runs/<run-id>/owner.json`: run nonce, owner identity, child
+PID with process birth identity, executable digest, the exact native arguments,
+endpoint and control socket. `status` lists every record with liveness; `stop`
+accepts a run selector and otherwise stops every live run the launcher recorded.
 
-The launcher retains the lock's open file description and passes a duplicate lease
-descriptor to the Codex child through `pass_fds`. Consequently, an abruptly killed
-launcher must not release profile ownership while its app-server survives. This
-behavior is a **binary/platform compatibility gate**, not an assumption: wrappers
-and executables that close inherited descriptors need an explicit guardian adapter
-or are rejected for managed launch. Do not advertise orphan-safe support until the
-parent-SIGKILL test passes for that execution chain. The descriptor carries no
-credentials and must not be passed to unrelated helper or MITM processes.
-Release ownership by closing this process's descriptor, not by `LOCK_UN` on the
-shared open file description: explicit unlocking could release a surviving child's
-lease too. The journal/live-process check still blocks replacement if an unexpected
-runtime descriptor closure is detected; such a run is not considered qualified.
+A short nonblocking `flock` on `.pdum/runtime/mutation.lock` serializes launcher
+mutations only: edits, imports, logins and disposal. It never gates launching and
+never stops a running server; Codex reads configuration per thread, so a saved
+edit applies to the next thread. Do not implement ownership as `exists(lockfile)`,
+a PID file, or delete-to-unlock.
 
-Before spawn, write a run nonce and owner identity; after spawn, atomically record
-child PID, process birth identity, executable identity and process-group identity.
-Expose these through `status`/`--json`, with the profile, endpoint and journal path,
-so an operator can locate and clean up the server without hunting through processes.
-Duplicate launch reports this information and the `stop` command; it does not attach.
-The lease is authoritative; the journal is diagnostic and supports recovery. If a
-crash happens between spawn and journal update, an inherited busy lease still blocks
-another launch; incomplete owner metadata is not permission to steal it. PID reuse
-or unverifiable ownership produces `OwnershipUncertain`, never a blind `kill(pid)`.
+Orphan recovery is per run and explicit: validate current UID, process birth
+identity, recorded command or endpoint and process-group leadership before
+signaling the verified owned process. PID reuse or unverifiable ownership produces
+`OwnershipUncertain`, never a blind `kill(pid)`. Disposal of a temporary profile
+refuses while any recorded run is live or any process of any origin still holds
+files under the directory. This is hygiene, not a defense against a malicious
+same-user process.
 
-`stop` first asks the private launcher control socket. Orphan recovery is explicit:
-validate current UID, process birth identity, binary/run identity and matching
-endpoint before signaling the verified owned process. If identity cannot be proven,
-report manual recovery instructions without killing anything. Never unlink the lease
-inode while a process could hold it. A free lease plus proven-dead owner permits
-stale journal/socket cleanup. Children retaining the descriptor can prolong a lease;
-report that condition rather than falsely declaring it stale. This is not a defense
-against a malicious same-user process or someone bypassing the launcher entirely.
+### Inspection instead of enforcement
+
+`inspect` is a read-only library function, CLI command and management route that
+reports what is using a Codex home: every process touching it with kind, origin
+(launcher run, managed daemon, editor extension, standalone CLI or foreign),
+version and listen endpoint; launcher run records with liveness; the shared
+daemon's identity, settings and, optionally, an `initialize` probe of its control
+socket; per-thread writer locks and their holders; each SQLite file's size, WAL
+size, holders, read-open latency and applied migrations; recent native log
+activity per process; and configured feature flags. SQLite exposes no contention
+counter, so the database fields are proxies and are labelled as such. Inspection
+starts, stops and modifies nothing.
 
 ### State machine
 
-`NEW → LEASED → PREPARING → STARTING → READY → STOPPING → CLOSED`; any stage may
+`NEW → RECORDED → PREPARING → STARTING → READY → STOPPING → CLOSED`; any stage may
 enter `FAILED`, which still performs reverse-order cleanup. A run identifier is
 assigned before resources are allocated. Use an `AsyncExitStack` and a task group
 for drainers, process wait, relay and optional sidecar health; record which resources
 actually reached each stage so partial startup is safe.
 
-1. Validate profile/binary, acquire lease, prepare isolated directories/environment.
+1. Validate profile/binary, write the run record, prepare directories/environment
+   and render native `-c` overrides; a bare home inherits the user's environment.
 2. Start MITM if configured and await its ready handle before obtaining child env.
 3. Spawn Codex in a new process group with continuous bounded stdout/stderr drainers.
 4. Connect to the expected native endpoint, initialize a short-lived private probe,
@@ -389,9 +399,9 @@ actually reached each stage so partial startup is safe.
 6. On close, stop accepting relay clients, close relay connections, terminate the
    owned Codex process group with SIGTERM, await the configured deadline, then use
    SIGKILL only for verified owned survivors. Reap and finish drainers.
-7. Flush/close MITM, remove owned sockets, finalize run status, then close the parent
-   lease descriptor. The enclosing temporary-profile context performs its separate
-   disposal check. Preserve failures and incomplete-output flags in the result.
+7. Flush/close MITM, remove owned sockets and finalize the run record. The
+   enclosing temporary-profile context performs its separate disposal check.
+   Preserve failures and incomplete-output flags in the result.
 
 Unexpected child exit closes relays and the sidecar. Unexpected forwarding/control
 failure of a configured MITM stops Codex; there is no automatic direct-network

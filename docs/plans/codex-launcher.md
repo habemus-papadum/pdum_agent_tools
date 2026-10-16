@@ -130,6 +130,11 @@ Acceptance:
 
 ## L3. Async launch, lease, readiness and shutdown
 
+**Superseded in October 2026:** the exclusive per-profile lease was removed. Codex
+coordinates concurrent processes in a home natively, so launch records each run
+under `.pdum/runtime/runs/` and a short mutation lock covers edits only; see the
+specification's section 6. The lease-specific gates below are historical.
+
 Implement the state machine, inherited lease, atomic owner journal, private owner
 control socket and continuous bounded drainers. CLI remains foreground; library
 context manager owns cleanup without installing global signal handlers. Add native

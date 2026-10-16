@@ -13,9 +13,15 @@ uv run pdum-codex --profile research profile configure
 uv run pdum-codex --profile research auth configure
 uv run pdum-codex --profile research auth login
 uv run pdum-codex --profile research launch
+uv run pdum-codex --default inspect
+uv run pdum-codex --default launch --model gpt-6-luna
 ```
 
-The interview runs automatically on an interactive terminal. Use `--interview`
+A profile directory is a Codex home; launcher metadata, isolated environment roots
+and run records live in its `.pdum/` subdirectory. `--default` selects the home
+your own CLI uses, `$CODEX_HOME` or `~/.codex`, with environment isolation off. It is
+a selector, not a special mode: any Codex home is launchable, and the same edit and
+launch commands apply. The interview runs automatically on an interactive terminal. Use `--interview`
 to request it explicitly or `--no-interview` for scripts. `--json` disables
 automatic interviews. CLI profile selection is either `--profile NAME`, optionally
 with `--profiles-dir ROOT`, or the exclusive `--profile-dir EXACT_DIRECTORY`.
@@ -89,7 +95,7 @@ self-contained where copying is supported; external dependencies remain explicit
 ## Authentication is configuration plus an explicit action
 
 Authentication here means **upstream OpenAI/model access**, not WebSocket-client
-authentication. Native `codex/config.toml` remains authoritative. The launcher stores
+authentication. Native `config.toml` remains authoritative. The launcher stores
 only helper inputs and ownership metadata in `launcher.toml`; it does not implement
 a competing credential store or stop clients from sending native login RPCs.
 
@@ -229,10 +235,13 @@ native remainder; put an edited string into `ProfileEdit.remaining_toml` and pre
 again. `save_profile_edit` does not execute `login_after`: that flag is for the CLI;
 library callers explicitly await `login_auth(directory)` when desired.
 
-Saving an existing profile requires its exclusive stopped-profile lease, rejects
-configuration changed since the interview began, stages copies before replacements,
-and rolls back ordinary write failures. Sessions and existing credentials are retained.
-Cancellation waits for the off-loop writer before releasing the lease. This is not
+Saving an existing profile holds the profile mutation lock, which serializes
+launcher edits but does not stop running servers; Codex reads configuration per
+thread. Saving rejects configuration changed since the interview began, stages copies
+before replacements, and rolls back ordinary write failures. Sessions and existing
+credentials are retained. Editing a bare home adopts it with isolation off so its
+native behavior is unchanged. Cancellation waits for the off-loop writer before
+releasing the lock. This is not
 a power-loss-atomic multi-file transaction. If rollback itself fails, the error gives
 the retained recovery directory rather than discarding originals. Do not run two
 tools that independently mutate the same profile tree outside this ownership model.

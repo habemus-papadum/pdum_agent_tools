@@ -78,14 +78,14 @@ future_skills_field = "preserve"
     assert document["plugins"]["_default"] == {"enabled": False, "future_plugin_default": "preserve"}
     assert set(document["plugins"]) == {"_default", "one@sample"}
     assert document["plugins"]["one@sample"]["future_plugin_field"] == "preserve"
-    assert document["marketplaces"]["sample"]["source"] == str(destination / "codex/.tmp/marketplaces/sample")
+    assert document["marketplaces"]["sample"]["source"] == str(destination / ".tmp/marketplaces/sample")
     assert document["marketplaces"]["sample"]["future_market_field"] == "preserve"
     assert set(document["mcp_servers"]) == {"keep"}
     assert document["skills"]["future_skills_field"] == "preserve"
     assert any("required by selected plugin" in warning for warning in plan.warnings)
     apply_import_assets(plan, destination)
-    assert (destination / "codex/plugins/cache/sample/one/1.0.0/.claude-plugin/plugin.json").is_file()
-    assert not (destination / "codex/plugins/cache/sample/two").exists()
+    assert (destination / "plugins/cache/sample/one/1.0.0/.claude-plugin/plugin.json").is_file()
+    assert not (destination / "plugins/cache/sample/two").exists()
     assert (source / "config.toml").read_text() == native
 
 
@@ -144,11 +144,11 @@ enabled = false
         destination,
     )
     apply_import_assets(plan, destination)
-    copied = destination / "codex/skills/linked"
+    copied = destination / "skills/linked"
     assert not copied.is_symlink()
     assert os.access(copied / "run.sh", os.X_OK)
-    assert (destination / "home/.agents/skills/nested/user/SKILL.md").is_file()
-    assert not (destination / "codex/skills/drop").exists()
+    assert (destination / ".pdum/home/.agents/skills/nested/user/SKILL.md").is_file()
+    assert not (destination / "skills/drop").exists()
     rules = tomllib.loads(plan.native_toml)["skills"]["config"]
     assert rules == [{"path": str(copied / "SKILL.md"), "enabled": False, "future": "retained"}]
     assert (native / "config.toml").read_text() == native_config
@@ -160,9 +160,9 @@ def test_managed_profile_skills_do_not_import_developer_user_home(tmp_path: Path
     monkeypatch.setenv("HOME", str(home))
     skill(home / ".agents/skills/unrelated", "unrelated")
     profile = tmp_path / "profile"
-    write(profile / "launcher.toml", 'schema_version=1\n[executable]\npath="/bin/true"\n')
-    skill(profile / "codex/skills/native", "native")
-    skill(profile / "home/.agents/skills/managed", "managed")
+    write(profile / ".pdum/launcher.toml", 'schema_version=2\n[executable]\npath="/bin/true"\n')
+    skill(profile / "skills/native", "native")
+    skill(profile / ".pdum/home/.agents/skills/managed", "managed")
     inventory = inventory_source(profile)
     assert inventory.is_profile
     assert inventory.launcher_toml is not None
@@ -182,7 +182,7 @@ def test_inline_skill_config_and_external_configured_skill(tmp_path: Path):
     plan = build_import_plan(inventory, ImportSelection(skills=("config:0",)), tmp_path / "out")
     rules = tomllib.loads(plan.native_toml)["skills"]["config"]
     assert len(rules) == 1
-    assert rules[0]["path"] == str(tmp_path / "out/codex/skills/imported/0-outside")
+    assert rules[0]["path"] == str(tmp_path / "out/skills/imported/0-outside")
 
 
 def test_unknown_selection_bad_toml_and_unsupported_shape_fail_explicitly(tmp_path: Path):
@@ -201,9 +201,9 @@ def test_unknown_selection_bad_toml_and_unsupported_shape_fail_explicitly(tmp_pa
 def test_asset_copy_refuses_collisions_escapes_and_cycles(tmp_path: Path):
     source = write(tmp_path / "source/file", "content")
     out = tmp_path / "out"
-    write(out / "codex/file", "existing")
+    write(out / "state/file", "existing")
     with pytest.raises(ProfileError, match="already exists"):
-        apply_import_assets(ImportPlan("", ((source, Path("codex/file")),), ()), out)
+        apply_import_assets(ImportPlan("", ((source, Path("state/file")),), ()), out)
     with pytest.raises(ProfileError, match="Invalid import destination"):
         apply_import_assets(ImportPlan("", ((source, Path("../escape")),), ()), out)
     external = tmp_path / "external"
@@ -220,15 +220,15 @@ def test_asset_copy_refuses_collisions_escapes_and_cycles(tmp_path: Path):
 
 def test_reconfigure_rebases_without_source_mutation_and_replacement_roots_are_explicit(tmp_path: Path):
     profile = tmp_path / "profile"
-    write(profile / "launcher.toml", "schema_version=1\n")
-    original = skill(profile / "codex/skills/example", "example")
+    write(profile / ".pdum/launcher.toml", "schema_version=2\n")
+    original = skill(profile / "skills/example", "example")
     config = f"[[skills.config]]\npath={json.dumps(str(original / 'SKILL.md'))}\nenabled=false\n"
-    write(profile / "codex/config.toml", config)
+    write(profile / "config.toml", config)
     plan = build_import_plan(inventory_source(profile), ImportSelection(), profile)
     apply_import_assets(plan, tmp_path / "staging")
-    assert (profile / "codex/config.toml").read_text() == config
+    assert (profile / "config.toml").read_text() == config
     assert tomllib.loads(plan.native_toml)["skills"]["config"][0]["path"] == str(original / "SKILL.md")
-    assert Path("codex/plugins/cache") in plan.replacement_roots
+    assert Path("plugins/cache") in plan.replacement_roots
     assert ("skills", "config") in plan.handled_paths
 
 

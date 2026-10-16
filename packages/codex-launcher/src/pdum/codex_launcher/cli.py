@@ -6,6 +6,7 @@ import asyncio
 import json
 import signal
 import sys
+import time
 import tomllib
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import asdict, dataclass
@@ -19,6 +20,8 @@ from .config import read_config, resolve_executable
 from .errors import LauncherError, ProfileError
 from .federation import federation_from_settings
 from .imports import ImportSelection, Selection, inventory_source
+from .inspection import inspect_home
+from .layout import work_dir
 from .observation import JsonlRecorder, discover_processors, load_processor
 from .profiles import (
     ProfileSpec,
@@ -38,10 +41,14 @@ class _Selection:
     name: str | None
     directory: Path | None
     root: Path | None
+    default: bool
     json_output: bool
 
     def path(self) -> Path:
-        return resolve_profile(self.name, self.directory, self.root)
+        return resolve_profile(self.name, self.directory, self.root, default=self.default)
+
+    def selects_profile(self) -> bool:
+        return self.name is not None or self.directory is not None or self.default
 
 
 def _emit(value: Any) -> None:
@@ -67,6 +74,16 @@ def _choices(values: list[str] | None) -> Selection:
     if values == ["all"] or values == ["none"]:
         return values[0]
     return tuple(values)
+
+
+def _overrides(values: list[str] | None) -> dict[str, str]:
+    overrides: dict[str, str] = {}
+    for item in values or ():
+        key, separator, value = item.partition("=")
+        if not separator or not key.strip():
+            raise ProfileError(f'Native override must be key=value TOML, like model="gpt-6-luna": {item!r}')
+        overrides[key.strip()] = value
+    return overrides
 
 
 def _auth_spec(method: str, env: str, base_url: str | None, settings: Path | None) -> AuthSpec:
@@ -115,6 +132,106 @@ async def _profile_edit(
             raise typer.Exit(status)
 
 
+def _age(timestamp: float | None) -> str:
+    if not timestamp:
+        return "-"
+    seconds = max(0, int(time.time() - timestamp))
+    if seconds < 90:
+        return f"{seconds}s"
+    if seconds < 5400:
+        return f"{seconds // 60}m"
+    if seconds < 172800:
+        return f"{seconds // 3600}h"
+    return f"{seconds // 86400}d"
+
+
+def render_inspection(report: dict[str, Any]) -> None:
+    """Print a Rich summary of ``inspect_home`` output to the terminal."""
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    console.print(f"[bold]{report['home']}[/bold]  managed={report['managed']}", markup=True, highlight=False)
+    summary = report["process_summary"]
+    console.print(
+        f"processes: {summary['total']}  app-servers: {summary['app_servers']}  "
+        f"launcher-owned: {summary['launcher']}  other: {summary['foreign']}  "
+        f"live launcher runs: {len(report['live_runs'])}"
+    )
+    daemon = report["daemon"]
+    if daemon.get("pid_record") or daemon.get("control_socket"):
+        version = (daemon.get("server_info") or {}).get("userAgent") or "unprobed"
+        console.print(
+            f"daemon: pid {daemon.get('pid_record', {}).get('pid', '-')}  alive={daemon.get('alive')}  "
+            f"reachable={daemon.get('reachable', '-')}  {version}",
+            highlight=False,
+        )
+    table = Table(title="Processes touching this home", show_lines=False)
+    for column in ("pid", "kind", "origin", "version", "listen", "age", "cwd", "files"):
+        table.add_column(column)
+    for process in report["processes"]:
+        table.add_row(
+            str(process["pid"]),
+            process["kind"] if process["kind"] != "other" else f"other ({process['name'] or '?'})",
+            process["origin"] + (f" {process['run_id'][:8]}" if process.get("run_id") else ""),
+            process.get("version") or "-",
+            process.get("listen") or "-",
+            _age(process.get("started_at")),
+            process.get("cwd") or "-",
+            str(len(process["open_files"])),
+        )
+    console.print(table)
+    if report["runs"]:
+        runs = Table(title="Launcher runs")
+        for column in ("run", "operation", "state", "live", "age", "endpoint"):
+            runs.add_column(column)
+        for run in report["runs"]:
+            runs.add_row(
+                run["run_id"][:12],
+                run.get("operation", "-"),
+                run.get("state", "-"),
+                "yes" if run["live"] else "no",
+                _age(run.get("started_at")),
+                run.get("endpoint") or run.get("backend_endpoint") or "-",
+            )
+        console.print(runs)
+    locks = report["thread_writer_locks"]
+    if locks:
+        held = Table(title="Thread writer locks")
+        for column in ("thread", "age", "holders"):
+            held.add_column(column)
+        for lock in locks:
+            held.add_row(lock["thread_id"], _age(lock["modified_at"]), ", ".join(map(str, lock["holders"])) or "-")
+        console.print(held)
+    if report["databases"]:
+        databases = Table(title="SQLite state")
+        for column in ("database", "size", "wal", "holders", "open ms", "migrations"):
+            databases.add_column(column)
+        for database in report["databases"]:
+            migrations = database.get("migrations") or {}
+            databases.add_row(
+                database["name"],
+                f"{database.get('bytes', 0) / 1_048_576:.1f} MiB",
+                f"{database.get('wal_bytes', 0) / 1024:.0f} KiB",
+                ", ".join(map(str, database.get("holders", []))) or "-",
+                str(database.get("probe_ms", "-")),
+                f"{migrations.get('applied', '-')} (latest {migrations.get('latest', '-')})"
+                if migrations
+                else database.get("error", "-"),
+            )
+        console.print(databases)
+    activity = report["activity"]
+    if activity.get("available") and activity["processes"]:
+        recent = Table(title=f"Native log activity, last {int(activity['window_seconds'] // 3600)}h")
+        for column in ("process", "rows", "threads", "last seen"):
+            recent.add_column(column)
+        for item in activity["processes"][:12]:
+            recent.add_row(item["process"], str(item["log_rows"]), str(item["threads"]), _age(item["last_at"]))
+        console.print(recent)
+    for warning in report["warnings"]:
+        console.print(f"[yellow]warning:[/yellow] {warning}", markup=True, highlight=False)
+
+
 def create_app(extensions: Sequence[Callable[[typer.Typer], None]] = ()) -> typer.Typer:
     """Create an independent, mountable CLI without starting any runtime.
 
@@ -129,9 +246,9 @@ def create_app(extensions: Sequence[Callable[[typer.Typer], None]] = ()) -> type
         Fresh command tree, suitable for ``parent.add_typer(...)``.
     """
     application = typer.Typer(
-        help="Directory-based Codex app-server profiles and foreground launch.", no_args_is_help=True
+        help="Codex app-server profiles, foreground launch and home inspection.", no_args_is_help=True
     )
-    profiles_app = typer.Typer(help="Create and inspect self-contained profiles.", no_args_is_help=True)
+    profiles_app = typer.Typer(help="Create and inspect profiles; each profile is a Codex home.", no_args_is_help=True)
     auth_app = typer.Typer(help="Configure native upstream authentication.", no_args_is_help=True)
     application.add_typer(profiles_app, name="profile")
     application.add_typer(auth_app, name="auth")
@@ -142,11 +259,16 @@ def create_app(extensions: Sequence[Callable[[typer.Typer], None]] = ()) -> type
         profile: Annotated[str | None, typer.Option("--profile")] = None,
         profile_dir: Annotated[Path | None, typer.Option("--profile-dir")] = None,
         profiles_dir: Annotated[Path | None, typer.Option("--profiles-dir")] = None,
+        default: Annotated[
+            bool, typer.Option("--default", help="Select the Codex home your own CLI uses ($CODEX_HOME or ~/.codex).")
+        ] = False,
         json_output: Annotated[bool, typer.Option("--json")] = False,
     ) -> None:
         if profile_dir is not None and (profile is not None or profiles_dir is not None):
             raise typer.BadParameter("--profile-dir is exclusive of --profile and --profiles-dir")
-        context.obj = _Selection(profile, profile_dir, profiles_dir, json_output)
+        if default and (profile is not None or profile_dir is not None or profiles_dir is not None):
+            raise typer.BadParameter("--default is exclusive of --profile, --profile-dir and --profiles-dir")
+        context.obj = _Selection(profile, profile_dir, profiles_dir, default, json_output)
 
     @profiles_app.command("create")
     def create(
@@ -173,6 +295,8 @@ def create_app(extensions: Sequence[Callable[[typer.Typer], None]] = ()) -> type
         selection = context.obj
 
         async def execute() -> None:
+            if selection.default:
+                raise ProfileError("--default selects your existing Codex home; it cannot be created")
             if name is not None and (selection.name is not None or selection.directory is not None):
                 raise ProfileError("Choose a positional name or a global profile selector, not both")
             path = resolve_profile(name or selection.name, selection.directory, selection.root)
@@ -325,10 +449,28 @@ def create_app(extensions: Sequence[Callable[[typer.Typer], None]] = ()) -> type
 
         _run(execute())
 
-    @application.command("stop")
-    def stop(context: typer.Context) -> None:
+    @application.command("inspect")
+    def inspect(
+        context: typer.Context,
+        probe: Annotated[bool, typer.Option("--probe/--no-probe", help="Initialize the daemon socket.")] = True,
+        hours: Annotated[float, typer.Option(min=0.01, help="Native log activity window.")] = 24,
+    ) -> None:
         async def execute() -> None:
-            _emit(await stop_profile(context.obj.path()))
+            report = await inspect_home(context.obj.path(), probe_daemon=probe, activity_window=hours * 3600)
+            if context.obj.json_output:
+                _emit(report)
+            else:
+                render_inspection(report)
+
+        _run(execute())
+
+    @application.command("stop")
+    def stop(
+        context: typer.Context,
+        run: Annotated[str | None, typer.Option(help="Stop one recorded run instead of every live run.")] = None,
+    ) -> None:
+        async def execute() -> None:
+            _emit(await stop_profile(context.obj.path(), run_id=run))
 
         _run(execute())
 
@@ -363,12 +505,17 @@ def create_app(extensions: Sequence[Callable[[typer.Typer], None]] = ()) -> type
         context: typer.Context,
         state: Annotated[str, typer.Argument(help="on or off")],
         revision: Annotated[int | None, typer.Option()] = None,
+        run: Annotated[str | None, typer.Option(help="Select one live run when several are running.")] = None,
     ) -> None:
         if state not in {"on", "off"}:
             raise typer.BadParameter("Capture state must be on or off")
 
         async def execute() -> None:
-            _emit(await configure_profile_capture(context.obj.path(), state == "on", expected_revision=revision))
+            _emit(
+                await configure_profile_capture(
+                    context.obj.path(), state == "on", expected_revision=revision, run_id=run
+                )
+            )
 
         _run(execute())
 
@@ -380,12 +527,20 @@ def create_app(extensions: Sequence[Callable[[typer.Typer], None]] = ()) -> type
         keep_temp: Annotated[bool, typer.Option()] = False,
         no_auth_copy: Annotated[bool, typer.Option()] = False,
         from_profile_dir: Annotated[Path | None, typer.Option()] = None,
-        model: Annotated[str | None, typer.Option()] = None,
+        model: Annotated[str | None, typer.Option(help="Native model for this run, passed as -c model=...")] = None,
+        config: Annotated[
+            list[str] | None,
+            typer.Option("-c", "--config", help="Native override key=TOML, passed through like codex -c."),
+        ] = None,
         executable: Annotated[Path | None, typer.Option()] = None,
         host: Annotated[str | None, typer.Option()] = None,
         port: Annotated[int | None, typer.Option(min=0, max=65535)] = None,
         direct: Annotated[bool, typer.Option(help="Expose only the native private Unix endpoint.")] = False,
         inherit_environment: Annotated[bool, typer.Option()] = False,
+        isolate: Annotated[
+            bool | None,
+            typer.Option("--isolate/--no-isolate", help="Override the profile's HOME/XDG isolation for this run."),
+        ] = None,
         record: Annotated[Path | None, typer.Option(help="Record client relay messages to a new JSONL file.")] = None,
         processor: Annotated[list[str] | None, typer.Option(help="Installed processor name or module:factory.")] = None,
         mitm: Annotated[bool, typer.Option(help="Launch an optional upstream interception sidecar.")] = False,
@@ -396,12 +551,10 @@ def create_app(extensions: Sequence[Callable[[typer.Typer], None]] = ()) -> type
         selection = context.obj
 
         async def execute() -> None:
-            if temp and (selection.name is not None or selection.directory is not None):
+            if temp and selection.selects_profile():
                 raise ProfileError("--temp cannot select a persistent target profile")
-            if not temp and any((clean, keep_temp, no_auth_copy, from_profile_dir is not None, model is not None)):
-                raise ProfileError(
-                    "Temporary creation options require --temp; edit persistent native config explicitly"
-                )
+            if not temp and any((clean, keep_temp, no_auth_copy, from_profile_dir is not None)):
+                raise ProfileError("Temporary creation options require --temp")
             if direct and (record is not None or processor or host is not None or port is not None):
                 raise ProfileError("Relay recording, processors and TCP options cannot be used with --direct")
             if temp and dry_run:
@@ -429,21 +582,35 @@ def create_app(extensions: Sequence[Callable[[typer.Typer], None]] = ()) -> type
                 port=port,
                 processors=tuple(chosen_processors),
                 environment_mode="inherit" if inherit_environment else None,
+                isolate=isolate,
+                model=model,
+                config_overrides=_overrides(config),
                 mitm_config=sidecar_config,
             )
+            options.native_arguments()
 
             async def run_profile(path: Path) -> None:
                 if dry_run:
-                    config = await asyncio.to_thread(read_config, path)
+                    profile_config = await asyncio.to_thread(read_config, path, executable)
+                    effective_isolate = profile_config.isolate if isolate is None else isolate
                     _emit(
                         {
                             "profile": path,
-                            "executable": resolve_executable(executable or config.executable, path),
+                            "managed": profile_config.managed,
+                            "executable": resolve_executable(executable or profile_config.executable, path),
+                            "arguments": [
+                                "app-server",
+                                "--listen",
+                                "unix://<private socket>",
+                                *options.native_arguments(),
+                            ],
+                            "cwd": work_dir(path) if effective_isolate else Path.cwd(),
                             "relay": not direct,
-                            "host": host if host is not None else config.host,
-                            "port": port if port is not None else config.port,
-                            "environment_mode": options.environment_mode or config.environment_mode,
-                            "environment_keys": sorted(config.environment),
+                            "host": host if host is not None else profile_config.host,
+                            "port": port if port is not None else profile_config.port,
+                            "environment_mode": options.environment_mode or profile_config.environment_mode,
+                            "isolate": effective_isolate,
+                            "environment_keys": sorted(profile_config.environment),
                         }
                     )
                     return
@@ -452,7 +619,7 @@ def create_app(extensions: Sequence[Callable[[typer.Typer], None]] = ()) -> type
                     await server.wait()
 
             if temp:
-                specification = ProfileSpec(executable=executable, model=model, source=from_profile_dir)
+                specification = ProfileSpec(executable=executable, source=from_profile_dir)
                 async with temporary_profile(
                     specification, clean=clean, copy_auth=not no_auth_copy, keep=keep_temp
                 ) as info:

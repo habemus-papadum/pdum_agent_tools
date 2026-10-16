@@ -97,7 +97,7 @@ async def test_native_discovers_only_selected_imports(tmp_path: Path, monkeypatc
     )
     await create_profile(target, ProfileSpec(executable=CODEX))
     apply_import_assets(plan, target)
-    (target / "codex/config.toml").write_text(plan.native_toml)
+    (target / "config.toml").write_text(plan.native_toml)
     async with launch(target, LaunchOptions(host="127.0.0.1")) as server:
         async with connect(server.endpoint, max_size=None, proxy=None) as connection:
             await request(
@@ -110,7 +110,9 @@ async def test_native_discovers_only_selected_imports(tmp_path: Path, monkeypatc
             configuration = await request(connection, 2, "config/read", {"includeLayers": False})
             assert not configuration["config"].get("mcp_servers")
             plugins = await request(connection, 3, "plugin/list", {"marketplaceKinds": ["local"]})
-            skills = await request(connection, 4, "skills/list", {"cwds": [str(target / "work")], "forceReload": True})
+            skills = await request(
+                connection, 4, "skills/list", {"cwds": [str(target / ".pdum/work")], "forceReload": True}
+            )
     skill_names = {skill["name"].split(":")[-1] for entry in skills["data"] for skill in entry["skills"]}
     assert {"native-selected", "user-selected"} <= skill_names
     assert "native-excluded" not in skill_names

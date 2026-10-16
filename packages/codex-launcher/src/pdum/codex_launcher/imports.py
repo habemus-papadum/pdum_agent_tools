@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import re
 import shutil
 from collections.abc import Mapping
@@ -13,6 +12,7 @@ from typing import Literal
 import tomlkit
 
 from .errors import ProfileError
+from .layout import LAUNCHER_DIR, default_codex_home, is_managed_profile, isolated_home, launcher_toml
 
 Selection = Literal["all", "none"] | tuple[str, ...]
 HANDLED_PATHS = (("marketplaces",), ("plugins",), ("mcp_servers",), ("skills", "config"))
@@ -65,16 +65,16 @@ class ImportPlan:
     warnings: tuple[str, ...]
     handled_paths: tuple[tuple[str, ...], ...] = HANDLED_PATHS
     replacement_roots: tuple[Path, ...] = (
-        Path("codex/skills"),
-        Path("home/.agents/skills"),
-        Path("codex/plugins/cache"),
-        Path("codex/.tmp/marketplaces"),
+        Path("skills"),
+        Path(f"{LAUNCHER_DIR}/home/.agents/skills"),
+        Path("plugins/cache"),
+        Path(".tmp/marketplaces"),
     )
 
 
 def default_native_home() -> Path:
     """Return the ordinary native Codex home, without creating it."""
-    return Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))).expanduser().resolve()
+    return default_codex_home()
 
 
 def empty_inventory() -> SourceInventory:
@@ -145,9 +145,9 @@ def _skill_directories(root: Path, warnings: list[str], ancestors: frozenset[Pat
 
 def _skills(document: Mapping, home: Path, user_root: Path | None, warnings: list[str]) -> tuple[ImportChoice, ...]:
     choices: list[ImportChoice] = []
-    roots = [("codex", home / "skills", Path("codex/skills"))]
+    roots = [("codex", home / "skills", Path("skills"))]
     if user_root is not None:
-        roots.append(("user", user_root, Path("home/.agents/skills")))
+        roots.append(("user", user_root, Path(f"{LAUNCHER_DIR}/home/.agents/skills")))
     for prefix, root, destination in roots:
         if not root.exists():
             continue
@@ -180,7 +180,7 @@ def _skills(document: Mapping, home: Path, user_root: Path | None, warnings: lis
         if matching:
             continue
         if root is not None and (root / "SKILL.md").is_file():
-            destination = Path("codex/skills/imported") / f"{index}-{root.name}"
+            destination = Path("skills/imported") / f"{index}-{root.name}"
             choices.append(
                 ImportChoice(f"config:{index}", f"{_skill_name(root)} (configured path)", root, destination, (index,))
             )
@@ -210,8 +210,10 @@ def inventory_source(source: Path | None = None) -> SourceInventory:
     directory = source.expanduser().resolve() if source is not None else default_native_home()
     if directory.exists() and not directory.is_dir():
         raise ProfileError(f"Import source is not a directory: {directory}")
-    is_profile = (directory / "launcher.toml").is_file()
-    home = directory / "codex" if is_profile else directory
+    if (directory / "launcher.toml").is_file() and (directory / "codex").is_dir():
+        raise ProfileError(f"Legacy wrapper layout: {directory}; profiles are Codex homes now")
+    is_profile = is_managed_profile(directory)
+    home = directory
     content = _read(home / "config.toml")
     document = _document(content)
     warnings = [
@@ -228,7 +230,7 @@ def inventory_source(source: Path | None = None) -> SourceInventory:
         path = home / ".tmp/marketplaces" / name
         if config.get("source_type") == "local" and isinstance(config.get("source"), str):
             path = _source_path(config["source"], home)
-        markets.append(ImportChoice(name, name, path, Path("codex/.tmp/marketplaces") / name))
+        markets.append(ImportChoice(name, name, path, Path(".tmp/marketplaces") / name))
     configured_plugins = _table(document, "plugins")
     plugin_ids = set(configured_plugins) - {"_default"}
     cache = home / "plugins/cache"
@@ -248,8 +250,8 @@ def inventory_source(source: Path | None = None) -> SourceInventory:
         name, marketplace = parts
         path = cache / marketplace / name
         label = identifier if path.is_dir() else f"{identifier} (not installed locally)"
-        plugins.append(ImportChoice(identifier, label, path, Path("codex/plugins/cache") / marketplace / name))
-    user_root = directory / "home/.agents/skills" if is_profile else None
+        plugins.append(ImportChoice(identifier, label, path, Path("plugins/cache") / marketplace / name))
+    user_root = isolated_home(directory) / ".agents/skills" if is_profile else None
     if not is_profile and directory == default_native_home():
         user_root = Path.home() / ".agents/skills"
     mcp = tuple(ImportChoice(name, name) for name in _table(document, "mcp_servers"))
@@ -261,7 +263,7 @@ def inventory_source(source: Path | None = None) -> SourceInventory:
         home,
         is_profile,
         content,
-        _read(directory / "launcher.toml") if is_profile else None,
+        _read(launcher_toml(directory)) if is_profile else None,
         home / "auth.json" if (home / "auth.json").is_file() else None,
         tuple(markets),
         tuple(plugins),

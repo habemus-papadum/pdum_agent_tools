@@ -311,16 +311,20 @@ async def login_auth(directory: Path, *, device_auth: bool = False) -> int:
     int
         Zero after AWS login succeeds, or the native ChatGPT login exit code.
     """
-    from .runtime import _identity, _Lease, login_chatgpt
+    from .layout import launcher_toml, runs_dir
+    from .runtime import MutationLock, _identity, login_chatgpt
 
-    lease = _Lease(directory)
-    lease.acquire()
-    path = lease.directory
-    record = {}
+    lock = MutationLock(directory)
+    lock.acquire()
+    path = lock.directory
+    record: dict = {}
     process = None
+    run_directory = runs_dir(path) / uuid.uuid4().hex
 
     async def publish() -> None:
-        await complete_file_operation(lambda: atomic_write(path / "runtime/owner.json", json.dumps(record)))
+        run_directory.mkdir(mode=0o700, exist_ok=True)
+        content = json.dumps(record)
+        await complete_file_operation(lambda: atomic_write(run_directory / "owner.json", content))
 
     async def spawned(child: asyncio.subprocess.Process, arguments: list[str]) -> None:
         nonlocal process
@@ -338,22 +342,27 @@ async def login_auth(directory: Path, *, device_auth: bool = False) -> int:
         await publish()
 
     try:
+        metadata = launcher_toml(path)
         native, launcher = await asyncio.to_thread(
-            lambda: ((path / "codex/config.toml").read_text(), (path / "launcher.toml").read_text())
+            lambda: (
+                (path / "config.toml").read_text() if (path / "config.toml").is_file() else "",
+                metadata.read_text() if metadata.is_file() else "",
+            )
         )
         inspection = inspect_auth(native, launcher, path)
         if inspection.spec.method == "aws-federation":
             record = {
-                "run_id": uuid.uuid4().hex,
+                "run_id": run_directory.name,
                 "operation": "login",
                 "authentication_method": "aws-federation",
                 "profile": str(path),
                 "state": "starting",
                 "owner": _identity(os.getpid()),
                 "started_at": time.time(),
+                "run_directory": str(run_directory),
             }
             await publish()
-            await aws_login(inspection.spec.federation, _lease_descriptor=lease.descriptor, _on_spawn=spawned)
+            await aws_login(inspection.spec.federation, _lease_descriptor=lock.descriptor, _on_spawn=spawned)
             return 0
         if inspection.spec.method != "chatgpt":
             raise ProfileError("The selected authentication method has no managed login action")
@@ -365,5 +374,5 @@ async def login_auth(directory: Path, *, device_auth: bool = False) -> int:
                     record["returncode"] = process.returncode
                 await publish()
         finally:
-            lease.close()
+            lock.close()
     return await login_chatgpt(directory, device_auth=device_auth)

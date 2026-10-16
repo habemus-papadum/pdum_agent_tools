@@ -1,9 +1,13 @@
-"""Directory-based profiles and convenient isolated temporary work."""
+"""Directory-based profiles and convenient isolated temporary work.
+
+A profile directory *is* a Codex home. Launcher-owned metadata, isolated
+environment roots and run records live in its ``.pdum/`` subdirectory, so the
+user's ordinary ``~/.codex`` is simply the profile selected by ``--default``.
+"""
 
 from __future__ import annotations
 
 import asyncio
-import os
 import re
 import shutil
 import tempfile
@@ -16,8 +20,16 @@ from pathlib import Path
 import platformdirs
 import tomlkit
 
-from .config import atomic_write, complete_file_operation, edit_native_config, read_config, resolve_executable
+from .config import (
+    SCHEMA_VERSION,
+    atomic_write,
+    complete_file_operation,
+    edit_native_config,
+    read_config,
+    resolve_executable,
+)
 from .errors import ProfileError
+from .layout import ISOLATED_HOME_DIRECTORIES, LAUNCHER_DIR, default_codex_home, launcher_toml
 
 
 @dataclass(frozen=True)
@@ -42,6 +54,8 @@ class ProfileInfo:
     auth_file_present: bool = False
     warnings: tuple[str, ...] = ()
     error: str | None = None
+    managed: bool = True
+    isolate: bool = True
 
 
 def default_profiles_directory() -> Path:
@@ -55,7 +69,9 @@ def default_profiles_directory() -> Path:
     return platformdirs.user_data_path("pdum-codex", appauthor=False) / "profiles"
 
 
-def resolve_profile(name: str | None = None, directory: Path | None = None, root: Path | None = None) -> Path:
+def resolve_profile(
+    name: str | None = None, directory: Path | None = None, root: Path | None = None, *, default: bool = False
+) -> Path:
     """Resolve exclusive CLI selectors without creating a profile.
 
     Parameters
@@ -66,18 +82,24 @@ def resolve_profile(name: str | None = None, directory: Path | None = None, root
         Exact profile directory, exclusive of name and root.
     root : Path or None
         Root for named profiles.
+    default : bool
+        Select the Codex home the user's own CLI uses: ``$CODEX_HOME`` or ``~/.codex``.
 
     Returns
     -------
     Path
         Canonical profile path.
     """
+    if default:
+        if name is not None or directory is not None or root is not None:
+            raise ProfileError("--default cannot be combined with --profile, --profile-dir or --profiles-dir")
+        return default_codex_home()
     if directory is not None:
         if name is not None or root is not None:
             raise ProfileError("--profile-dir cannot be combined with --profile or --profiles-dir")
         return directory.expanduser().resolve()
     if name is None:
-        raise ProfileError("Select --profile NAME or --profile-dir PATH")
+        raise ProfileError("Select --default, --profile NAME or --profile-dir PATH")
     if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", name) is None:
         raise ProfileError("Profile names must be 1–64 letters, digits, dots, underscores or hyphens")
     return ((root or default_profiles_directory()).expanduser() / name).resolve()
@@ -105,6 +127,12 @@ def _copy_skills(
         raise ProfileError(f"Unsupported skills entry: {source}")
 
 
+def create_launcher_directories(root: Path) -> None:
+    """Create the launcher-owned subdirectory tree inside a profile or staging directory."""
+    for relative in ISOLATED_HOME_DIRECTORIES:
+        (root / LAUNCHER_DIR / relative).mkdir(mode=0o700, parents=True, exist_ok=True)
+
+
 def _create(directory: Path, specification: ProfileSpec) -> ProfileInfo:
     directory = directory.expanduser().resolve()
     if directory.exists():
@@ -116,29 +144,24 @@ def _create(directory: Path, specification: ProfileSpec) -> ProfileInfo:
     staging = Path(tempfile.mkdtemp(prefix=f".{directory.name}.creating-", dir=directory.parent))
     warnings: list[str] = []
     try:
-        for relative in (
-            "codex",
-            "home/.config",
-            "home/.cache",
-            "home/.local/share",
-            "home/.local/state",
-            "work",
-            "runtime/tmp",
-            "runtime/runs",
-        ):
-            (staging / relative).mkdir(mode=0o700, parents=True, exist_ok=True)
-        metadata = tomlkit.parse((source / "launcher.toml").read_text()) if source else tomlkit.document()
-        metadata["schema_version"] = 1
+        create_launcher_directories(staging)
+        source_metadata = launcher_toml(source) if source else None
+        metadata = (
+            tomlkit.parse(source_metadata.read_text())
+            if source_metadata is not None and source_metadata.is_file()
+            else tomlkit.document()
+        )
+        metadata["schema_version"] = SCHEMA_VERSION
         metadata["executable"] = {"path": str(executable)}
         if specification.environment:
             environment = metadata.setdefault("environment", {})
             saved = dict(environment.get("values", {}))
             saved.update(specification.environment)
             environment["values"] = saved
-        atomic_write(staging / "launcher.toml", tomlkit.dumps(metadata))
-        native_source = source / "codex" / "config.toml" if source else None
+        atomic_write(launcher_toml(staging), tomlkit.dumps(metadata))
+        native_source = source / "config.toml" if source else None
         if native_source and native_source.exists():
-            atomic_write(staging / "codex" / "config.toml", native_source.read_bytes())
+            atomic_write(staging / "config.toml", native_source.read_bytes())
             warnings.append("Copied native config unchanged; it may contain credentials and shared external paths.")
         else:
             edit_native_config(
@@ -151,11 +174,11 @@ def _create(directory: Path, specification: ProfileSpec) -> ProfileInfo:
             )
         if specification.model is not None:
             edit_native_config(staging, {"model": specification.model})
-        if source and specification.copy_skills and (source / "codex" / "skills").exists():
-            _copy_skills(source / "codex" / "skills", staging / "codex" / "skills", warnings)
+        if source and specification.copy_skills and (source / "skills").exists():
+            _copy_skills(source / "skills", staging / "skills", warnings)
         auth_source = specification.auth_source
         if specification.copy_auth and auth_source is None and source:
-            auth_source = source / "codex" / "auth.json"
+            auth_source = source / "auth.json"
         if specification.copy_auth and auth_source is not None:
             auth_source = auth_source.expanduser()
             if auth_source.is_dir():
@@ -163,7 +186,7 @@ def _create(directory: Path, specification: ProfileSpec) -> ProfileInfo:
             if auth_source.is_symlink():
                 raise ProfileError("Auth snapshot source must be a regular file, not a symlink")
             if auth_source.is_file():
-                atomic_write(staging / "codex" / "auth.json", auth_source.read_bytes())
+                atomic_write(staging / "auth.json", auth_source.read_bytes())
                 warnings.append(
                     "Copied auth.json; separate refresh owners can invalidate either session. No source writes occur."
                 )
@@ -173,7 +196,7 @@ def _create(directory: Path, specification: ProfileSpec) -> ProfileInfo:
             staging.rename(directory)
         except OSError as error:
             raise ProfileError(f"Cannot publish profile; target may already exist: {directory}") from error
-        return ProfileInfo(directory, executable, (directory / "codex" / "auth.json").exists(), tuple(warnings))
+        return ProfileInfo(directory, executable, (directory / "auth.json").exists(), tuple(warnings))
     finally:
         if staging.exists():
             shutil.rmtree(staging)
@@ -208,7 +231,7 @@ async def inspect_profile(directory: Path) -> ProfileInfo:
     Parameters
     ----------
     directory : Path
-        Existing profile directory.
+        Existing profile directory, managed or a bare Codex home.
 
     Returns
     -------
@@ -217,11 +240,13 @@ async def inspect_profile(directory: Path) -> ProfileInfo:
     """
     path = directory.expanduser().resolve()
     config = await asyncio.to_thread(read_config, path)
-    return ProfileInfo(path, config.executable, (path / "codex" / "auth.json").exists())
+    return ProfileInfo(
+        path, config.executable, (path / "auth.json").exists(), managed=config.managed, isolate=config.isolate
+    )
 
 
 async def list_profiles(root: Path) -> list[ProfileInfo]:
-    """List profile summaries, retaining individual malformed-profile errors.
+    """List managed profile summaries, retaining individual malformed-profile errors.
 
     Parameters
     ----------
@@ -231,15 +256,16 @@ async def list_profiles(root: Path) -> list[ProfileInfo]:
     Returns
     -------
     list of ProfileInfo
-        Sorted summaries; unrelated directories are ignored.
+        Sorted summaries; directories without launcher metadata are ignored.
     """
-    directories = await asyncio.to_thread(lambda: sorted(root.expanduser().glob("*/launcher.toml")))
+    pattern = f"*/{LAUNCHER_DIR}/launcher.toml"
+    metadata_files = await asyncio.to_thread(lambda: sorted(root.expanduser().glob(pattern)))
     result = []
-    for metadata in directories:
+    for metadata in metadata_files:
         try:
-            result.append(await inspect_profile(metadata.parent))
+            result.append(await inspect_profile(metadata.parent.parent))
         except ProfileError as error:
-            result.append(ProfileInfo(metadata.parent, error=str(error)))
+            result.append(ProfileInfo(metadata.parent.parent, error=str(error)))
     return result
 
 
@@ -281,7 +307,7 @@ async def temporary_profile(
         raise ProfileError("Clean temporary profiles cannot also copy settings or borrow authentication")
     auth_source = selected.auth_source
     if not clean and copy_auth and auth_source is None and selected.source is None:
-        auth_source = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))) / "auth.json"
+        auth_source = default_codex_home() / "auth.json"
     selected = replace(selected, copy_auth=not clean and copy_auth, auth_source=auth_source)
     container = Path(tempfile.mkdtemp(prefix="pdum-codex-", dir=parent))
     directory = container / "profile"
@@ -310,7 +336,7 @@ async def configure_api_key(directory: Path, environment_variable: str, base_url
     Parameters
     ----------
     directory : Path
-        Stopped profile directory.
+        Existing profile directory.
     environment_variable : str
         Parent environment name inherited at launch; never a literal token.
     base_url : str or None
@@ -337,4 +363,4 @@ async def native_config(directory: Path) -> dict:
     dict
         Native values, which can include credentials; do not routinely log them.
     """
-    return await asyncio.to_thread(lambda: tomllib.loads((directory / "codex" / "config.toml").read_text()))
+    return await asyncio.to_thread(lambda: tomllib.loads((directory / "config.toml").read_text()))

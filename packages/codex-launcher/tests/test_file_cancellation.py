@@ -1,4 +1,4 @@
-"""Cancellation timing gates around actual file writes and profile leases."""
+"""Cancellation timing gates around actual file writes and the profile mutation lock."""
 
 import asyncio
 import json
@@ -20,7 +20,7 @@ from pdum.codex_launcher import (
     temporary_profile,
     workflow,
 )
-from pdum.codex_launcher.runtime import dispose_profile, profile_lease
+from pdum.codex_launcher.runtime import dispose_profile, mutation_lock
 
 
 class WriteGate:
@@ -41,7 +41,7 @@ class WriteGate:
         self.original(path, content)
 
 
-async def test_cancelled_api_key_update_holds_lease_until_both_files_finish(tmp_path, monkeypatch):
+async def test_cancelled_api_key_update_holds_lock_until_both_files_finish(tmp_path, monkeypatch):
     profile = tmp_path / "profile"
     await create_profile(profile, ProfileSpec(executable=sys.executable))
     gate = WriteGate(workflow.atomic_write, lambda path, content: path.name == "config.toml")
@@ -53,21 +53,21 @@ async def test_cancelled_api_key_update_holds_lease_until_both_files_finish(tmp_
         await asyncio.sleep(0.02)
         assert not operation.done()
         with pytest.raises(ProfileBusy):
-            async with profile_lease(profile):
+            async with mutation_lock(profile):
                 pass
     finally:
         gate.release.set()
     with pytest.raises(asyncio.CancelledError):
         await operation
-    native = tomllib.loads((profile / "codex/config.toml").read_text())
-    launcher = tomllib.loads((profile / "launcher.toml").read_text())
+    native = tomllib.loads((profile / "config.toml").read_text())
+    launcher = tomllib.loads((profile / ".pdum/launcher.toml").read_text())
     assert native["model_providers"]["pdum_api"]["env_key"] == "CANCELLATION_TEST_KEY"
     assert "CANCELLATION_TEST_KEY" in launcher["environment"]["inherit_keys"]
-    async with profile_lease(profile):
+    async with mutation_lock(profile):
         pass
 
 
-async def test_cancelled_starting_journal_cannot_overwrite_closed_state(tmp_path, monkeypatch):
+async def test_cancelled_starting_record_cannot_overwrite_closed_state(tmp_path, monkeypatch):
     profile = tmp_path / "profile"
     await create_profile(profile, ProfileSpec(executable=sys.executable))
     gate = WriteGate(runtime.atomic_write, lambda path, content: json.loads(content).get("state") == "starting")
@@ -83,19 +83,17 @@ async def test_cancelled_starting_journal_cannot_overwrite_closed_state(tmp_path
         pending.cancel()
         await asyncio.sleep(0.02)
         assert not pending.done()
-        with pytest.raises(ProfileBusy):
-            async with profile_lease(profile):
-                pass
+        async with mutation_lock(profile):
+            pass
     finally:
         gate.release.set()
     with pytest.raises(asyncio.CancelledError):
         await pending
-    state = await profile_status(profile)
-    assert state["state"] == "closed"
-    assert not state["server_alive"]
-    assert not state["locked"]
-    async with profile_lease(profile):
-        pass
+    status = await profile_status(profile)
+    (run,) = status["runs"]
+    assert run["state"] == "closed"
+    assert not run["server_alive"]
+    assert status["live_runs"] == []
 
 
 async def test_temporary_allocation_cancellation_does_not_lose_directory(tmp_path, monkeypatch):
@@ -136,7 +134,7 @@ async def test_cancelled_disposal_finishes_marker_and_removal_before_returning(t
         await asyncio.sleep(0.02)
         assert not operation.done()
         with pytest.raises(ProfileBusy):
-            async with profile_lease(profile):
+            async with mutation_lock(profile):
                 pass
     finally:
         gate.release.set()

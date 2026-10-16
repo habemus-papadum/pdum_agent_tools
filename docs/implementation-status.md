@@ -46,8 +46,14 @@ The [client API design](specs/codex-client.md) and
   pager/editor for unrepresented TOML, preview/diff and stopped-profile save/rollback.
 - Selectable ChatGPT/API-key/AWS federation setup and separate login actions.
   AWS helpers are accepted by native Codex; actual cloud exchange/renewal is unqualified.
-- One app-server owner per profile using an inherited file lease, PID/birth-identity
-  journal, readiness, live status/stop and verified orphan recovery.
+- Per-run ownership records under `.pdum/runtime/runs/`, readiness, live status and
+  stop per run, and verified orphan recovery. Several launched servers may share one
+  profile; Codex coordinates them. A short mutation lock serializes launcher edits only.
+- `--default` selects the user's own Codex home as a profile with environment isolation
+  off. Launch-time `--model` and `-c key=value` become native overrides, never config edits.
+- `inspect` reports every process using a Codex home with kind, origin and version,
+  launcher runs, the shared daemon, thread writer locks, SQLite sizes/holders/migrations
+  and recent native log activity, as JSON or a Rich summary and as `GET /inspect`.
 - Foreground CLI or async context lifetime; native Unix backend and optional
   browser-compatible all-interface WebSocket relay. `--direct` exposes the native
   Unix endpoint instead. No daemon or attachment convenience.
@@ -75,8 +81,8 @@ uv run pdum-codex --profile research capture on
 uv run pdum-codex --profile research stop
 ```
 
-Native configuration remains in `<profile>/codex/config.toml`; launcher metadata
-is `<profile>/launcher.toml`. The interactive interview defaults to the ordinary
+A profile directory is a Codex home: native configuration is `<profile>/config.toml`
+and launcher metadata is `<profile>/.pdum/launcher.toml`, absent for a bare home. The interactive interview defaults to the ordinary
 native home for new profiles and the profile itself for configuration. Explicit
 source directories, clean creation and noninteractive flags are supported.
 See [profile setup and authentication](profiles.md) for commands and import limits.
@@ -194,8 +200,11 @@ native plugin/skill discovery and authentication-configuration probes, plus real
 local AWS-command/HTTP contract tests. Fixtures in the latter check parsing and
 failure behavior, not successful AWS/OpenAI identity federation. No additional
 model calls or cloud credential changes were made for the profile-setup iteration.
-The expanded suite passes **144 tests on each of Python 3.12.11, 3.13.5 and
-3.14.7** on macOS. The cross-version run also corrected test-only inherited-pipe
+The expanded suite passed **144 tests on each of Python 3.12.11, 3.13.5 and
+3.14.7** on macOS. After the October 2026 layout change, which made profiles
+Codex homes and replaced the lease with run records and `inspect`, the launcher
+suite is 139 tests and the repository's non-live suite passes 275 tests with 46
+skips on Python 3.14; the native checks include two servers sharing one profile. The cross-version run also corrected test-only inherited-pipe
 waiting and interpreter re-exec issues without weakening process-identity checks.
 
 ## Not yet qualified or implemented
@@ -204,11 +213,13 @@ waiting and interpreter re-exec issues without weakening process-identity checks
 - Real cloud identity/renewal checks for the implemented federation helper;
   long-lived credential renewal and fresh interactive ChatGPT login are not
   established by a copied-auth inference check. Existing native config is preserved.
-- Windows/network-filesystem ownership, arbitrary wrappers that close inherited
-  leases or change their recorded process identity, or guaranteed cleanup of
-  detached descendants after an unexpected app-server exit. Uncertain ownership
-  refuses reuse rather than deleting a lock. A crash between spawn and completed
-  PID journaling can require manual diagnosis rather than automatic cleanup.
+- Windows/network-filesystem ownership, wrappers that change the recorded process
+  identity, or guaranteed cleanup of detached descendants after an unexpected
+  app-server exit. Uncertain ownership refuses recovery rather than killing a PID.
+  A crash between spawn and completed run recording can require manual diagnosis.
+- Inspection of processes owned by other users, daemon probes over anything but
+  the local Unix control socket, and effective feature-flag defaults, which only
+  the binary knows. Database contention is reported through proxies.
 - HTTP/2 and IPv6 qualification, semantic HTTP JSONL/SSE decoding, live destination
   switching, archive rotation/pruning and an offline validator.
 - Remote logging/metric exporters, pricing service, general thread SDK, daemon,

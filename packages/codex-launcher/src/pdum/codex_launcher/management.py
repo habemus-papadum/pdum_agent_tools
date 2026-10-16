@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from .errors import LauncherError
+from .inspection import inspect_home
 from .runtime import RunningAppServer
 
 
@@ -31,10 +32,12 @@ def create_app(server: RunningAppServer) -> FastAPI:
     -------
     FastAPI
         Mountable trusted-network management routes: ``GET /status``,
-        ``POST /capture`` and ``POST /stop``. Capture conflicts/unavailable
-        interception return 409, invalid request bodies 422, and I/O/timeouts 503.
-        Stop returns only after the existing owner's cleanup finishes. App
-        creation and HTTP lifespan events neither launch nor close the server.
+        ``GET /inspect``, ``POST /capture`` and ``POST /stop``. Capture
+        conflicts/unavailable interception return 409, invalid request bodies 422,
+        and I/O/timeouts 503. Inspect reports every process using the server's
+        Codex home, not only this owner. Stop returns only after the existing
+        owner's cleanup finishes. App creation and HTTP lifespan events neither
+        launch nor close the server.
     """
     application = FastAPI(title="pdum Codex management", version="1")
 
@@ -42,6 +45,15 @@ def create_app(server: RunningAppServer) -> FastAPI:
     async def status() -> dict[str, Any]:
         try:
             return await server.status()
+        except (OSError, TimeoutError) as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+
+    @application.get("/inspect")
+    async def inspect(probe: bool = True) -> dict[str, Any]:
+        try:
+            return await inspect_home(server.directory, probe_daemon=probe)
+        except LauncherError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
         except (OSError, TimeoutError) as error:
             raise HTTPException(status_code=503, detail=str(error)) from error
 

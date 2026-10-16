@@ -15,7 +15,7 @@ the wider architecture proposals are not all implemented.
 | Distribution | Python import | Scope |
 | --- | --- | --- |
 | [habemus-papadum-mitm](packages/mitm/README.md) | `pdum.mitm` | Async MITM sidecar, scoped CA/proxy settings, streaming HTTP/WSS capture and processor hooks. Not specific to AI agents. |
-| [habemus-papadum-codex-launcher](packages/codex-launcher/README.md) | `pdum.codex_launcher` | Manage named Codex profiles and launch app-server with the selected model, parameters, upstream authentication, and executable. |
+| [habemus-papadum-codex-launcher](packages/codex-launcher/README.md) | `pdum.codex_launcher` | Codex homes as profiles, including your own with `--default`; launch app-servers with native overrides, record runs and inspect every process using a home. |
 | [habemus-papadum-hostfork](packages/hostfork/README.md) | `pdum.hostfork` | Host-derived views, private storage, ordinary Python subprocesses, independent deadlines and recovery. |
 | [habemus-papadum-claude-launcher](packages/claude-launcher/README.md) | `pdum.claude_launcher` | Isolated Claude profiles, foreground workers for official browser/Node SDK clients, and saved-history management. New, unreleased package. |
 
@@ -123,7 +123,8 @@ uv run pdum-codex launch --temp --model gpt-6-luna
 
 Then connect the vanilla CLI with `codex --remote ENDPOINT`, using the printed
 endpoint. This uses your credentials and may incur model usage when you submit a
-prompt. Defaults follow the trusted-network stance above.
+prompt. Defaults follow the trusted-network stance above. `pdum-codex --default inspect`
+shows every process using your ordinary Codex home without changing anything.
 
 ## Repository layout
 

@@ -19,7 +19,8 @@ from pdum.codex_launcher import (
     save_profile_edit,
     workflow,
 )
-from pdum.codex_launcher.runtime import profile_lease
+from pdum.codex_launcher.layout import launcher_toml
+from pdum.codex_launcher.runtime import mutation_lock
 
 
 async def test_create_filters_and_edits_remainder_without_source_changes(tmp_path):
@@ -50,7 +51,7 @@ command = "two"
     assert not draft.directory.exists()
     prepared = prepare_edit(draft, replace(edit, remaining_toml=remainder.replace('"kept"', '"edited"')))
     info = await save_profile_edit(prepared)
-    result = tomllib.loads((info.directory / "codex/config.toml").read_text())
+    result = tomllib.loads((info.directory / "config.toml").read_text())
     assert result["future_setting"] == "edited"
     assert result["model"] == "gpt-6-luna"
     assert set(result["mcp_servers"]) == {"keep"}
@@ -78,28 +79,28 @@ async def _clean_profile(tmp_path):
 async def test_configure_starts_from_current_profile_and_retains_sessions_auth(tmp_path, monkeypatch):
     directory = await _clean_profile(tmp_path)
     monkeypatch.setenv("CODEX_HOME", str(tmp_path / "do-not-read"))
-    (directory / "codex/auth.json").write_text("snapshot")
-    (directory / "codex/sessions").mkdir()
-    (directory / "codex/sessions/session.jsonl").write_text("retained")
-    skill = directory / "codex/skills/example"
+    (directory / "auth.json").write_text("snapshot")
+    (directory / "sessions").mkdir()
+    (directory / "sessions/session.jsonl").write_text("retained")
+    skill = directory / "skills/example"
     skill.mkdir(parents=True)
     (skill / "SKILL.md").write_text("---\nname: example\ndescription: test\n---\nA skill")
     draft = await load_profile_draft(directory, existing=True)
     assert len(draft.inventory.skills) == 1
     await save_profile_edit(prepare_edit(draft, ProfileEdit(selection=ImportSelection(skills="none"))))
     assert not skill.exists()
-    assert (directory / "codex/auth.json").read_text() == "snapshot"
-    assert (directory / "codex/sessions/session.jsonl").read_text() == "retained"
+    assert (directory / "auth.json").read_text() == "snapshot"
+    assert (directory / "sessions/session.jsonl").read_text() == "retained"
 
 
 async def test_existing_busy_conflict_and_write_failure_leave_settings_intact(tmp_path, monkeypatch):
     directory = await _clean_profile(tmp_path)
     draft = await load_profile_draft(directory, existing=True)
     prepared = prepare_edit(draft, ProfileEdit(model="new", import_assets=False))
-    async with profile_lease(directory):
+    async with mutation_lock(directory):
         with pytest.raises(ProfileBusy):
             await save_profile_edit(prepared)
-    native = directory / "codex/config.toml"
+    native = directory / "config.toml"
     native.write_text(draft.native_toml + '\nchanged="outside"\n')
     with pytest.raises(ProfileError, match="changed since"):
         await save_profile_edit(prepared)
@@ -115,11 +116,11 @@ async def test_existing_busy_conflict_and_write_failure_leave_settings_intact(tm
     with pytest.raises(OSError, match="publication failure"):
         await save_profile_edit(prepared)
     assert native.read_text() == draft.native_toml
-    assert (directory / "launcher.toml").read_text() == draft.launcher_toml
+    assert launcher_toml(directory).read_text() == draft.launcher_toml
     assert not list(directory.parent.glob(".profile.editing-*"))
 
 
-async def test_cancellation_keeps_lease_until_writer_finishes(tmp_path, monkeypatch):
+async def test_cancellation_keeps_lock_until_writer_finishes(tmp_path, monkeypatch):
     directory = await _clean_profile(tmp_path)
     draft = await load_profile_draft(directory, existing=True)
     prepared = prepare_edit(draft, ProfileEdit(model="new", import_assets=False))
@@ -139,13 +140,13 @@ async def test_cancellation_keeps_lease_until_writer_finishes(tmp_path, monkeypa
     await asyncio.sleep(0)
     try:
         with pytest.raises(ProfileBusy):
-            async with profile_lease(directory):
-                raise AssertionError("Lease released before writer finished")
+            async with mutation_lock(directory):
+                raise AssertionError("Lock released before writer finished")
     finally:
         finish.set()
     with pytest.raises(asyncio.CancelledError):
         await saving
-    assert tomllib.loads((directory / "codex/config.toml").read_text())["model"] == "new"
+    assert tomllib.loads((directory / "config.toml").read_text())["model"] == "new"
 
 
 async def test_clone_rebases_owned_federation_helper(tmp_path):
@@ -169,7 +170,7 @@ async def test_auth_switch_clears_only_owned_environment_and_active_profile(tmp_
     await save_profile_edit(
         prepare_edit(draft, ProfileEdit(auth=AuthSpec("api-key", "EXAMPLE_KEY"), import_assets=False))
     )
-    native = directory / "codex/config.toml"
+    native = directory / "config.toml"
     native.write_text('profile="old"\n' + native.read_text() + '\n[profiles.old]\nmodel="old"\n')
     draft = await load_profile_draft(directory, existing=True)
     prepared = prepare_edit(draft, ProfileEdit(auth=AuthSpec("chatgpt"), model="new", import_assets=False))
@@ -192,16 +193,32 @@ async def test_selected_asset_cannot_contain_staging_directory(tmp_path):
     assert not list(source.glob(".profile.editing-*"))
 
 
-async def test_redirected_native_parent_does_not_mutate_external_tree(tmp_path):
+async def test_redirected_launcher_parent_does_not_mutate_external_tree(tmp_path):
     directory = await _clean_profile(tmp_path)
-    external = tmp_path / "external-codex"
-    (directory / "codex").rename(external)
-    (directory / "codex").symlink_to(external, target_is_directory=True)
+    external = tmp_path / "external-launcher-state"
+    (directory / ".pdum").rename(external)
+    (directory / ".pdum").symlink_to(external, target_is_directory=True)
     draft = await load_profile_draft(directory, existing=True)
     prepared = prepare_edit(draft, ProfileEdit(model="new", import_assets=False))
     with pytest.raises(ProfileError, match="redirects writes"):
         await save_profile_edit(prepared)
-    assert (external / "config.toml").read_text() == draft.native_toml
+    assert (external / "launcher.toml").read_text() == draft.launcher_toml
+    assert (directory / "config.toml").read_text() == draft.native_toml
+
+
+async def test_editing_a_bare_home_adopts_it_without_changing_native_behavior(tmp_path, monkeypatch):
+    home = tmp_path / "bare-home"
+    home.mkdir()
+    (home / "config.toml").write_text('model = "daily"\n[mcp_servers.one]\ncommand = "one"\n')
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    draft = await load_profile_draft(home, existing=True)
+    assert not draft.managed
+    await save_profile_edit(prepare_edit(draft, ProfileEdit(executable=Path(sys.executable), model="edited")))
+    assert tomllib.loads((home / "config.toml").read_text())["model"] == "edited"
+    metadata = tomllib.loads((home / ".pdum/launcher.toml").read_text())
+    assert metadata["environment"] == {"mode": "inherit", "isolate": False}
+    assert set(tomllib.loads((home / "config.toml").read_text())["mcp_servers"]) == {"one"}
+    assert not (home / ".pdum/home").exists() or (home / ".pdum/home").is_dir()
 
 
 async def test_explicit_relative_executable_uses_caller_directory(tmp_path, monkeypatch):

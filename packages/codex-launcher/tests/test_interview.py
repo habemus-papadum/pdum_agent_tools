@@ -45,9 +45,9 @@ class Answers:
 def source_profile(tmp_path: Path) -> Path:
     source = tmp_path / "source"
     source.mkdir()
-    (source / "launcher.toml").write_text(f"schema_version=1\n[executable]\npath={json.dumps(sys.executable)}\n")
-    (source / "codex").mkdir()
-    (source / "codex/config.toml").write_text(
+    (source / ".pdum").mkdir()
+    (source / ".pdum/launcher.toml").write_text(f"schema_version=2\n[executable]\npath={json.dumps(sys.executable)}\n")
+    (source / "config.toml").write_text(
         'model="gpt-6-luna"\nunknown_setting="preserve me"\n'
         '[mcp_servers.one]\ncommand="one"\n[mcp_servers.two]\ncommand="two"\n'
     )
@@ -56,7 +56,7 @@ def source_profile(tmp_path: Path) -> Path:
 
 async def test_interview_selects_entries_previews_and_returns_without_writing(tmp_path: Path, monkeypatch):
     source = source_profile(tmp_path)
-    before = (source / "codex/config.toml").read_bytes()
+    before = (source / "config.toml").read_bytes()
     answers = Answers(
         {
             "Import MCP servers (2 available)?": "individual",
@@ -75,7 +75,7 @@ async def test_interview_selects_entries_previews_and_returns_without_writing(tm
     assert edit.auth.method == "chatgpt"
     assert edit.login_after
     assert not draft.directory.exists()
-    assert (source / "codex/config.toml").read_bytes() == before
+    assert (source / "config.toml").read_bytes() == before
     assert "unknown_setting" in prepare_edit(draft, edit).native_toml
 
 
@@ -132,7 +132,7 @@ async def test_auth_only_uses_initial_flags_and_never_reimports_assets(tmp_path:
     assert not any(
         message.startswith("Import ") or message == "Remaining configuration" for message, _ in answers.calls
     )
-    assert (source / "codex/config.toml").read_text() == draft.native_toml
+    assert (source / "config.toml").read_text() == draft.native_toml
 
 
 async def test_initial_model_executable_and_import_choices_seed_prompts(tmp_path: Path, monkeypatch):
@@ -177,7 +177,7 @@ async def test_federation_interview_collects_only_configuration(tmp_path: Path, 
 
 async def test_auth_snapshot_offer_is_explicit_and_never_prints_credentials(tmp_path: Path, monkeypatch, capsys):
     source = source_profile(tmp_path)
-    (source / "codex/auth.json").write_text('{"token":"DO-NOT-PRINT-THIS"}')
+    (source / "auth.json").write_text('{"token":"DO-NOT-PRINT-THIS"}')
     draft = await load_profile_draft(tmp_path / "out", source=source)
     Answers({"Copy the source auth.json snapshot?": True, "Remaining configuration": "accept"}).install(monkeypatch)
     edit = await interview(draft)

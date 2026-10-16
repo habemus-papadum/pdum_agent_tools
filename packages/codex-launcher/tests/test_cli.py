@@ -21,7 +21,7 @@ def test_standalone_profile_create_show_and_dry_run(tmp_path):
     result = runner.invoke(app, [*prefix, "--profile", "example", "launch", "--dry-run"])
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)["host"] == "0.0.0.0"
-    assert not (tmp_path / "example/runtime/owner.json").exists()
+    assert not list((tmp_path / "example/.pdum/runtime/runs").iterdir())
 
 
 def test_mountable_cli_and_factory_independence(tmp_path):
@@ -52,7 +52,7 @@ def test_conflicting_selectors_and_missing_profile_are_actionable(tmp_path):
     assert result.exit_code != 0
     result = runner.invoke(app, ["status"])
     assert result.exit_code == 1
-    assert "Select --profile" in result.output
+    assert "Select --default, --profile" in result.output
 
 
 def test_default_native_import_then_configure_and_change_auth(tmp_path, monkeypatch):
@@ -85,7 +85,7 @@ def test_default_native_import_then_configure_and_change_auth(tmp_path, monkeypa
         ],
     )
     assert result.exit_code == 0, result.output
-    config_path = destination / "codex/config.toml"
+    config_path = destination / "config.toml"
     native = tomllib.loads(config_path.read_text())
     assert set(native["mcp_servers"]) == {"one"}
     assert native["future"] == "keep"
@@ -95,7 +95,7 @@ def test_default_native_import_then_configure_and_change_auth(tmp_path, monkeypa
     assert tomllib.loads(config_path.read_text())["model"] == "gpt-6-luna"
     result = runner.invoke(app, [*prefix, "auth", "configure", "--no-interview", "--method", "chatgpt"])
     assert result.exit_code == 0, result.output
-    metadata = tomllib.loads((destination / "launcher.toml").read_text())
+    metadata = tomllib.loads((destination / ".pdum/launcher.toml").read_text())
     assert "EXAMPLE_KEY" not in metadata["environment"]["inherit_keys"]
     result = runner.invoke(app, [*prefix, "auth", "status"])
     assert result.exit_code == 0, result.output
@@ -110,8 +110,8 @@ def test_login_flag_runs_after_save_and_reports_failure(tmp_path, monkeypatch):
     called = []
 
     async def explicit_login(directory, *, device_auth=False):
-        assert (directory / "launcher.toml").is_file()
-        assert (directory / "codex/config.toml").is_file()
+        assert (directory / ".pdum/launcher.toml").is_file()
+        assert (directory / "config.toml").is_file()
         called.append(device_auth)
         return 7
 
@@ -162,7 +162,7 @@ def test_noninteractive_federation_settings_and_inventory(tmp_path):
         ],
     )
     assert result.exit_code == 0, result.output
-    native = tomllib.loads((destination / "codex/config.toml").read_text())
+    native = tomllib.loads((destination / "config.toml").read_text())
     assert native["model_providers"][native["model_provider"]]["supports_websockets"]
     result = runner.invoke(app, ["profile", "inventory", "--source", str(destination)])
     assert result.exit_code == 0, result.output
@@ -182,3 +182,83 @@ def test_invalid_flags_do_not_create_profile(tmp_path):
         result = runner.invoke(create_app(), [*prefix, *flags])
         assert result.exit_code == 1, result.output
         assert not destination.exists()
+
+
+def test_default_selects_the_users_codex_home_and_launch_passes_overrides(tmp_path, monkeypatch):
+    home = tmp_path / "daily-home"
+    home.mkdir()
+    (home / "config.toml").write_text('model = "daily"\n')
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    runner = CliRunner()
+    app = create_app()
+    result = runner.invoke(app, ["--default", "profile", "create", "--no-interview"])
+    assert result.exit_code == 1
+    assert "cannot be created" in result.output
+    result = runner.invoke(app, ["--default", "--profile", "other", "status"])
+    assert result.exit_code != 0
+    result = runner.invoke(
+        app,
+        [
+            "--default",
+            "launch",
+            "--dry-run",
+            "--executable",
+            sys.executable,
+            "--model",
+            "gpt-6-luna",
+            "-c",
+            'sandbox_mode="danger-full-access"',
+            "-c",
+            "features.plugins=true",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    plan = json.loads(result.stdout)
+    assert plan["profile"] == str(home.resolve())
+    assert plan["managed"] is False
+    assert plan["isolate"] is False
+    assert plan["environment_mode"] == "inherit"
+    assert plan["arguments"][3:] == [
+        "-c",
+        'model="gpt-6-luna"',
+        "-c",
+        'sandbox_mode="danger-full-access"',
+        "-c",
+        "features.plugins=true",
+    ]
+    assert (home / "config.toml").read_text() == 'model = "daily"\n'
+    result = runner.invoke(app, ["--default", "launch", "--dry-run", "--executable", sys.executable, "-c", "broken"])
+    assert result.exit_code == 1
+    assert "key=value" in result.output
+    result = runner.invoke(app, ["--default", "--json", "status"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout) == {"profile": str(home.resolve()), "runs": [], "live_runs": []}
+    result = runner.invoke(app, ["--default", "--json", "inspect", "--no-probe"])
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.stdout)
+    assert report["home"] == str(home.resolve())
+    assert report["managed"] is False
+    result = runner.invoke(app, ["--default", "inspect", "--no-probe"])
+    assert result.exit_code == 0, result.output
+    assert "Processes touching this home" in result.output
+
+
+def test_managed_profile_launch_dry_run_isolates_and_no_isolate_overrides(tmp_path):
+    runner = CliRunner()
+    app = create_app()
+    prefix = ["--profile-dir", str(tmp_path / "profile")]
+    result = runner.invoke(
+        app, [*prefix, "profile", "create", "--clean", "--no-interview", "--executable", sys.executable]
+    )
+    assert result.exit_code == 0, result.output
+    result = runner.invoke(app, [*prefix, "launch", "--dry-run"])
+    assert result.exit_code == 0, result.output
+    plan = json.loads(result.stdout)
+    assert plan["isolate"] is True
+    assert plan["cwd"] == str((tmp_path / "profile").resolve() / ".pdum/work")
+    assert plan["arguments"] == ["app-server", "--listen", "unix://<private socket>"]
+    result = runner.invoke(app, [*prefix, "launch", "--dry-run", "--no-isolate", "--inherit-environment"])
+    assert result.exit_code == 0, result.output
+    plan = json.loads(result.stdout)
+    assert plan["isolate"] is False
+    assert plan["environment_mode"] == "inherit"

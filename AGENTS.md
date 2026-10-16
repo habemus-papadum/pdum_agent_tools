@@ -30,12 +30,18 @@ for the project layout and commands.
 - Prioritize hygiene: prevent accidental profile/path collisions, source writes
   and wrong-process cleanup. Keep native Codex config native,
   including unknown fields; avoid a second configuration schema or policy engine.
+- A Codex profile directory is a Codex home; launcher state lives in its `.pdum/`
+  subdirectory, and `--default` selects the user's own home with environment
+  isolation off. Codex coordinates concurrent processes per home natively, so
+  record launcher runs and inspect homes instead of holding an exclusive lease.
+  Launch never edits native config: launch-time choices are `-c` overrides.
+  Explicit edit commands may change any profile's `config.toml`, the default included.
 - Make temporary profiles and credential reuse convenient, with concise warnings
   instead of repeated consent gates. Trusted runtime captures may include secrets;
   simple optional masking is fine, comprehensive redaction is not a prerequisite.
 - Keep launch application-owned/foreground, with PID-aware status and cleanup;
-  no daemon or attach-to-existing mode initially for MITM/launcher. MITM is absent
-  unless requested. Hostfork explicitly supports detached environments and reopening
+  no launcher daemon. Attaching a client to a server the launcher did not start is
+  a testing affordance, never the default. MITM is absent unless requested. Hostfork explicitly supports detached environments and reopening
   management by recorded identity; it does not restore previous asyncio pipe handles.
 - Keep observation inspection-only and asynchronous: copying/enqueueing must not
   wait for parsing, recording or export. Monitor capture backlog/storage; do not

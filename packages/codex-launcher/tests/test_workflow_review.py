@@ -16,12 +16,12 @@ from pdum.codex_launcher.workflow import ProfileEdit, load_profile_draft, prepar
 async def existing_profile(tmp_path: Path) -> Path:
     directory = tmp_path / "profile"
     await create_profile(directory, ProfileSpec(executable=sys.executable, model="original-model"))
-    skill = directory / "codex/skills/local/SKILL.md"
+    skill = directory / "skills/local/SKILL.md"
     skill.parent.mkdir(parents=True)
     skill.write_text("---\nname: local\ndescription: Local test skill\n---\nOriginal content.\n")
-    (directory / "codex/auth.json").write_text('{"local_fixture": "unchanged"}')
-    (directory / "codex/sessions").mkdir()
-    (directory / "codex/sessions/keep.jsonl").write_text("preserved history\n")
+    (directory / "auth.json").write_text('{"local_fixture": "unchanged"}')
+    (directory / "sessions").mkdir()
+    (directory / "sessions/keep.jsonl").write_text("preserved history\n")
     return directory
 
 
@@ -30,11 +30,11 @@ async def test_partial_publication_restores_assets_and_settings(tmp_path: Path, 
     originals = {
         relative: (directory / relative).read_bytes()
         for relative in (
-            "launcher.toml",
-            "codex/config.toml",
-            "codex/auth.json",
-            "codex/skills/local/SKILL.md",
-            "codex/sessions/keep.jsonl",
+            ".pdum/launcher.toml",
+            "config.toml",
+            "auth.json",
+            "skills/local/SKILL.md",
+            "sessions/keep.jsonl",
         )
     }
     draft = await load_profile_draft(directory, existing=True)
@@ -55,15 +55,12 @@ async def test_partial_publication_restores_assets_and_settings(tmp_path: Path, 
     for relative, content in originals.items():
         assert (directory / relative).read_bytes() == content
     assert not list(tmp_path.glob(".profile.editing-*"))
-    assert (directory / "runtime/lease.lock").exists()
+    assert (directory / ".pdum/runtime/mutation.lock").exists()
 
 
 async def test_model_only_auth_edit_preserves_asset_identity_and_history(tmp_path: Path):
     directory = await existing_profile(tmp_path)
-    paths = [
-        directory / relative
-        for relative in ("codex/auth.json", "codex/skills/local/SKILL.md", "codex/sessions/keep.jsonl")
-    ]
+    paths = [directory / relative for relative in ("auth.json", "skills/local/SKILL.md", "sessions/keep.jsonl")]
     originals = [(path.read_bytes(), path.stat().st_ino) for path in paths]
     draft = await load_profile_draft(directory, existing=True)
     prepared = prepare_edit(draft, ProfileEdit(model="replacement-model", import_assets=False))
@@ -75,7 +72,7 @@ async def test_model_only_auth_edit_preserves_asset_identity_and_history(tmp_pat
 
 async def test_failed_rollback_retains_originals_for_recovery(tmp_path: Path, monkeypatch):
     directory = await existing_profile(tmp_path)
-    original_config = (directory / "codex/config.toml").read_bytes()
+    original_config = (directory / "config.toml").read_bytes()
     draft = await load_profile_draft(directory, existing=True)
     prepared = prepare_edit(draft, ProfileEdit(model="replacement-model", import_assets=False))
     original_rename = Path.rename
@@ -90,7 +87,7 @@ async def test_failed_rollback_retains_originals_for_recovery(tmp_path: Path, mo
     monkeypatch.setattr(Path, "rename", rename)
     with pytest.raises(ProfileError, match="originals retained"):
         await save_profile_edit(prepared)
-    recovery = list(tmp_path.glob(".profile.editing-*/.previous/codex/config.toml"))
+    recovery = list(tmp_path.glob(".profile.editing-*/.previous/config.toml"))
     assert len(recovery) == 1
     assert recovery[0].read_bytes() == original_config
 

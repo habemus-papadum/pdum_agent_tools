@@ -44,8 +44,8 @@ async def test_native_accepts_generated_auth_without_resolving_credentials(tmp_p
             aws_executable="must-not-execute-aws-during-config-read",
         ),
     )
-    native_path = directory / "codex/config.toml"
-    launcher_path = directory / "launcher.toml"
+    native_path = directory / "config.toml"
+    launcher_path = directory / ".pdum/launcher.toml"
     native, metadata = apply_auth(native_path.read_text(), launcher_path.read_text(), specification, directory)
     native_path.write_text(native)
     launcher_path.write_text(metadata)
@@ -67,4 +67,4 @@ async def test_native_accepts_generated_auth_without_resolving_credentials(tmp_p
     assert actual["model_providers"][expected_provider]["supports_websockets"]
     assert not account["requiresOpenaiAuth"]
     assert account["account"] is None
-    assert not (directory / "codex/auth.json").exists()
+    assert not (directory / "auth.json").exists()

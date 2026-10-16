@@ -2,13 +2,24 @@
 
 Import: `pdum.codex_launcher`. CLI: `pdum-codex`.
 
-Self-contained Codex profiles, async foreground app-server ownership, PID-aware
-cleanup, a thin browser-compatible WebSocket relay, inspection processors and
-optional upstream MITM. Uses your selected installed Codex; no binary is bundled.
+Codex homes as profiles, async foreground app-server ownership with per-run
+records, read-only home inspection, a thin browser-compatible WebSocket relay,
+inspection processors and optional upstream MITM. Uses your selected installed
+Codex; no binary is bundled.
 
 ```sh
 uv run pdum-codex launch --temp --model gpt-6-luna
+uv run pdum-codex --default inspect
+uv run pdum-codex --default launch --model gpt-6-luna -c 'approval_policy="never"'
 ```
+
+A profile directory is a Codex home; launcher state lives in its `.pdum/`
+subdirectory. `--default` selects the home your own CLI uses with environment
+isolation off. Codex coordinates several app-servers in one home itself, so the
+launcher records each run instead of holding a lock, and `inspect` shows every
+process using a home, launcher runs, the shared daemon, thread writer locks,
+SQLite state and recent native log activity. Launch never edits `config.toml`:
+`--model` and `-c` are passed to the native process as overrides.
 
 Connect the ordinary CLI using `codex --remote ENDPOINT`, with the printed
 endpoint. Temporary profiles can snapshot available file-backed credentials with

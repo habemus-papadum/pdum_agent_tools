@@ -213,13 +213,13 @@ async def test_profile_aws_login_journals_and_recovers_orphan_without_cloud(tmp_
     profile = tmp_path / "profile"
     await create_profile(profile, ProfileSpec(executable=sys.executable))
     native, launcher = apply_auth(
-        (profile / "codex/config.toml").read_text(),
-        (profile / "launcher.toml").read_text(),
+        (profile / "config.toml").read_text(),
+        (profile / ".pdum/launcher.toml").read_text(),
         AuthSpec("aws-federation", federation=spec_for(tmp_path, executable)),
         profile,
     )
-    (profile / "codex/config.toml").write_text(native)
-    (profile / "launcher.toml").write_text(launcher)
+    (profile / "config.toml").write_text(native)
+    (profile / ".pdum/launcher.toml").write_text(launcher)
     controller_log = tmp_path / "controller.log"
     with controller_log.open("wb") as output:
         controller = await asyncio.create_subprocess_exec(
@@ -234,20 +234,23 @@ async def test_profile_aws_login_journals_and_recovers_orphan_without_cloud(tmp_
     try:
         async with asyncio.timeout(5):
             while True:
-                state = await profile_status(profile)
-                if state.get("state") == "authenticating" and marker.exists():
+                runs = (await profile_status(profile))["runs"]
+                login_runs = [run for run in runs if run.get("state") == "authenticating"]
+                if login_runs and marker.exists():
+                    state = login_runs[0]
                     break
                 if controller.returncode is not None:
                     pytest.fail(f"Fixture controller exited: {controller_log.read_text()}")
                 await asyncio.sleep(0.02)
-        assert state["locked"]
         assert state["authentication_method"] == "aws-federation"
         controller.kill()
         await controller.wait()
-        orphan = await profile_status(profile)
-        assert orphan["locked"] and orphan["server_alive"] and not orphan["owner_alive"]
-        recovered = await stop_profile(profile, timeout=1)
-        assert not recovered["locked"]
+        orphan = next(run for run in (await profile_status(profile))["runs"] if run["run_id"] == state["run_id"])
+        assert orphan["server_alive"] and not orphan["owner_alive"]
+        recovered = next(
+            run for run in (await stop_profile(profile, timeout=1))["runs"] if run["run_id"] == state["run_id"]
+        )
+        assert not recovered["live"]
         assert recovered["state"] == "closed"
         assert recovered["recovered"]
     finally:
@@ -265,12 +268,12 @@ async def test_profile_api_auth_has_no_login_action(tmp_path):
     profile = tmp_path / "profile"
     await create_profile(profile, ProfileSpec(executable=sys.executable))
     native, launcher = apply_auth(
-        (profile / "codex/config.toml").read_text(),
-        (profile / "launcher.toml").read_text(),
+        (profile / "config.toml").read_text(),
+        (profile / ".pdum/launcher.toml").read_text(),
         AuthSpec("api-key"),
         profile,
     )
-    (profile / "codex/config.toml").write_text(native)
-    (profile / "launcher.toml").write_text(launcher)
+    (profile / "config.toml").write_text(native)
+    (profile / ".pdum/launcher.toml").write_text(launcher)
     with pytest.raises(ProfileError, match="no managed login"):
         await login_auth(profile)

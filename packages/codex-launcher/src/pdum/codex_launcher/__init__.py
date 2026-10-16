@@ -1,9 +1,11 @@
-"""Self-contained profiles and async ownership of native Codex app-servers."""
+"""Codex homes as profiles, async app-server ownership and home inspection."""
 
 from .authentication import AuthInspection, AuthSpec, apply_auth, inspect_auth, login_auth
 from .errors import LauncherError, LaunchError, OwnershipUncertain, ProfileBusy, ProfileError
 from .federation import FederationSpec
 from .imports import ImportSelection, SourceInventory, inventory_source
+from .inspection import inspect_home, probe_app_server
+from .layout import LAUNCHER_DIR, default_codex_home
 from .metrics import UsageObserver
 from .observation import JsonlRecorder, MessageProcessor, Observation, discover_processors, load_processor
 from .profiles import (
@@ -24,12 +26,15 @@ from .runtime import (
     configure_profile_capture,
     launch,
     login_chatgpt,
+    mutation_lock,
+    open_file_holders,
     profile_status,
     stop_profile,
 )
 from .workflow import ProfileDraft, ProfileEdit, load_profile_draft, prepare_edit, remaining_config, save_profile_edit
 
 __all__ = [
+    "LAUNCHER_DIR",
     "AuthInspection",
     "AuthSpec",
     "FederationSpec",
@@ -54,8 +59,10 @@ __all__ = [
     "configure_api_key",
     "configure_profile_capture",
     "create_profile",
+    "default_codex_home",
     "default_profiles_directory",
     "discover_processors",
+    "inspect_home",
     "inspect_profile",
     "inspect_auth",
     "inventory_source",
@@ -65,9 +72,12 @@ __all__ = [
     "load_profile_draft",
     "login_auth",
     "login_chatgpt",
+    "mutation_lock",
+    "open_file_holders",
     "open_relay",
-    "profile_status",
     "prepare_edit",
+    "probe_app_server",
+    "profile_status",
     "remaining_config",
     "resolve_profile",
     "save_profile_edit",

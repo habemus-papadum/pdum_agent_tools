@@ -141,10 +141,8 @@ def run_interview(
         terminal.answer("Save this profile configuration?", b"\r")
         terminal.finish()
         assert (source / "config.toml").read_text() == native
-        assert not (destination / "codex/auth.json").exists()
-        return tomllib.loads((destination / "codex/config.toml").read_text()), terminal.transcript.decode(
-            errors="replace"
-        )
+        assert not (destination / "auth.json").exists()
+        return tomllib.loads((destination / "config.toml").read_text()), terminal.transcript.decode(errors="replace")
     finally:
         if slave != -1:
             os.close(slave)
@@ -169,6 +167,6 @@ def test_actual_terminal_fills_incomplete_federation_flags_before_validation(tmp
     provider = native["model_providers"][native["model_provider"]]
     assert "pdum.codex_launcher._federation_helper" in provider["auth"]["args"]
     assert provider["supports_websockets"]
-    metadata = tomllib.loads((tmp_path / "profile/launcher.toml").read_text())
+    metadata = tomllib.loads((tmp_path / "profile/.pdum/launcher.toml").read_text())
     assert metadata["authentication"]["federation"]["identity_provider_id"] == "test-idp"
     assert metadata["authentication"]["federation"]["service_account_id"] == "test-service"

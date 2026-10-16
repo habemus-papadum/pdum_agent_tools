@@ -13,7 +13,7 @@ from pathlib import Path
 import tomlkit
 
 from .authentication import AuthSpec, apply_auth, auth_handled_paths, inspect_auth
-from .config import atomic_write, complete_file_operation, read_config, resolve_executable
+from .config import SCHEMA_VERSION, atomic_write, complete_file_operation, read_config, resolve_executable
 from .errors import ProfileError
 from .imports import (
     ImportPlan,
@@ -24,18 +24,33 @@ from .imports import (
     empty_inventory,
     inventory_source,
 )
-from .profiles import ProfileInfo
+from .layout import LAUNCHER_DIR, launcher_toml
+from .profiles import ProfileInfo, create_launcher_directories
+
+LAUNCHER_METADATA = Path(f"{LAUNCHER_DIR}/launcher.toml")
 
 
 @dataclass(frozen=True)
 class ProfileDraft:
-    """Read-only source and destination snapshots for a profile edit."""
+    """Read-only source and destination snapshots for a profile edit.
+
+    ``managed`` is False when editing a bare Codex home that has no launcher metadata
+    yet; saving then adopts it with environment isolation off, preserving native behavior.
+    """
 
     directory: Path
     inventory: SourceInventory
     existing: bool
     native_toml: str
     launcher_toml: str
+    managed: bool = True
+
+
+def default_launcher_toml(*, adopt_bare_home: bool = False) -> str:
+    """Return launcher metadata text for a new profile or an adopted bare home."""
+    if adopt_bare_home:
+        return f'schema_version = {SCHEMA_VERSION}\n\n[environment]\nmode = "inherit"\nisolate = false\n'
+    return f"schema_version = {SCHEMA_VERSION}\n"
 
 
 @dataclass(frozen=True)
@@ -67,10 +82,11 @@ class PreparedEdit:
 
 def _load(directory: Path, source: Path | None, clean: bool, existing: bool) -> ProfileDraft:
     directory = directory.expanduser().resolve()
+    managed = True
     if existing:
         if source is not None or clean:
             raise ProfileError("Configure starts from the selected profile, not an import source or --clean")
-        read_config(directory)
+        managed = read_config(directory).managed
         inventory = inventory_source(directory)
     else:
         if directory.exists():
@@ -81,8 +97,8 @@ def _load(directory: Path, source: Path | None, clean: bool, existing: bool) -> 
     native = inventory.native_toml
     if not native.strip() and not existing:
         native = 'sandbox_mode = "danger-full-access"\napproval_policy = "never"\ncli_auth_credentials_store = "file"\n'
-    launcher = inventory.launcher_toml or "schema_version = 1\n"
-    return ProfileDraft(directory, inventory, existing, native, launcher)
+    launcher = inventory.launcher_toml or default_launcher_toml(adopt_bare_home=existing and not managed)
+    return ProfileDraft(directory, inventory, existing, native, launcher, managed)
 
 
 async def load_profile_draft(
@@ -175,7 +191,7 @@ def prepare_edit(draft: ProfileDraft, edit: ProfileEdit | None = None) -> Prepar
     launcher = tomlkit.parse(draft.launcher_toml)
     executable = edit.executable or launcher.get("executable", {}).get("path")
     executable_base = draft.inventory.source_directory if edit.executable is None else None
-    launcher["schema_version"] = 1
+    launcher["schema_version"] = SCHEMA_VERSION
     launcher["executable"] = {"path": str(resolve_executable(executable, base=executable_base))}
     paths = list(plan.handled_paths)
     warnings = list(plan.warnings)
@@ -248,9 +264,11 @@ def _save(prepared: PreparedEdit) -> ProfileInfo:
     draft = prepared.draft
     directory = draft.directory
     if draft.existing:
-        if (directory / "codex/config.toml").read_text() != draft.native_toml or (
-            directory / "launcher.toml"
-        ).read_text() != draft.launcher_toml:
+        native_path = directory / "config.toml"
+        metadata_path = launcher_toml(directory)
+        current_native = native_path.read_text() if native_path.is_file() else ""
+        current_launcher = metadata_path.read_text() if metadata_path.is_file() else draft.launcher_toml
+        if current_native != draft.native_toml or current_launcher != draft.launcher_toml:
             raise ProfileError("Profile changed since this interview started; reopen it before saving")
     elif directory.exists():
         raise ProfileError(f"Profile destination already exists: {directory}")
@@ -262,33 +280,23 @@ def _save(prepared: PreparedEdit) -> ProfileInfo:
     backup = staging / ".previous"
     retain_recovery = False
     try:
-        for relative in (
-            "codex",
-            "home/.config",
-            "home/.cache",
-            "home/.local/share",
-            "home/.local/state",
-            "work",
-            "runtime/tmp",
-            "runtime/runs",
-        ):
-            (staging / relative).mkdir(mode=0o700, parents=True, exist_ok=True)
-        atomic_write(staging / "launcher.toml", prepared.launcher_toml)
-        atomic_write(staging / "codex/config.toml", prepared.native_toml)
+        create_launcher_directories(staging)
+        atomic_write(launcher_toml(staging), prepared.launcher_toml)
+        atomic_write(staging / "config.toml", prepared.native_toml)
         config = read_config(staging)
         apply_import_assets(prepared.plan, staging)
         if prepared.edit.copy_auth and draft.inventory.auth_file is not None:
             source = draft.inventory.auth_file
             if source.is_symlink() or not source.is_file():
                 raise ProfileError("Auth snapshot source must be a regular file")
-            atomic_write(staging / "codex/auth.json", source.read_bytes())
+            atomic_write(staging / "auth.json", source.read_bytes())
         if not draft.existing:
             if directory.exists():
                 raise ProfileError(f"Profile destination already exists: {directory}")
             staging.rename(directory)
         else:
             changed = []
-            replacements = (*prepared.plan.replacement_roots, Path("codex/config.toml"), Path("launcher.toml"))
+            replacements = (*prepared.plan.replacement_roots, Path("config.toml"), LAUNCHER_METADATA)
             for relative in replacements:
                 if not (directory / relative).parent.resolve().is_relative_to(directory):
                     raise ProfileError(f"Profile path redirects writes outside its directory: {relative}")
@@ -321,14 +329,20 @@ def _save(prepared: PreparedEdit) -> ProfileInfo:
                         f"Profile update and rollback failed; originals retained in {backup}. " + "; ".join(failures)
                     ) from error
                 raise
-        return ProfileInfo(directory, config.executable, (directory / "codex/auth.json").exists(), prepared.warnings)
+        return ProfileInfo(
+            directory,
+            config.executable,
+            (directory / "auth.json").exists(),
+            prepared.warnings,
+            isolate=config.isolate,
+        )
     finally:
         if staging.exists() and not retain_recovery:
             shutil.rmtree(staging)
 
 
 async def save_profile_edit(prepared: PreparedEdit) -> ProfileInfo:
-    """Publish an edit under the profile lease, rolling back ordinary write failures.
+    """Publish an edit under the profile mutation lock, rolling back ordinary write failures.
 
     Parameters
     ----------
@@ -340,10 +354,11 @@ async def save_profile_edit(prepared: PreparedEdit) -> ProfileInfo:
     ProfileInfo
         Saved profile and nonfatal import/credential warnings. Multi-file updates
         roll back exceptions, but are not a power-loss-atomic filesystem transaction.
+        Running app-servers are not stopped; Codex reads configuration per thread.
     """
-    from .runtime import profile_lease
+    from .runtime import mutation_lock
 
     if prepared.draft.existing:
-        async with profile_lease(prepared.draft.directory):
+        async with mutation_lock(prepared.draft.directory):
             return await complete_file_operation(lambda: _save(prepared))
     return await complete_file_operation(lambda: _save(prepared))

@@ -1,4 +1,10 @@
-"""Async subprocess ownership, native readiness, and PID-aware recovery."""
+"""Async subprocess ownership, native readiness, run records and PID-aware recovery.
+
+Codex coordinates concurrent processes in one home natively, so the launcher
+does not gate a profile to a single app-server. Every launch or login records
+its own run under ``.pdum/runtime/runs/<run-id>/owner.json``; a short mutation
+lock serializes launcher edits, logins and disposal only.
+"""
 
 from __future__ import annotations
 
@@ -21,9 +27,10 @@ from typing import TYPE_CHECKING, Any
 import psutil
 from websockets.asyncio.client import unix_connect
 
-from .config import atomic_write, complete_file_operation, read_config, resolve_executable
+from .config import atomic_write, complete_file_operation, native_override, read_config, resolve_executable
 from .environment import build_environment
 from .errors import LaunchError, OwnershipUncertain, ProfileBusy, ProfileError
+from .layout import LAUNCHER_DIR, legacy_layout, runs_dir, runtime_dir, work_dir
 
 if TYPE_CHECKING:
     from pdum.mitm import ProcessorSpec, SidecarConfig
@@ -31,7 +38,17 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class LaunchOptions:
-    """One-run launcher overrides; native model options remain native config."""
+    """One-run launcher choices; native settings travel as ``-c`` overrides, never config edits.
+
+    Parameters
+    ----------
+    model : str or None
+        Native model for this run, passed as ``-c model=...``.
+    config_overrides : Mapping
+        Additional native ``key -> TOML text`` overrides, exactly as ``codex -c`` accepts them.
+    isolate : bool or None
+        Override the profile's environment isolation for this run.
+    """
 
     executable: str | Path | None = None
     relay: bool = True
@@ -40,10 +57,24 @@ class LaunchOptions:
     processors: Sequence[Any] = ()
     environment: Mapping[str, str] = field(default_factory=dict)
     environment_mode: str | None = None
+    isolate: bool | None = None
+    model: str | None = None
+    config_overrides: Mapping[str, str] = field(default_factory=dict)
     startup_timeout: float | None = None
     shutdown_timeout: float | None = None
     mitm_config: SidecarConfig | None = None
     mitm_processors: Sequence[ProcessorSpec] = ()
+
+    def native_arguments(self) -> list[str]:
+        """Render the ``-c`` override arguments for the native command line."""
+        arguments: list[str] = []
+        if self.model is not None:
+            if not self.model.strip():
+                raise ProfileError("Model must be nonempty when supplied")
+            arguments.extend(["-c", native_override("model", self.model)])
+        for key, value in self.config_overrides.items():
+            arguments.extend(["-c", native_override(key, value, raw=True)])
+        return arguments
 
 
 def _identity(pid: int) -> dict[str, Any] | None:
@@ -65,55 +96,47 @@ def _same_process(record: dict[str, Any] | None) -> bool:
         actual = _identity(record["pid"])
         return actual is not None and all(actual[key] == record[key] for key in ("pid", "create_time", "uid"))
     except (KeyError, TypeError, ValueError) as error:
-        raise OwnershipUncertain("Incomplete process identity in owner journal") from error
+        raise OwnershipUncertain("Incomplete process identity in run record") from error
 
 
-def _read_owner(directory: Path) -> dict[str, Any] | None:
-    path = directory / "runtime" / "owner.json"
-    try:
-        owner = json.loads(path.read_text())
-        if not isinstance(owner, dict):
-            raise ValueError("not an object")
-        return owner
-    except FileNotFoundError:
-        return None
-    except (OSError, ValueError) as error:
-        raise OwnershipUncertain(f"Cannot read ownership journal: {path}") from error
+def _prepare_runtime(directory: Path) -> Path:
+    """Resolve a profile directory and make sure its launcher runtime tree exists."""
+    path = directory.expanduser().resolve()
+    if legacy_layout(path):
+        raise ProfileError(f"Legacy wrapper layout: {path}; profiles are Codex homes now")
+    if not path.is_dir():
+        raise ProfileError(f"Profile does not exist: {path}")
+    runtime = runtime_dir(path)
+    if runtime.is_symlink():
+        raise ProfileError("Profile runtime directory must not be a symlink")
+    (runtime / "runs").mkdir(mode=0o700, parents=True, exist_ok=True)
+    (runtime / "tmp").mkdir(mode=0o700, exist_ok=True)
+    return path
 
 
-class _Lease:
+class MutationLock:
+    """Nonblocking exclusive lock serializing launcher mutations of one profile.
+
+    This never gates launching; Codex coordinates concurrent servers itself.
+    """
+
     def __init__(self, directory: Path):
-        self.directory = directory.expanduser().resolve()
+        self.directory = directory
         self.descriptor: int | None = None
 
     def acquire(self) -> None:
-        if not (self.directory / "launcher.toml").is_file():
-            raise ProfileError(f"Profile does not exist: {self.directory}")
-        runtime = self.directory / "runtime"
-        if runtime.is_symlink():
-            raise ProfileError("Profile runtime directory must not be a symlink")
-        runtime.mkdir(mode=0o700, exist_ok=True)
-        path = runtime / "lease.lock"
+        self.directory = _prepare_runtime(self.directory)
+        path = runtime_dir(self.directory) / "mutation.lock"
         descriptor = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
         try:
             if os.fstat(descriptor).st_ino != path.stat().st_ino:
-                raise OwnershipUncertain("Profile lease inode changed during acquisition")
+                raise OwnershipUncertain("Mutation lock inode changed during acquisition")
             try:
                 fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError as error:
-                owner = _read_owner(self.directory) or {}
-                pid = (owner.get("server") or {}).get("pid", "unknown")
-                raise ProfileBusy(
-                    f"Profile busy (server PID {pid}): {self.directory}. Use pdum-codex --profile-dir PATH status/stop."
-                ) from error
-            if (runtime / "disposed").exists():
+                raise ProfileBusy(f"Another launcher operation is modifying this profile: {self.directory}") from error
+            if (runtime_dir(self.directory) / "disposed").exists():
                 raise ProfileError(f"Profile is being removed: {self.directory}")
-            owner = _read_owner(self.directory)
-            if owner and owner.get("state") not in {"closed", "failed"}:
-                if _same_process(owner.get("server")) or _same_process(owner.get("owner")):
-                    raise OwnershipUncertain(
-                        "Lease is free but a recorded owner is alive; inspect the profile before reuse"
-                    )
             self.descriptor = descriptor
         except BaseException:
             os.close(descriptor)
@@ -126,8 +149,8 @@ class _Lease:
 
 
 @asynccontextmanager
-async def profile_lease(directory: Path) -> AsyncIterator[Path]:
-    """Lease a stopped profile for a mutation without deleting the lock inode.
+async def mutation_lock(directory: Path) -> AsyncIterator[Path]:
+    """Hold the profile mutation lock for an edit, login or disposal.
 
     Parameters
     ----------
@@ -137,18 +160,89 @@ async def profile_lease(directory: Path) -> AsyncIterator[Path]:
     Yields
     ------
     Path
-        Canonical directory owned for the duration of the context.
+        Canonical directory whose launcher files may be modified during the context.
     """
-    lease = _Lease(directory)
-    lease.acquire()
+    lock = MutationLock(directory)
+    lock.acquire()
     try:
-        yield lease.directory
+        yield lock.directory
     finally:
-        lease.close()
+        lock.close()
+
+
+def _read_record(path: Path) -> dict[str, Any] | None:
+    try:
+        record = json.loads(path.read_text())
+        if not isinstance(record, dict):
+            raise ValueError("not an object")
+        return record
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError) as error:
+        raise OwnershipUncertain(f"Cannot read run record: {path}") from error
+
+
+def _read_runs(directory: Path) -> list[dict[str, Any]]:
+    """Read every run record under the profile, oldest first; malformed records surface as errors."""
+    runs = runs_dir(directory)
+    if not runs.is_dir():
+        return []
+    records = []
+    for entry in sorted(runs.iterdir()):
+        path = entry / "owner.json"
+        try:
+            record = _read_record(path)
+        except OwnershipUncertain as error:
+            record = {"run_id": entry.name, "state": "unreadable", "error": str(error)}
+        if record is not None:
+            record.setdefault("run_id", entry.name)
+            record["record"] = str(path)
+            records.append(record)
+    records.sort(key=lambda record: record.get("started_at") or 0)
+    return records
+
+
+def _annotate(record: dict[str, Any]) -> dict[str, Any]:
+    result = dict(record)
+    try:
+        result["server_alive"] = _same_process(record.get("server"))
+        result["owner_alive"] = _same_process(record.get("owner"))
+    except OwnershipUncertain as error:
+        result["server_alive"] = result["owner_alive"] = False
+        result["identity_error"] = str(error)
+    finished = record.get("state") in {"closed", "failed"}
+    result["live"] = result["server_alive"] or (result["owner_alive"] and not finished)
+    return result
+
+
+def open_file_holders(directory: Path) -> list[dict[str, Any]]:
+    """List processes of any origin holding files open under a directory.
+
+    Parameters
+    ----------
+    directory : Path
+        Resolved directory to scan for.
+
+    Returns
+    -------
+    list of dict
+        ``pid``, ``name`` and the relative paths held open. Processes that cannot be
+        inspected are skipped; this is a hygiene signal, not an exhaustive audit.
+    """
+    prefix = str(directory.resolve()) + os.sep
+    holders = []
+    for process in psutil.process_iter(["pid", "name"]):
+        try:
+            held = sorted({item.path[len(prefix) :] for item in process.open_files() if item.path.startswith(prefix)})
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess, OSError):
+            continue
+        if held:
+            holders.append({"pid": process.info["pid"], "name": process.info["name"], "paths": held})
+    return holders
 
 
 async def dispose_profile(directory: Path) -> None:
-    """Mark and remove an unused temporary profile, refusing live ownership.
+    """Remove an unused temporary profile, refusing while anything still uses it.
 
     Parameters
     ----------
@@ -157,19 +251,33 @@ async def dispose_profile(directory: Path) -> None:
     """
 
     def dispose() -> None:
-        lease = _Lease(directory)
-        lease.acquire()
+        lock = MutationLock(directory)
+        lock.acquire()
         try:
-            atomic_write(lease.directory / "runtime" / "disposed", "disposed\n")
+            live = [run["run_id"] for run in map(_annotate, _read_runs(lock.directory)) if run["live"]]
+            if live:
+                raise ProfileBusy(f"Profile has live runs {', '.join(live)}; stop them before disposal")
+            holders = [
+                holder
+                for holder in open_file_holders(lock.directory)
+                if not (
+                    holder["pid"] == os.getpid()
+                    and all(path.startswith(LAUNCHER_DIR + "/") for path in holder["paths"])
+                )
+            ]
+            if holders:
+                described = ", ".join(f"{holder['name']} ({holder['pid']})" for holder in holders)
+                raise ProfileBusy(f"Processes still hold files under this profile: {described}")
+            atomic_write(runtime_dir(lock.directory) / "disposed", "disposed\n")
         finally:
-            lease.close()
-        shutil.rmtree(lease.directory)
+            lock.close()
+        shutil.rmtree(lock.directory)
 
     await complete_file_operation(dispose)
 
 
 async def profile_status(directory: Path) -> dict[str, Any]:
-    """Read recorded process identity and current lease state without changing auth.
+    """Read recorded runs and their live-process state without changing anything.
 
     Parameters
     ----------
@@ -179,37 +287,26 @@ async def profile_status(directory: Path) -> dict[str, Any]:
     Returns
     -------
     dict
-        Non-secret journal data with live-process and lock observations.
+        Profile path, run records annotated with liveness, and live launcher status.
     """
     path = directory.expanduser().resolve()
-    if not (path / "launcher.toml").is_file():
+    if legacy_layout(path):
+        raise ProfileError(f"Legacy wrapper layout: {path}; profiles are Codex homes now")
+    if not path.is_dir():
         raise ProfileError(f"Profile does not exist: {path}")
-    owner = await asyncio.to_thread(_read_owner, path) or {"state": "stopped"}
-    result = dict(owner)
-    result["profile"] = str(path)
-    result["journal"] = str(path / "runtime" / "owner.json")
-    result["server_alive"] = _same_process(owner.get("server"))
-    result["owner_alive"] = _same_process(owner.get("owner"))
-    lock = path / "runtime" / "lease.lock"
-    if not lock.exists():
-        result["locked"] = False
-    else:
-        descriptor = os.open(lock, os.O_RDWR | os.O_NOFOLLOW)
-        try:
+    runs = [_annotate(record) for record in await asyncio.to_thread(_read_runs, path)]
+    for run in runs:
+        if run["owner_alive"] and run.get("control_socket") and run.get("state") == "ready":
             try:
-                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                result["locked"] = False
-            except BlockingIOError:
-                result["locked"] = True
-        finally:
-            os.close(descriptor)
-    if result["owner_alive"] and owner.get("control_socket") and owner.get("state") == "ready":
-        try:
-            async with asyncio.timeout(2):
-                result.update(await _request_control(owner["control_socket"], "status"))
-        except (OSError, ValueError, TimeoutError):
-            result["control_unavailable"] = True
-    return result
+                async with asyncio.timeout(2):
+                    run.update(await _request_control(run["control_socket"], "status"))
+            except (OSError, ValueError, TimeoutError):
+                run["control_unavailable"] = True
+    return {
+        "profile": str(path),
+        "runs": runs,
+        "live_runs": [run["run_id"] for run in runs if run["live"]],
+    }
 
 
 async def _request_control(path: str, method: str, **parameters: Any) -> dict[str, Any]:
@@ -223,24 +320,69 @@ async def _request_control(path: str, method: str, **parameters: Any) -> dict[st
         await writer.wait_closed()
 
 
-async def configure_profile_capture(
-    directory: Path, enabled: bool, *, expected_revision: int | None = None
-) -> dict[str, Any]:
-    """Control recording through a running profile's owner, without taking its lease."""
-    owner = await asyncio.to_thread(_read_owner, directory.expanduser().resolve())
-    if not owner or not _same_process(owner.get("owner")) or not owner.get("control_socket"):
+def _select_run(status: dict[str, Any], run_id: str | None, purpose: str) -> dict[str, Any]:
+    live = [run for run in status["runs"] if run["live"] and run.get("control_socket")]
+    if run_id is not None:
+        matching = [run for run in live if run["run_id"] == run_id]
+        if not matching:
+            raise LaunchError(f"Run {run_id} has no reachable live launcher")
+        return matching[0]
+    if not live:
         raise LaunchError("Profile has no reachable live launcher")
+    if len(live) > 1:
+        raise LaunchError(f"Several live runs; select one for {purpose}: {', '.join(run['run_id'] for run in live)}")
+    return live[0]
+
+
+async def configure_profile_capture(
+    directory: Path, enabled: bool, *, expected_revision: int | None = None, run_id: str | None = None
+) -> dict[str, Any]:
+    """Control recording through a running launcher, selected by run when several are live."""
+    run = _select_run(await profile_status(directory), run_id, "capture")
+    if not run["owner_alive"]:
+        raise LaunchError("Run has no reachable live launcher")
     async with asyncio.timeout(15):
         result = await _request_control(
-            owner["control_socket"], "capture", enabled=enabled, expected_revision=expected_revision
+            run["control_socket"], "capture", enabled=enabled, expected_revision=expected_revision
         )
     if "error" in result:
         raise LaunchError(result["error"])
     return result
 
 
-async def stop_profile(directory: Path, timeout: float = 10) -> dict[str, Any]:
-    """Stop a live owner or recover a verified orphan, never merely a matching PID.
+async def _recover_orphan(run: dict[str, Any], timeout: float) -> None:
+    record = run["server"]
+    process = psutil.Process(record["pid"])
+    command = process.cmdline()
+    if record["uid"] != os.getuid():
+        raise OwnershipUncertain("Orphan identity does not match the current user")
+    if run.get("operation") == "login":
+        if (
+            command != run.get("process_command")
+            or process.exe() != run.get("process_executable")
+            or "login" not in command
+            or not run.get("executable")
+        ):
+            raise OwnershipUncertain("Orphan login command or executable no longer matches its recorded identity")
+    elif run.get("backend_endpoint") not in command:
+        raise OwnershipUncertain("Orphan identity does not match the recorded app-server endpoint")
+    if os.getpgid(process.pid) != process.pid:
+        raise OwnershipUncertain("Recorded process is no longer its process-group leader")
+    if not _same_process(record):
+        raise OwnershipUncertain("Recorded process identity changed before recovery; no signal was sent")
+    os.killpg(process.pid, signal.SIGTERM)
+    deadline = asyncio.get_running_loop().time() + timeout
+    while _same_process(record) and asyncio.get_running_loop().time() < deadline:
+        await asyncio.sleep(0.05)
+    if _same_process(record):
+        os.killpg(process.pid, signal.SIGKILL)
+        deadline = asyncio.get_running_loop().time() + 2
+        while _same_process(record) and asyncio.get_running_loop().time() < deadline:
+            await asyncio.sleep(0.05)
+
+
+async def stop_profile(directory: Path, timeout: float = 10, run_id: str | None = None) -> dict[str, Any]:
+    """Stop live launcher runs or recover verified orphans, never merely a matching PID.
 
     Parameters
     ----------
@@ -248,72 +390,52 @@ async def stop_profile(directory: Path, timeout: float = 10) -> dict[str, Any]:
         Existing profile directory.
     timeout : float
         Grace interval before verified orphan escalation.
+    run_id : str or None
+        Stop only this run; None stops every live run recorded for the profile.
 
     Returns
     -------
     dict
-        Final non-secret profile status.
+        Final profile status.
     """
-    state = await profile_status(directory)
-    if not state["locked"] and not state["server_alive"] and state.get("state") in {"closed", "failed", "stopped"}:
-        return state
-    control = state.get("control_socket")
-    if state["owner_alive"] and control:
-        try:
-            async with asyncio.timeout(timeout):
-                reply = await _request_control(control, "stop")
-                if reply.get("accepted"):
-                    deadline = asyncio.get_running_loop().time() + timeout + 2
-                    while asyncio.get_running_loop().time() < deadline:
-                        state = await profile_status(directory)
-                        if not state["locked"]:
-                            return state
-                        await asyncio.sleep(0.05)
-        except (OSError, TimeoutError, ValueError):
-            pass
-    state = await profile_status(directory)
-    recovery_run_id = state.get("run_id")
-    if state["owner_alive"]:
-        raise OwnershipUncertain("Launcher is alive but its control socket did not stop it; inspect before recovery")
-    if state["server_alive"]:
-        record = state["server"]
-        process = psutil.Process(record["pid"])
-        command = process.cmdline()
-        if record["uid"] != os.getuid():
-            raise OwnershipUncertain("Orphan identity does not match the current user")
-        if state.get("operation") == "login":
-            if (
-                command != state.get("process_command")
-                or process.exe() != state.get("process_executable")
-                or "login" not in command
-                or not state.get("executable")
-            ):
-                raise OwnershipUncertain("Orphan login command or executable no longer matches its recorded identity")
-        elif state.get("backend_endpoint") not in command:
-            raise OwnershipUncertain("Orphan identity does not match the recorded app-server endpoint")
-        if os.getpgid(process.pid) != process.pid:
-            raise OwnershipUncertain("Recorded process is no longer its process-group leader")
-        if not _same_process(record):
-            raise OwnershipUncertain("Recorded process identity changed before recovery; no signal was sent")
-        os.killpg(process.pid, signal.SIGTERM)
-        deadline = asyncio.get_running_loop().time() + timeout
-        while _same_process(record) and asyncio.get_running_loop().time() < deadline:
-            await asyncio.sleep(0.05)
-        if _same_process(record):
-            os.killpg(process.pid, signal.SIGKILL)
-            deadline = asyncio.get_running_loop().time() + 2
-            while _same_process(record) and asyncio.get_running_loop().time() < deadline:
-                await asyncio.sleep(0.05)
-    state = await profile_status(directory)
-    if state["locked"]:
-        raise OwnershipUncertain("Profile remains leased, possibly by an owned descendant; no lock was removed")
-    async with profile_lease(directory) as path:
-        owner = await asyncio.to_thread(_read_owner, path)
-        if owner is not None:
-            if owner.get("run_id") != recovery_run_id:
-                raise OwnershipUncertain("Profile ownership changed during recovery; the replacement was not modified")
-            owner.update(state="closed", stopped_at=time.time(), recovered=True)
-            await complete_file_operation(lambda: atomic_write(path / "runtime" / "owner.json", json.dumps(owner)))
+    status = await profile_status(directory)
+    targets = [run for run in status["runs"] if run["live"] and (run_id is None or run["run_id"] == run_id)]
+    if run_id is not None and not targets:
+        if not any(run["run_id"] == run_id for run in status["runs"]):
+            raise ProfileError(f"Unknown run: {run_id}")
+        return status
+    for run in targets:
+        control = run.get("control_socket")
+        if run["owner_alive"] and control:
+            try:
+                async with asyncio.timeout(timeout):
+                    reply = await _request_control(control, "stop")
+                    if reply.get("accepted"):
+                        deadline = asyncio.get_running_loop().time() + timeout + 2
+                        while asyncio.get_running_loop().time() < deadline:
+                            current = _annotate(_read_record(Path(run["record"])) or {})
+                            if not current["live"]:
+                                break
+                            await asyncio.sleep(0.05)
+            except (OSError, TimeoutError, ValueError):
+                pass
+        current = _annotate(_read_record(Path(run["record"])) or {})
+        if not current["live"]:
+            continue
+        if current["owner_alive"]:
+            raise OwnershipUncertain(
+                f"Launcher for run {run['run_id']} is alive but its control socket did not stop it; inspect it"
+            )
+        if current["server_alive"]:
+            await _recover_orphan(current, timeout)
+        async with mutation_lock(directory):
+            record = await asyncio.to_thread(_read_record, Path(run["record"]))
+            if record is not None and record.get("state") not in {"closed", "failed"}:
+                if _annotate(record)["live"]:
+                    raise OwnershipUncertain(f"Run {run['run_id']} is still alive after recovery; nothing was changed")
+                record.update(state="closed", stopped_at=time.time(), recovered=True)
+                content = json.dumps(record)
+                await complete_file_operation(lambda: atomic_write(Path(run["record"]), content))
     return await profile_status(directory)
 
 
@@ -361,7 +483,7 @@ class RunningAppServer:
         self.endpoint = ""
         self.backend_endpoint = ""
         self.pid: int | None = None
-        self._lease = _Lease(self.directory)
+        self.run_directory: Path | None = None
         self._process: asyncio.subprocess.Process | None = None
         self._relay: Any = None
         self._relay_context: Any = None
@@ -380,21 +502,29 @@ class RunningAppServer:
 
     async def _journal(self) -> None:
         content = json.dumps(self._record)
-        await complete_file_operation(lambda: atomic_write(self.directory / "runtime" / "owner.json", content))
+        path = self.run_directory / "owner.json"
+        await complete_file_operation(lambda: atomic_write(path, content))
 
     async def _start(self) -> None:
-        self._lease.acquire()
-        config = await asyncio.to_thread(read_config, self.directory)
+        self.directory = await asyncio.to_thread(_prepare_runtime, self.directory)
+        config = await asyncio.to_thread(read_config, self.directory, self.options.executable)
         executable = resolve_executable(self.options.executable or config.executable, self.directory)
         self._shutdown_timeout = self.options.shutdown_timeout or config.shutdown_timeout
         startup_timeout = self.options.startup_timeout or config.startup_timeout
-        environment = build_environment(self.directory, config, self.options.environment, self.options.environment_mode)
-        run_directory = self.directory / "runtime" / "runs" / self.run_id
-        run_directory.mkdir(mode=0o700)
+        isolate = config.isolate if self.options.isolate is None else self.options.isolate
+        environment = build_environment(
+            self.directory, config, self.options.environment, self.options.environment_mode, isolate=isolate
+        )
+        overrides = self.options.native_arguments()
+        self.run_directory = runs_dir(self.directory) / self.run_id
+        self.run_directory.mkdir(mode=0o700)
         self._socket_directory = Path(tempfile.mkdtemp(prefix="pdum-codex-sock-"))
         self.backend_endpoint = f"unix://{self._socket_directory / 'app.sock'}"
+        arguments = ["app-server", "--listen", self.backend_endpoint, *overrides]
+        working_directory = work_dir(self.directory) if isolate else Path.cwd()
         self._record = {
             "run_id": self.run_id,
+            "operation": "launch",
             "profile": str(self.directory),
             "state": "starting",
             "owner": _identity(os.getpid()),
@@ -402,8 +532,11 @@ class RunningAppServer:
             "control_socket": str(self._socket_directory / "control.sock"),
             "executable": str(executable),
             "executable_sha256": await asyncio.to_thread(lambda: hashlib.sha256(executable.read_bytes()).hexdigest()),
+            "arguments": arguments,
+            "cwd": str(working_directory),
+            "isolate": isolate,
             "started_at": time.time(),
-            "run_directory": str(run_directory),
+            "run_directory": str(self.run_directory),
         }
         await self._journal()
         if self.options.mitm_config is not None:
@@ -424,13 +557,10 @@ class RunningAppServer:
         spawning = asyncio.create_task(
             asyncio.create_subprocess_exec(
                 str(executable),
-                "app-server",
-                "--listen",
-                self.backend_endpoint,
-                cwd=self.directory / "work",
+                *arguments,
+                cwd=working_directory,
                 env=environment,
                 start_new_session=True,
-                pass_fds=(self._lease.descriptor,),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -444,8 +574,8 @@ class RunningAppServer:
         self.pid = self._process.pid
         self._record["server"] = _identity(self.pid)
         self._drainers = [
-            asyncio.create_task(_drain(self._process.stdout, run_directory / "stdout.log")),
-            asyncio.create_task(_drain(self._process.stderr, run_directory / "stderr.log")),
+            asyncio.create_task(_drain(self._process.stdout, self.run_directory / "stdout.log")),
+            asyncio.create_task(_drain(self._process.stderr, self.run_directory / "stderr.log")),
         ]
         await self._journal()
         if cancelled:
@@ -453,14 +583,8 @@ class RunningAppServer:
         try:
             initialization = await _readiness(self.backend_endpoint, self._process, startup_timeout)
         except TimeoutError as error:
-            raise LaunchError(f"Codex readiness timed out; inspect {run_directory / 'stderr.log'}") from error
+            raise LaunchError(f"Codex readiness timed out; inspect {self.run_directory / 'stderr.log'}") from error
         self._record["server_info"] = initialization
-        lease_path = str(self.directory / "runtime" / "lease.lock")
-        opened = await asyncio.to_thread(lambda: psutil.Process(self.pid).open_files())
-        if not any(item.path == lease_path for item in opened):
-            raise LaunchError(
-                "Selected executable did not preserve the profile lease descriptor; wrapper is unsupported"
-            )
         self.endpoint = self.backend_endpoint
         if self.options.relay:
             from .relay import open_relay
@@ -628,22 +752,21 @@ class RunningAppServer:
                     self._record["returncode"] = self._process.returncode
                 await self._journal()
             if self._socket_directory:
-                await asyncio.to_thread(shutil.rmtree, self._socket_directory)
+                await asyncio.to_thread(shutil.rmtree, self._socket_directory, True)
         finally:
-            self._lease.close()
             self._closed.set()
 
 
 @asynccontextmanager
 async def launch(directory: Path, options: LaunchOptions | None = None) -> AsyncIterator[RunningAppServer]:
-    """Launch an isolated, leased app-server and own it for the context lifetime.
+    """Launch an app-server against a profile and own it for the context lifetime.
 
     Parameters
     ----------
     directory : Path
-        Existing profile; no implicit creation or caller configuration import.
+        Existing profile, managed or a bare Codex home; no implicit creation.
     options : LaunchOptions or None
-        Optional runtime overrides and relay processors.
+        Optional runtime overrides, native ``-c`` overrides and relay processors.
 
     Yields
     ------
@@ -659,12 +782,12 @@ async def launch(directory: Path, options: LaunchOptions | None = None) -> Async
 
 
 async def login_chatgpt(directory: Path, *, device_auth: bool = False) -> int:
-    """Run native interactive login against this profile's isolated home.
+    """Run native interactive login against this profile's home.
 
     Parameters
     ----------
     directory : Path
-        Stopped profile directory.
+        Existing profile directory.
     device_auth : bool
         Request Codex's device-code login flow.
 
@@ -673,29 +796,26 @@ async def login_chatgpt(directory: Path, *, device_auth: bool = False) -> int:
     int
         Native login exit code; zero indicates successful native completion.
     """
-    lease = _Lease(directory)
-    lease.acquire()
-    path = lease.directory
+    lock = MutationLock(directory)
+    lock.acquire()
+    path = lock.directory
     process = None
-    record = {}
+    record: dict[str, Any] = {}
+    run_id = uuid.uuid4().hex
+    run_directory = runs_dir(path) / run_id
 
     async def publish() -> None:
-        writing = asyncio.create_task(
-            asyncio.to_thread(atomic_write, path / "runtime" / "owner.json", json.dumps(record))
-        )
-        try:
-            await asyncio.shield(writing)
-        except asyncio.CancelledError:
-            await writing
-            raise
+        content = json.dumps(record)
+        await complete_file_operation(lambda: atomic_write(run_directory / "owner.json", content))
 
     try:
         config = await asyncio.to_thread(read_config, path)
         arguments = [str(resolve_executable(config.executable)), "login"]
         if device_auth:
             arguments.append("--device-auth")
+        run_directory.mkdir(mode=0o700)
         record = {
-            "run_id": uuid.uuid4().hex,
+            "run_id": run_id,
             "operation": "login",
             "profile": str(path),
             "state": "starting",
@@ -703,15 +823,15 @@ async def login_chatgpt(directory: Path, *, device_auth: bool = False) -> int:
             "executable": arguments[0],
             "arguments": arguments[1:],
             "started_at": time.time(),
+            "run_directory": str(run_directory),
         }
         await publish()
         spawning = asyncio.create_task(
             asyncio.create_subprocess_exec(
                 *arguments,
-                cwd=path / "work",
+                cwd=work_dir(path) if config.isolate else Path.cwd(),
                 env=build_environment(path, config),
                 start_new_session=True,
-                pass_fds=(lease.descriptor,),
             )
         )
         cancelled = False
@@ -750,4 +870,4 @@ async def login_chatgpt(directory: Path, *, device_auth: bool = False) -> int:
                     record["returncode"] = process.returncode
                 await publish()
         finally:
-            lease.close()
+            lock.close()

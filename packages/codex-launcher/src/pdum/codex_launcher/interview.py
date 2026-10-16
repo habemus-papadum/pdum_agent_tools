@@ -182,8 +182,8 @@ def _page(console: Console, content: str, language: str) -> None:
 def _diff(before_native: str, before_launcher: str, native: str, launcher: str) -> str:
     chunks = []
     for name, previous, current in (
-        ("codex/config.toml", before_native, native),
-        ("launcher.toml", before_launcher, launcher),
+        ("config.toml", before_native, native),
+        (".pdum/launcher.toml", before_launcher, launcher),
     ):
         chunks.extend(
             difflib.unified_diff(

@@ -13,8 +13,7 @@ NATIVE = '# unchanged comment\nmodel = "gpt-6-luna"\n[future]\nsetting = "keep"\
 
 def test_preserve_is_byte_for_byte_and_configuration_does_not_read_auth(tmp_path):
     assert apply_auth(NATIVE, LAUNCHER, AuthSpec(), tmp_path) == (NATIVE, LAUNCHER)
-    (tmp_path / "codex").mkdir()
-    (tmp_path / "codex/auth.json").write_text("this is deliberately not valid JSON")
+    (tmp_path / "auth.json").write_text("this is deliberately not valid JSON")
     inspection = inspect_auth(NATIVE, LAUNCHER, tmp_path)
     assert inspection.spec.method == "chatgpt"
     assert inspection.warnings
