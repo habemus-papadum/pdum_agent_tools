@@ -1,0 +1,16 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["packages/agent-history/src/index.ts"],
+  "tsconfig": "packages/agent-history/tsconfig.json",
+  "plugin": ["typedoc-plugin-markdown"],
+  "out": "../docs/reference/typescript/agent-history",
+  "readme": "none",
+  "entryFileName": "index.md",
+  "hidePageHeader": true,
+  "hideBreadcrumbs": true,
+  "useCodeBlocks": true,
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "cleanOutputDir": true,
+  "name": "@habemus-papadum/agent-history"
+}

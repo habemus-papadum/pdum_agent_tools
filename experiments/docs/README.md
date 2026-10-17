@@ -63,6 +63,7 @@ original scope, recommendations and cost ledgers.
 | 032 | Useful advisory health is possible, but idle turns can retain work and client events omit some failures. | [Health and swarm evidence](spikes/032-codex-health.md) |
 | 033 | Shared accounting deduplicates replay/forks; native telemetry exposes costs missing from client counters. | [Usage and cost](spikes/033-codex-accounting.md) |
 | 034 | Live client, launcher processor and offline analysis agree; local OTLP adds coverage. Hosted Logfire is untested. | [Observation and telemetry](spikes/034-codex-observation.md) |
+| 035 | A read-only filesystem ingester answers every analysis question from DuckDB in milliseconds; read RPCs return identical items but no usage, model or fork lineage. | [Historical analysis paths](spikes/035-codex-analysis.md) |
 
 For the current Hostfork direction, read the [architecture findings](../../docs/specs/hostfork/spike-findings.md).
 Spikes 020–024 use only the Python research workspace and local Linux facilities;

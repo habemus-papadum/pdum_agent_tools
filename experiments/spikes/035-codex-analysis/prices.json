@@ -1,0 +1,17 @@
+{
+  "price_date": "2026-10-16",
+  "tier": "standard, short context (prompts up to 272K input tokens)",
+  "sources": {
+    "gpt-6-astra": "https://developers.openai.com/api/docs/models/gpt-6-astra",
+    "gpt-6-luna": "https://developers.openai.com/api/docs/models/gpt-6-luna",
+    "gpt-6-sol": "https://developers.openai.com/api/docs/models/gpt-6-sol",
+    "gpt-6.1-sol": "https://developers.openai.com/api/docs/models/gpt-6.1-sol"
+  },
+  "note": "USD per million tokens. Models absent here stay unpriced and are reported as an unpriced token share rather than imputed. Subscription billing is not an API invoice; this is a proxy.",
+  "usd_per_million": {
+    "gpt-6-astra": {"uncached_input": 10.0, "cached_input": 1.0, "cache_write_input": 12.5, "output": 50.0},
+    "gpt-6-luna": {"uncached_input": 0.1, "cached_input": 0.01, "cache_write_input": 0.125, "output": 0.5},
+    "gpt-6-sol": {"uncached_input": 2.0, "cached_input": 0.2, "cache_write_input": 2.5, "output": 10.0},
+    "gpt-6.1-sol": {"uncached_input": 2.0, "cached_input": 0.1, "cache_write_input": 2.5, "output": 10.0}
+  }
+}

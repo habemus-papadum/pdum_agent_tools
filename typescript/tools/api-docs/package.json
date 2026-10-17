@@ -1,0 +1,15 @@
+{
+  "name": "@pdum/api-docs",
+  "version": "0.1.0+dev",
+  "private": true,
+  "type": "module",
+  "description": "Generates Markdown API reference for the TypeScript packages into docs/reference/typescript with TypeDoc. Never published.",
+  "scripts": {
+    "generate": "typedoc --options ../../typedoc.json"
+  },
+  "devDependencies": {
+    "typedoc": "catalog:",
+    "typedoc-plugin-markdown": "catalog:",
+    "typescript": "catalog:typedoc"
+  }
+}

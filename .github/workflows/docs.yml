@@ -30,7 +30,20 @@ jobs:
         with:
           version: "0.12.17"
           enable-cache: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "11.9.0"
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: typescript/.nvmrc
+          cache: pnpm
+          cache-dependency-path: typescript/pnpm-lock.yaml
       - run: uv sync --frozen --all-packages
+      - name: Generate the TypeScript API reference
+        working-directory: typescript
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run api-docs
       - run: uv run --frozen mkdocs build --strict
       - uses: actions/upload-pages-artifact@v5
         with:

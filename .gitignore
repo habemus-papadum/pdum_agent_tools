@@ -18,3 +18,4 @@ htmlcov/
 .DS_Store
 artifacts/
 todo.md
+docs/reference/typescript/

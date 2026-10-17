@@ -18,10 +18,11 @@ the wider architecture proposals are not all implemented.
 | [habemus-papadum-codex-launcher](packages/codex-launcher/README.md) | `pdum.codex_launcher` | Codex homes as profiles, including your own with `--default`; launch app-servers with native overrides, record runs and inspect every process using a home. |
 | [habemus-papadum-hostfork](packages/hostfork/README.md) | `pdum.hostfork` | Host-derived views, private storage, ordinary Python subprocesses, independent deadlines and recovery. |
 | [habemus-papadum-claude-launcher](packages/claude-launcher/README.md) | `pdum.claude_launcher` | Isolated Claude profiles, foreground workers for official browser/Node SDK clients, and saved-history management. New, unreleased package. |
+| [habemus-papadum-agent-history](packages/agent-history/README.md) | `pdum.agent_history` | Read Codex homes and Claude Code directories into one DuckDB schema with blob tables, a six-month window and coverage rows. Pairs with the TypeScript `@habemus-papadum/agent-history` checks, questions and session renderer. New, unreleased package. |
 
 The Codex and Claude launchers use MITM only when selected; their `mitm` extras
 install that integration. Their `management` extras add optional FastAPI adapters.
-All four packages export standalone and mountable Typer CLIs.
+All five packages export standalone and mountable Typer CLIs.
 The Codex launcher's Rich/Questionary interview manages selective native imports and
 upstream authentication; the optional `federation` extra supports an AWS credential
 helper. See [profile setup and authentication](docs/profiles.md).
@@ -133,6 +134,8 @@ packages/mitm/              habemus-papadum-mitm
 packages/codex-launcher/    habemus-papadum-codex-launcher
 packages/hostfork/          habemus-papadum-hostfork
 packages/claude-launcher/   habemus-papadum-claude-launcher
+packages/agent-history/     habemus-papadum-agent-history
+typescript/               pnpm workspace: @habemus-papadum/agent-history checks, questions and session renderer
 examples/claude-client/    Official browser/Node SDK compatibility examples
 experiments/              Independent pnpm/uv research workspace and spike reports
 docs/                     MkDocs source
@@ -145,7 +148,8 @@ uv.lock                   Shared dependency lockfile
 Each package uses `src/pdum/<module>/` and has its own `tests/` directory. `pdum`
 is a shared namespace package, not a separately installed distribution.
 Research commands run from `experiments/` using its own locks; they are not part
-of `uv build --all-packages` at the repository root.
+of `uv build --all-packages` at the repository root. The TypeScript workspace runs
+from `typescript/` with pnpm; see [agent history](docs/agent-history.md).
 
 ## Working conventions
 

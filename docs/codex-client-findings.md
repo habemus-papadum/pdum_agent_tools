@@ -199,3 +199,20 @@ does not claim every one of the 269 protocol messages or large-swarm scale teste
 The [original plan](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/proposals/codex-client-feasibility-spikes.md)
 and [research index](research.md) connect the remaining detail. Raw evidence stays
 in ignored `experiments/artifacts/`; public reports contain no credentials.
+
+## Analysis paths for history and live sessions (spike 035, 2026-10-16)
+
+Spike [035](https://github.com/habemus-papadum/pdum_agent_tools/tree/main/experiments/spikes/035-codex-analysis)
+asked what the raw files and the read RPCs each let a backend analysis see.
+One DuckDB schema with provenance columns received a read-only filesystem ingester
+and an app-server ingester; 22 analysis questions ran as timed SQL over both.
+The filesystem path ingested a real home (221 rollouts, three databases) in 7.6 s
+and answered every question in milliseconds, with full-text search at about 200 ms.
+The API path returned identical items for 35,876 shared rows but no per-response
+usage, rate limits, per-turn model and effort, or fork lineage, listed 157 of 213
+catalogue threads, and needed the SQLite history projection copied or each thread
+resumed before a snapshot server returned any history. A one-turn live subscription
+matched the persisted usage records exactly but never saw response ids or the model.
+The client SDK should therefore share the schema and extraction and provide both
+ingesters, treating usage and turn settings as filesystem or live-subscription facts.
+The [report](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/035-codex-analysis.md) records the evidence.

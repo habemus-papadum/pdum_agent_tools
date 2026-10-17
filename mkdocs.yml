@@ -26,6 +26,10 @@ nav:
   - Testing: testing.md
   - Research and spikes: research.md
   - Codex client findings: codex-client-findings.md
+  - Agent history: agent-history.md
+  - Reference:
+      - Agent history Python API: reference/python/agent-history.md
+      - Agent history TypeScript API: reference/typescript/agent-history/index.md
   - Architecture proposals:
       - Overview: architecture.md
       - Agreed design principles: design-principles.md
@@ -41,6 +45,7 @@ nav:
           - Earlier design exploration: specs/hostfork/design-notes.md
   - Implementation plans:
       - Joint sequence: plans/implementation.md
+      - Agent history and analysis roadmap: plans/agent-analysis-roadmap.md
       - Codex launcher: plans/codex-launcher.md
       - Codex client: plans/codex-client.md
       - Claude launcher: plans/claude-launcher.md
@@ -65,7 +70,7 @@ plugins:
       default_handler: python
       handlers:
         python:
-          paths: [packages/mitm/src, packages/codex-launcher/src, packages/hostfork/src, packages/claude-launcher/src]
+          paths: [packages/mitm/src, packages/codex-launcher/src, packages/hostfork/src, packages/claude-launcher/src, packages/agent-history/src]
           options:
             docstring_style: numpy
             show_submodules: true

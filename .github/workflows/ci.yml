@@ -44,7 +44,7 @@ jobs:
           uv run --frozen ruff check .
           uv run --frozen ruff format --check .
       - name: Verify package imports
-        run: uv run --frozen --all-packages python -c "import pdum.mitm; import pdum.codex_launcher; import pdum.hostfork; import pdum.claude_launcher"
+        run: uv run --frozen --all-packages python -c "import pdum.mitm; import pdum.codex_launcher; import pdum.hostfork; import pdum.claude_launcher; import pdum.agent_history"
       - name: Run local integration and unit tests
         run: uv run --frozen --all-packages --all-extras pytest -m "not live" --cov --cov-report=xml --cov-report=term
       - name: Upload coverage
@@ -66,6 +66,39 @@ jobs:
           name: distributions
           path: dist/*
           if-no-files-found: error
+
+  typescript:
+    name: TypeScript workspace (agent-history)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: typescript
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "11.9.0"
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: typescript/.nvmrc
+          cache: pnpm
+          cache-dependency-path: typescript/pnpm-lock.yaml
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+      - name: Lint and format check (Biome)
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm -r typecheck
+      - name: Test
+        run: pnpm test
+      - name: Build
+        run: pnpm -r build
+      - name: Schema contract matches the Python package
+        working-directory: .
+        run: |
+          uv run --frozen pdum-history schema --json > "$RUNNER_TEMP/schema.json"
+          diff "$RUNNER_TEMP/schema.json" typescript/packages/agent-history/schema/agent-history.schema.json
 
   claude-clients:
     name: Claude official Node SDK / native launcher (credential-free)

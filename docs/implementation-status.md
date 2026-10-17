@@ -238,3 +238,15 @@ library, Typer CLI, copy/overlay/prepared-Btrfs storage, systemd deadlines, dire
 Python-owned subprocesses and persistent recovery. See the [guide](hostfork.md)
 and [validation record](hostfork-validation.md) for supported behavior and
 remaining platform/qualification gates. It is independent of both existing packages.
+
+## Agent history
+
+The fifth distribution, `habemus-papadum-agent-history`, reads a Codex home or a
+Claude Code configuration directory read-only into one DuckDB schema with blob
+tables, a 183-day window and per-thread coverage rows. The TypeScript package
+`@habemus-papadum/agent-history` reads those files: invariant checks, the analysis
+question set, a session list and a terminal renderer for one session. Both are
+exercised against synthetic fixtures in tests and were run against real homes on
+17 October 2026; see the [guide](agent-history.md) for what the data can and
+cannot say. MotherDuck, live streaming into the same tables and the Agents SDK
+runtime remain planned in the [roadmap](plans/agent-analysis-roadmap.md).

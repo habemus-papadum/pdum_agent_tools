@@ -79,6 +79,26 @@ for the project layout and commands.
 - Use the `src/pdum/<module>/` layout. `pdum` is a PEP 420 namespace: never add
   `src/pdum/__init__.py`. Each distribution has its own module and `py.typed` marker.
 
+## TypeScript workspace
+
+- `typescript/` is the production pnpm workspace (pnpm 11, Node 26, Biome, Vitest,
+  Vite). Run its commands from `typescript/`; it has its own lockfile and never
+  shares dependencies with `experiments/` or `examples/`. Ordinary Python
+  installation must not require Node.
+- Every dependency version lives in `typescript/pnpm-workspace.yaml` catalogs
+  (`catalogMode: strict`); manifests say `"catalog:"`. Pin exact versions and
+  add a pin before adding a dependency.
+- The agent-history schema is a contract owned by the Python package: regenerate
+  `typescript/packages/agent-history/schema/agent-history.schema.json` with
+  `uv run pdum-history schema --json` whenever `pdum.agent_history.schema` changes
+  and bump `SCHEMA_VERSION`. A Python test and CI compare the two copies.
+- Query, invariant and forensics code belongs in TypeScript so it can run in Node,
+  a browser or against MotherDuck; readers of local agent storage belong in Python
+  beside the launchers. Keep that split rather than duplicating either side.
+- Support roughly six months of session history. Count older storage formats in
+  `coverage` instead of adapting to them, add an invariant check rather than a
+  compatibility shim, and treat a failing check as a planning item.
+
 ## Quality and documentation
 
 - Follow the shared Ruff configuration: 120-character lines, Python 3.12 target,

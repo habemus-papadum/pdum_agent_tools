@@ -1,0 +1,36 @@
+{
+  "name": "pdum-agent-tools-typescript",
+  "version": "0.1.0+dev",
+  "private": true,
+  "type": "module",
+  "description": "Production TypeScript workspace for pdum_agent_tools: agent history ingestion and analysis, and later the Codex client.",
+  "author": "Nehal Patel <nehal.alum@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/habemus-papadum/pdum_agent_tools.git",
+    "directory": "typescript"
+  },
+  "engines": {
+    "node": ">=24.5.0",
+    "pnpm": ">=11"
+  },
+  "scripts": {
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "api-docs": "pnpm -C tools/api-docs run generate"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  },
+  "packageManager": "pnpm@11.9.0"
+}

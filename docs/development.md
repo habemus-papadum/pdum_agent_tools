@@ -226,3 +226,28 @@ manager and native worker, including repeated concurrent clients and cleanup.
 Native profile tests additionally verify agents, skills, instructions, plugins
 and MCP configuration with disposable local fixtures; they visibly skip when
 the native binary, Node or installed example SDK is absent.
+
+## TypeScript workspace
+
+`typescript/` is a pnpm workspace (pnpm 11.9, Node 26 from `.nvmrc`) with its own
+lockfile. It holds `@habemus-papadum/agent-history`, the query, invariant and
+forensics side of [agent history](agent-history.md), and a private `tools/api-docs`
+package that generates the Markdown API reference. Dependencies are pinned in
+`pnpm-workspace.yaml` catalogs with `catalogMode: strict`.
+
+```sh
+cd typescript
+pnpm install --frozen-lockfile
+pnpm lint            # Biome check
+pnpm -r typecheck
+pnpm test            # Vitest across packages
+pnpm -r build        # tsc declarations plus Vite library build
+pnpm run api-docs    # TypeDoc Markdown into docs/reference/typescript/
+pnpm -C packages/agent-history cli check ~/history/codex.duckdb
+```
+
+The schema contract flows one way: `uv run pdum-history schema --json` writes
+`typescript/packages/agent-history/schema/agent-history.schema.json`, a Python test
+compares the copy with the live contract, and CI diffs them. The generated
+reference under `docs/reference/typescript/` is ignored by Git; run `pnpm run
+api-docs` before a strict MkDocs build, as the docs workflow does.
