@@ -19,7 +19,7 @@ from typing import Any
 
 from . import items as item_columns
 from . import schema
-from .base import DEFAULT_WINDOW_DAYS, BaseIngest, IngestSummary, compact, repo_from_origin
+from .base import DEFAULT_WINDOW_DAYS, BaseIngest, IngestSummary, assign_lineage, compact, repo_from_origin
 from .sqlite import open_readonly
 
 SOURCE = "codex-fs"
@@ -728,11 +728,31 @@ class CodexIngest(BaseIngest):
         started = time.perf_counter()
         thread_columns = dict(schema.COLUMNS["threads"])
         thread_rows = []
+        edges = []
+        for note in assign_lineage(self.threads).values():
+            self.summary.notes.append(note)
         for thread in self.threads.values():
             thread.setdefault("source", SOURCE)
             thread.setdefault("in_window", True)
             thread_rows.append(schema.row("threads", **{k: v for k, v in thread.items() if k in thread_columns}))
+            parent = thread.get("forked_from_id")
+            if parent and parent != thread["thread_id"]:
+                # The rollout's session_meta names the fork parent; the catalogue does not record forks.
+                edges.append(
+                    schema.row(
+                        "fork_edges",
+                        parent_thread_id=parent,
+                        child_thread_id=thread["thread_id"],
+                        kind="fork",
+                        evidence="rollout",
+                        ambiguous=False,
+                        child_started_at=thread.get("created_at"),
+                        source=SOURCE,
+                        origin=thread.get("origin"),
+                    )
+                )
         self.write("threads", thread_rows)
+        self.write("fork_edges", edges)
         turn_rows = [
             schema.row("turns", **{**turn, "source": SOURCE})
             for turn in self.turns.values()

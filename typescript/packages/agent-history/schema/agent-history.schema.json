@@ -20,6 +20,19 @@
       ["source", "VARCHAR"],
       ["origin", "VARCHAR"]
     ],
+    "fork_edges": [
+      ["parent_thread_id", "VARCHAR"],
+      ["child_thread_id", "VARCHAR"],
+      ["kind", "VARCHAR"],
+      ["evidence", "VARCHAR"],
+      ["ambiguous", "BOOLEAN"],
+      ["inherited_records", "INTEGER"],
+      ["fork_point_ts", "TIMESTAMP"],
+      ["child_started_at", "TIMESTAMP"],
+      ["source_id", "VARCHAR"],
+      ["source", "VARCHAR"],
+      ["origin", "VARCHAR"]
+    ],
     "ingest_runs": [
       ["run_id", "VARCHAR"],
       ["source_id", "VARCHAR"],
@@ -174,6 +187,8 @@
       ["session_id", "VARCHAR"],
       ["forked_from_id", "VARCHAR"],
       ["parent_thread_id", "VARCHAR"],
+      ["lineage_id", "VARCHAR"],
+      ["lineage_depth", "INTEGER"],
       ["created_at", "TIMESTAMP"],
       ["updated_at", "TIMESTAMP"],
       ["source_kind", "VARCHAR"],
@@ -262,7 +277,7 @@
       ["origin", "VARCHAR"]
     ]
   },
-  "version": 3,
+  "version": 4,
   "views": {
     "usage_events": "SELECT source_id, thread_id, turn_id, ts, rollout_ordinal, model, input_tokens, cached_input_tokens, cache_write_input_tokens, cache_write_1h_input_tokens, output_tokens, reasoning_output_tokens, wasted_output_tokens, total_tokens, 'usage_record' AS basis, source FROM (SELECT * FROM responses WHERE origin <> 'copied-context' QUALIFY row_number() OVER (PARTITION BY source, response_id ORDER BY ts, rollout_ordinal) = 1) UNION ALL SELECT source_id, thread_id, turn_id, ts, rollout_ordinal, NULL AS model, total_input_tokens - prev_input, total_cached_input_tokens - prev_cached, total_cache_write_input_tokens - prev_cache_write, NULL AS cache_write_1h_input_tokens, total_output_tokens - prev_output, total_reasoning_output_tokens - prev_reasoning, NULL AS wasted_output_tokens, total_tokens - prev_total, 'counter_delta' AS basis, source FROM (SELECT *, lag(total_input_tokens, 1, 0) OVER w AS prev_input, lag(total_cached_input_tokens, 1, 0) OVER w AS prev_cached, lag(COALESCE(total_cache_write_input_tokens, 0), 1, 0) OVER w AS prev_cache_write, lag(total_output_tokens, 1, 0) OVER w AS prev_output, lag(total_reasoning_output_tokens, 1, 0) OVER w AS prev_reasoning, lag(total_tokens, 1, 0) OVER w AS prev_total FROM token_counts WHERE total_tokens IS NOT NULL AND thread_id NOT IN (SELECT DISTINCT thread_id FROM responses) WINDOW w AS (PARTITION BY thread_id ORDER BY rollout_ordinal)) WHERE total_tokens - prev_total > 0"
   }

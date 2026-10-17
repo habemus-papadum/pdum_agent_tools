@@ -12,6 +12,10 @@ NOW = datetime(2026, 10, 17, 12, 0, 0)
 SESSION = "11111111-2222-4333-8444-555555555555"
 AGENT = "abc123"
 OLD_SESSION = "99999999-2222-4333-8444-555555555555"
+CONTINUED = "22222222-2222-4333-8444-555555555555"
+"""Continues SESSION: copies its first messages with markers naming SESSION, then adds its own."""
+REVIVED = "33333333-2222-4333-8444-555555555555"
+"""Continues OLD_SESSION long after it: inherited messages are old, its own are recent."""
 
 
 def _ts(moment: datetime) -> str:
@@ -370,6 +374,36 @@ def _agent_lines(session: str, agent: str, start: datetime) -> list[dict]:
     return lines
 
 
+def _continuation_lines(predecessor: str, session: str, start: datetime, own_start: datetime) -> list[dict]:
+    """A file that inherits the predecessor's first four messages, then produces two of its own."""
+    copied = []
+    for line in _session_lines(predecessor, start):
+        if line.get("type") in {"user", "assistant"} and "uuid" in line:
+            copied.append({**line, "sessionId": session, "session_id": predecessor})
+        if len(copied) == 4:
+            break
+    t = own_start
+    own = [
+        {
+            **_common(session, t, "u9", copied[-1]["uuid"], promptId="p9", type="user", session_id=session),
+            "message": {"role": "user", "content": "Carry on from here"},
+        },
+        {
+            **_common(session, t + timedelta(seconds=3), "a9", "u9", type="assistant", session_id=session),
+            "message": {
+                "id": f"msg_9_{session[:8]}",
+                "model": "claude-fable-5-1",
+                "role": "assistant",
+                "type": "message",
+                "stop_reason": "end_turn",
+                "content": [{"type": "text", "text": "Carrying on."}],
+                "usage": _usage(7, 26000, 300, 21),
+            },
+        },
+    ]
+    return copied + own
+
+
 def _write(path: Path, lines: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(json.dumps(line) for line in lines) + "\n")
@@ -380,7 +414,21 @@ def claude_dir(tmp_path: Path) -> Path:
     root = tmp_path / "claude"
     project = root / "projects" / "-work-project"
     recent = NOW - timedelta(days=2)
-    _write(project / f"{SESSION}.jsonl", _session_lines(SESSION, recent))
+    session_lines = _session_lines(SESSION, recent)
+    session_lines.append(
+        {
+            "type": "continued-in",
+            "timestamp": _ts(recent + timedelta(hours=1)),
+            "sessionId": SESSION,
+            "continuedInSessionId": CONTINUED,
+        }
+    )
+    _write(project / f"{SESSION}.jsonl", session_lines)
+    _write(project / f"{CONTINUED}.jsonl", _continuation_lines(SESSION, CONTINUED, recent, recent + timedelta(days=1)))
+    _write(
+        project / f"{REVIVED}.jsonl",
+        _continuation_lines(OLD_SESSION, REVIVED, NOW - timedelta(days=400), NOW - timedelta(days=1)),
+    )
     _write(
         project / SESSION / "subagents" / f"agent-{AGENT}.jsonl",
         _agent_lines(SESSION, AGENT, recent + timedelta(minutes=6)),
@@ -401,13 +449,20 @@ def test_patch_line_counts():
 
 def test_claude_sessions_become_threads_turns_responses_and_items(claude_dir: Path, tmp_path: Path):
     summary = ingest_claude_dir(claude_dir, tmp_path / "claude.duckdb", window_days=183, now=NOW)
-    assert summary.tables["threads"] == 4
+    assert summary.tables["threads"] == 6
     assert summary.unknown_line_types == {"mystery-record": 1}
     assert summary.ignored_line_types == {"permission-mode": 1}
     con = duckdb.connect(str(tmp_path / "claude.duckdb"), read_only=True)
     try:
         windows = dict(con.execute("select thread_id, in_window from coverage").fetchall())
-        assert windows == {SESSION: True, f"{SESSION}:{AGENT}": True, f"{SESSION}:wf1": True, OLD_SESSION: False}
+        assert windows == {
+            SESSION: True,
+            f"{SESSION}:{AGENT}": True,
+            f"{SESSION}:wf1": True,
+            OLD_SESSION: False,
+            CONTINUED: True,
+            REVIVED: True,
+        }
         title, model, effort, kind, cli = con.execute(
             "select title, model, reasoning_effort, source_kind, cli_version from threads where thread_id = ?",
             [SESSION],
@@ -458,13 +513,13 @@ def test_claude_sessions_become_threads_turns_responses_and_items(claude_dir: Pa
         )
         assert con.execute("select count(*) from items where source_id is null").fetchone()[0] == 0
         assert len(rows) == 4
-        assert con.execute("select count(*) from usage_events where basis = 'usage_record'").fetchone()[0] == 8
+        assert con.execute("select count(*) from usage_events where basis = 'usage_record'").fetchone()[0] == 10
         copied = con.execute(
             "select count(*), sum((origin = 'copied-context')::int) from responses where response_id = 'msg_2'"
         ).fetchone()
         assert copied == (3, 2)
-        assert con.execute("select count(*) from items where origin = 'copied-context'").fetchone()[0] == 2
-        assert con.execute("select count(*) from turns where origin = 'copied-context'").fetchone()[0] == 2
+        assert con.execute("select count(*) from items where origin = 'copied-context'").fetchone()[0] == 8
+        assert con.execute("select count(*) from turns where origin = 'copied-context'").fetchone()[0] == 4
         child_total = con.execute(
             "select max(thread_total_tokens) from responses where thread_id = ?", [f"{SESSION}:{AGENT}"]
         ).fetchone()[0]
@@ -507,15 +562,87 @@ def test_claude_sessions_become_threads_turns_responses_and_items(claude_dir: Pa
                 "select event_type, count(*) from rollout_events where thread_id = ? group by 1", [SESSION]
             ).fetchall()
         )
-        assert events == {"system:turn_duration": 1, "cost-state": 1, "api-request": 1, "compacted": 1}
+        assert events == {
+            "system:turn_duration": 1,
+            "cost-state": 1,
+            "api-request": 1,
+            "compacted": 1,
+            "continued-in": 1,
+        }
         cost = json.loads(
             con.execute("select detail from rollout_events where event_type = 'cost-state'").fetchone()[0]
         )
         assert cost["totalCostUSD"] == 0.12
         blob = json.loads(con.execute("select item_json from item_blobs where item_id = 'toolu_1'").fetchone()[0])
         assert blob["call"]["name"] == "Bash" and blob["toolUseResult"]["stdout"].startswith("a.py")
-        assert con.execute("select count(*) from token_counts").fetchone()[0] == 8
+        assert con.execute("select count(*) from token_counts").fetchone()[0] == 10
         assert con.execute("select count(*) from items where thread_id = ?", [OLD_SESSION]).fetchone()[0] == 0
+    finally:
+        con.close()
+
+
+def test_claude_markers_name_the_predecessor_and_build_lineage(claude_dir: Path, tmp_path: Path):
+    ingest_claude_dir(claude_dir, tmp_path / "claude.duckdb", window_days=183, now=NOW)
+    con = duckdb.connect(str(tmp_path / "claude.duckdb"), read_only=True)
+    try:
+        recent = NOW - timedelta(days=2)
+        lineage = {
+            row[0]: row[1:]
+            for row in con.execute(
+                "select thread_id, forked_from_id, lineage_id, lineage_depth, created_at from threads"
+            ).fetchall()
+        }
+        assert lineage[SESSION] == (None, SESSION, 0, recent)
+        assert lineage[CONTINUED] == (SESSION, SESSION, 1, recent + timedelta(days=1))
+        assert lineage[f"{SESSION}:{AGENT}"][1:3] == (SESSION, 1)
+        # The revived session inherits year-old messages but its own start is recent, so it is in the window.
+        assert lineage[REVIVED] == (OLD_SESSION, OLD_SESSION, 1, NOW - timedelta(days=1))
+        assert lineage[OLD_SESSION][1:3] == (OLD_SESSION, 0)
+        edges = {
+            row[1]: row
+            for row in con.execute(
+                "select parent_thread_id, child_thread_id, kind, evidence, ambiguous, inherited_records, "
+                "fork_point_ts, child_started_at from fork_edges"
+            ).fetchall()
+        }
+        assert edges[CONTINUED] == (
+            SESSION,
+            CONTINUED,
+            "continuation",
+            "marker+continued-in",
+            False,
+            4,
+            recent + timedelta(seconds=6),
+            recent + timedelta(days=1),
+        )
+        assert edges[REVIVED][2:6] == ("continuation", "marker", False, 4)
+        assert edges[f"{SESSION}:{AGENT}"] == (
+            SESSION,
+            f"{SESSION}:{AGENT}",
+            "subagent-fork",
+            "fork-context-ref",
+            False,
+            1200,
+            recent + timedelta(minutes=5, seconds=28),
+            recent + timedelta(minutes=6),
+        )
+        assert set(edges) == {CONTINUED, REVIVED, f"{SESSION}:{AGENT}", f"{SESSION}:wf1"}
+        # Copied responses name their producer and stay out of usage; own responses count once.
+        rows = con.execute(
+            "select response_id, session_id, origin from responses where thread_id = ? order by rollout_ordinal",
+            [CONTINUED],
+        ).fetchall()
+        assert rows == [("msg_1", SESSION, "copied-context"), (f"msg_9_{CONTINUED[:8]}", CONTINUED, "assistant")]
+        assert con.execute("select count(*) from usage_events where thread_id = ? ", [CONTINUED]).fetchone()[0] == 1
+        assert con.execute("select count(*) from usage_events where thread_id = ? ", [SESSION]).fetchone()[0] == 4
+        turns = dict(con.execute("select turn_id, origin from turns where thread_id = ?", [CONTINUED]).fetchall())
+        assert turns == {"p1": "copied-context", "p9": "session-jsonl"}
+        assert (
+            con.execute(
+                "select count(*) from rollout_events where event_type = 'continued-in' and thread_id = ?", [SESSION]
+            ).fetchone()[0]
+            == 1
+        )
     finally:
         con.close()
 
@@ -529,4 +656,4 @@ def test_cli_ingests_claude(claude_dir: Path, tmp_path: Path):
     )
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
-    assert payload["source"] == "claude-fs" and payload["tables"]["threads"] == 4
+    assert payload["source"] == "claude-fs" and payload["tables"]["threads"] == 6

@@ -17,20 +17,26 @@ describe("sessions", () => {
     const db = await fixture();
     try {
       const sessions = await listSessions(db);
-      expect(sessions.map((s) => s.threadId)).toEqual(["t1"]);
-      const [t1] = sessions;
+      expect(sessions.map((s) => s.threadId)).toEqual(["t2", "t1"]);
+      const [t2, t1] = sessions;
       expect(t1?.turns).toBe(1);
       expect(t1?.responses).toBe(2);
       expect(t1?.totalTokens).toBe(2310);
       expect(t1?.usd).toBeCloseTo(0.0113, 4);
       expect(t1?.children).toBe(1);
+      expect(t1?.lineageId).toBe("t1");
+      expect(t2?.lineageId).toBe("t1");
+      expect(t2?.lineageDepth).toBe(1);
       const all = await listSessions(db, { includeChildren: true });
-      expect(all).toHaveLength(2);
+      expect(all).toHaveLength(3);
       const filtered = await listSessions(db, { like: "parser" });
       expect(filtered.map((s) => s.threadId)).toEqual(["t1"]);
+      const lineage = await listSessions(db, { includeChildren: true, lineage: "t1" });
+      expect(lineage.map((s) => s.threadId).sort()).toEqual(["t1", "t1:child", "t2"]);
       const text = renderSessionList(sessions);
       expect(text).toContain("Fix the parser");
       expect(text).toContain("2.3k");
+      expect(text).toContain("t1+1");
     } finally {
       db.close();
     }
@@ -70,6 +76,12 @@ describe("show", () => {
       expect(text).toContain("sub-agents:");
       const onlyTurn = renderSession(view, { turn: 1, hideThinking: true });
       expect(onlyTurn).not.toContain("sub-agents:");
+      expect(text).toContain("continued in t2  2026-10-01 11:00:00  (marker+continued-in)");
+      const continued = renderSession(await loadSession(db, "t2"));
+      expect(continued).toContain("lineage t1 depth 1");
+      expect(continued).toContain(
+        "continues t1  (continuation by marker+continued-in, inherited 3 records, fork point 2026-10-01 10:00:50)",
+      );
     } finally {
       db.close();
     }

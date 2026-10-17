@@ -6,6 +6,13 @@ Lines form a tree through ``uuid`` and ``parentUuid``; assistant lines carry the
 and a usage block per API response; tool calls and results are content blocks paired by id.
 There is no turn record, so turns are derived from user prompts. Sub-agents become their own
 threads with the session as parent. Older storage formats are counted, not modelled.
+
+A continued or forked session copies its inherited transcript into the new file, ids and
+timestamps included. Since Claude Code 2.1.199 every copied message keeps the id of the session
+that produced it in ``session_id`` while ``sessionId`` names the file, so the marker decides what a
+file owns and names the direct predecessor (the last foreign producer before the file's own
+messages). Files without markers fall back to uuid ownership by start order. Sub-agents since
+2.1.220 reference the parent's context (``fork-context-ref``) instead of copying it.
 """
 
 from __future__ import annotations
@@ -20,7 +27,7 @@ from typing import Any
 
 from . import items as item_columns
 from . import schema
-from .base import DEFAULT_WINDOW_DAYS, BaseIngest, IngestSummary
+from .base import DEFAULT_WINDOW_DAYS, BaseIngest, IngestSummary, assign_lineage
 
 SOURCE = "claude-fs"
 FORMAT = "claude-jsonl"
@@ -131,6 +138,46 @@ class _Thread:
         self.last_ts: datetime | None = None
         self.first_prompt_ts: datetime | None = None
         self.copied_ids: set[str] = set()
+        self.own_ids: set[str] = set()
+        self.own_first_ts: datetime | None = None
+        self.marker_seen = False
+        """Any message in the file carried a ``session_id`` marker (Claude Code 2.1.199 or later)."""
+        self.marker: str | None = None
+        """``own``, ``foreign`` or None for the message record being read."""
+        self.producer: str | None = None
+        """Session named by the marker of the record being read, when foreign."""
+        self.producers: Counter[str] = Counter()
+        """Foreign producers in order of first appearance; the last one is the direct predecessor."""
+        self.inherited_last_ts: datetime | None = None
+        self.uuid_ts: dict[str, datetime] = {}
+        self.continued_in: list[tuple[str, datetime | None]] = []
+        self.fork_ref: dict[str, Any] | None = None
+
+    def claim(self, key: str) -> None:
+        """Record that the marker of the current record owns or disowns an identifier."""
+        if self.marker == "foreign":
+            self.copied_ids.add(key)
+        elif self.marker == "own":
+            self.own_ids.add(key)
+
+    def mark(self, record: dict[str, Any], ts: datetime | None) -> None:
+        """Read the ``session_id`` marker of a message record."""
+        self.marker = None
+        self.producer = None
+        producer = record.get("session_id")
+        if not isinstance(producer, str):
+            return
+        self.marker_seen = True
+        if producer == (self.parent or self.thread_id):
+            self.marker = "own"
+            if ts is not None and (self.own_first_ts is None or ts < self.own_first_ts):
+                self.own_first_ts = ts
+            return
+        self.marker = "foreign"
+        self.producer = producer
+        self.producers[producer] += 1
+        if ts is not None and (self.inherited_last_ts is None or ts > self.inherited_last_ts):
+            self.inherited_last_ts = ts
 
     @property
     def turn(self) -> dict[str, Any] | None:
@@ -139,21 +186,37 @@ class _Thread:
     def is_copied(self, turn_id: str | None, ts: datetime | None, key: str | None = None) -> bool:
         """Decide whether a line was copied from another session or a parent.
 
-        Lines before the thread's first own prompt are copies, and so is any turn, response or
-        item whose identifier another thread that started earlier already owns.
+        A marker or ownership verdict on the identifier itself is decisive. Otherwise lines before
+        the thread's own start are copies. A turn being inherited says nothing about its responses:
+        a continued session answers the prompt it inherited with responses of its own.
         """
-        if turn_id and (turn_id.startswith("implicit-") or turn_id in self.copied_ids):
+        if turn_id and turn_id.startswith("implicit-"):
             return True
-        if key is not None and key in self.copied_ids:
-            return True
-        return self.first_prompt_ts is not None and ts is not None and ts < self.first_prompt_ts
+        if key is not None:
+            if key in self.copied_ids:
+                return True
+            if key in self.own_ids:
+                return False
+        boundary = self.own_start_hint()
+        return boundary is not None and ts is not None and ts < boundary
+
+    def own_start_hint(self) -> datetime | None:
+        """When the thread's own messages begin: the first own marker, else the first prompt.
+
+        A file with markers can still carry unmarked copies (record types that never got a
+        marker), so its boundary is the first own-marked message, not the first prompt seen.
+        """
+        if self.marker_seen:
+            return self.own_first_ts
+        return self.first_prompt_ts
 
     def start_key(self) -> tuple[datetime, int]:
-        """Sort key for ownership: earlier start first, a session before its sub-agents."""
-        started = self.first_prompt_ts or self.first_ts or datetime.max
+        """Sort key for ownership: earlier own start first, a session before its sub-agents."""
+        started = self.own_start_hint() or self.first_ts or datetime.max
         return started, 1 if self.parent else 0
 
-    def see(self, ts: datetime | None) -> None:
+    def see(self, ts: datetime | None, *, activity: bool = True) -> None:
+        """Track the thread's span and, for message records, extend the open turn."""
         if ts is None:
             return
         if self.first_ts is None or ts < self.first_ts:
@@ -161,7 +224,7 @@ class _Thread:
         if self.last_ts is None or ts > self.last_ts:
             self.last_ts = ts
         turn = self.turn
-        if turn is not None and (turn.get("last_ts") is None or ts > turn["last_ts"]):
+        if activity and turn is not None and (turn.get("last_ts") is None or ts > turn["last_ts"]):
             turn["last_ts"] = ts
 
 
@@ -193,6 +256,7 @@ class ClaudeIngest(BaseIngest):
     ) -> None:
         super().__init__(SOURCE, "claude", claude_dir, db_path, window_days=window_days, blobs=blobs, now=now)
         self.threads: dict[str, _Thread] = {}
+        self.owners: dict[str, str] = {}
 
     # ----------------------------------------------------------------- ingest
     def ingest(self) -> None:
@@ -224,7 +288,7 @@ class ClaudeIngest(BaseIngest):
         session_id = parent or path.stem
         agent_id = path.stem.removeprefix("agent-") if parent else None
         thread_id = f"{session_id}:{agent_id}" if parent else session_id
-        anchor = self.anchor(path)
+        anchor = self.anchor(path, session_id)
         cover = self.cover(thread_id)
         cover["rollout_format"] = FORMAT
         cover["in_window"] = self.in_window(anchor)
@@ -256,21 +320,33 @@ class ClaudeIngest(BaseIngest):
         self.close_turn(thread)
         return lines
 
-    def anchor(self, path: Path) -> datetime:
-        """Return the first timestamp in the file, else its modification time."""
+    def anchor(self, path: Path, session_id: str) -> datetime:
+        """Return when the session itself started, for the window decision.
+
+        That is the timestamp of the first message the file did not inherit (no marker, or a
+        marker naming this session), else the first timestamp in the file, else the modification
+        time. A continued session carries its predecessor's old messages first, so the first
+        timestamp alone would date it to its ancestor.
+        """
+        first: datetime | None = None
         with path.open("rb") as stream:
-            for _ in range(40):
-                raw = stream.readline()
-                if not raw:
-                    break
+            for raw in stream:
                 if b'"timestamp"' not in raw:
                     continue
                 try:
-                    moment = schema.from_iso(json.loads(raw).get("timestamp"))
+                    record = json.loads(raw)
                 except ValueError:
                     continue
-                if moment is not None:
-                    return moment
+                moment = schema.from_iso(record.get("timestamp"))
+                if moment is None:
+                    continue
+                first = first or moment
+                if record.get("type") in {"user", "assistant"}:
+                    producer = record.get("session_id")
+                    if producer is None or producer == session_id:
+                        return moment
+        if first is not None:
+            return first
         return datetime.fromtimestamp(path.stat().st_mtime, tz=UTC).replace(tzinfo=None)
 
     # ------------------------------------------------------------------- line
@@ -287,8 +363,15 @@ class ClaudeIngest(BaseIngest):
                 child_cover = self.cover(child_id)
                 child_cover["rollout_format"] = FORMAT
             thread, cover = child, self.cover(child_id)
-        thread.see(ts)
+        if kind != "continued-in":
+            # A continued-in record is stamped when the successor starts, often days after the
+            # last message here, so it neither ends the thread nor extends its last turn.
+            thread.see(ts, activity=kind in {"user", "assistant", "attachment", "system"})
         self.describe_thread(thread, record)
+        if kind in {"user", "assistant"}:
+            thread.mark(record, ts)
+            if isinstance(record.get("uuid"), str) and ts is not None:
+                thread.uuid_ts[record["uuid"]] = ts
         if kind == "user":
             self.user(thread, cover, record, ts, number)
         elif kind == "assistant":
@@ -317,6 +400,7 @@ class ClaudeIngest(BaseIngest):
             detail = {
                 key: record.get(key)
                 for key in (
+                    "startTime",
                     "totalCostUSD",
                     "totalAPIDuration",
                     "totalAPIDurationWithoutRetries",
@@ -343,9 +427,13 @@ class ClaudeIngest(BaseIngest):
             parent_session = record.get("parentSessionId")
             if parent_session and parent_session != thread.thread_id:
                 thread.record["forked_from_id"] = parent_session
+            thread.fork_ref = record
             self.event(thread, "fork-context-ref", ts, number, {"context_length": record.get("contextLength")})
         elif kind == "continued-in":
-            self.event(thread, "continued-in", ts, number, {"session": record.get("continuedInSessionId")})
+            successor = record.get("continuedInSessionId")
+            if isinstance(successor, str):
+                thread.continued_in.append((successor, ts))
+            self.event(thread, "continued-in", ts, number, {"session": successor})
         elif kind in {"ai-title", "custom-title"}:
             value = record.get("aiTitle") if kind == "ai-title" else record.get("customTitle")
             if isinstance(value, str):
@@ -385,6 +473,7 @@ class ClaudeIngest(BaseIngest):
             text, _ = _block_text(content)
             self.event(thread, "compacted", ts, number, {"summary_len": len(text)})
             item_id = record.get("uuid") or f"compact-{number}"
+            thread.claim(item_id)
             thread.items[item_id] = {
                 "thread_id": thread.thread_id,
                 "turn_id": (thread.turn or {}).get("turn_id"),
@@ -443,7 +532,10 @@ class ClaudeIngest(BaseIngest):
         if turn_id in thread.turn_ids:
             turn_id = f"{turn_id}:{number}"
         thread.turn_ids.add(turn_id)
-        if thread.first_prompt_ts is None:
+        copied = thread.marker == "foreign"
+        if copied:
+            thread.copied_ids.add(turn_id)
+        elif thread.first_prompt_ts is None:
             thread.first_prompt_ts = ts
         thread.turns.append(
             {
@@ -459,11 +551,12 @@ class ClaudeIngest(BaseIngest):
                 "api_error": False,
                 "duration_from_system": None,
                 "responses": set(),
-                "origin": "session-jsonl",
+                "origin": COPIED if copied else "session-jsonl",
             }
         )
         cover["turn_contexts"] += 1
         item_id = record.get("uuid") or f"user-{number}"
+        thread.claim(item_id)
         thread.items[item_id] = {
             "thread_id": thread.thread_id,
             "turn_id": turn_id,
@@ -526,7 +619,10 @@ class ClaudeIngest(BaseIngest):
             )
         if message.get("stop_reason"):
             turn["stop_reason"] = message["stop_reason"]
+        if record.get("isAbortedMidStream"):
+            self.event(thread, "aborted-mid-stream", ts, number, {"model": model})
         response_id = message.get("id") or record.get("requestId") or record.get("uuid") or f"resp-{number}"
+        thread.claim(response_id)
         response = thread.responses.get(response_id)
         if response is None:
             response = thread.responses[response_id] = {
@@ -536,6 +632,7 @@ class ClaudeIngest(BaseIngest):
                 "rollout_ordinal": number,
                 "model": model,
                 "usage": None,
+                "producer": thread.producer,
             }
             cover["usage_records"] += 1
         usage = message.get("usage")
@@ -556,6 +653,7 @@ class ClaudeIngest(BaseIngest):
             item_id = (
                 f"{record.get('uuid') or number}:{index}" if kind != "tool_use" else block.get("id") or f"tool-{number}"
             )
+            thread.claim(item_id)
             base = {
                 "thread_id": thread.thread_id,
                 "turn_id": turn["turn_id"],
@@ -747,14 +845,29 @@ class ClaudeIngest(BaseIngest):
         thread_rows: list[tuple] = []
         turn_rows: list[tuple] = []
         self.assign_owners()
+        edges = self.fork_edges()
+        for note in assign_lineage({thread_id: thread.record for thread_id, thread in self.threads.items()}).values():
+            self.summary.notes.append(note)
+        self.write("fork_edges", edges)
         for thread in self.threads.values():
             self.close_turn(thread)
             for turn in thread.turns:
                 responses = turn["responses"]
-                if responses and all(response_id in thread.copied_ids for response_id in responses):
-                    turn["origin"] = COPIED
+                inherited_prompt = turn["turn_id"] in thread.copied_ids
+                if responses:
+                    copied_turn = all(
+                        thread.is_copied(None, r.get("ts"), rid)
+                        for rid, r in thread.responses.items()
+                        if rid in responses
+                    )
+                else:
+                    copied_turn = inherited_prompt
+                turn["origin"] = COPIED if copied_turn else "session-jsonl"
             record = thread.record
             record.setdefault("in_window", True)
+            own_start = self.own_start(thread)
+            if own_start is not None:
+                record["created_at"] = own_start
             record["updated_at"] = thread.last_ts
             record["title"] = thread.titles.get("custom-title") or thread.titles.get("ai-title")
             record["model"] = thread.models.most_common(1)[0][0] if thread.models else None
@@ -830,18 +943,134 @@ class ClaudeIngest(BaseIngest):
         )
 
     def assign_owners(self) -> None:
-        """Mark turn, response and item identifiers that an earlier-started thread already owns.
+        """Mark response and item identifiers that another thread owns.
 
-        Continued sessions and forked sub-agents copy earlier lines verbatim, ids included, so the
-        first thread to start owns an id and every later thread holding it has a copy.
+        A marker settles ownership outright. For identifiers without one (files written before
+        2.1.199, sub-agent files), the earliest-started thread holding an id owns it and every later
+        thread holding it has a copy. Sub-agents reuse their parent's prompt id for their own first
+        turn, so turn ids never take part.
         """
         owners: dict[str, str] = {}
+        for thread in self.threads.values():
+            for key in thread.own_ids:
+                owners.setdefault(key, thread.thread_id)
         for thread in sorted(self.threads.values(), key=lambda t: t.start_key()):
-            # Sub-agents reuse their parent's prompt id for their own first turn, so turn ids stay out.
             for key in (*thread.responses, *thread.items):
+                if key in thread.copied_ids or key in thread.own_ids:
+                    continue
                 owner = owners.setdefault(key, thread.thread_id)
                 if owner != thread.thread_id:
                     thread.copied_ids.add(key)
+        self.owners = owners
+
+    def own_start(self, thread: _Thread) -> datetime | None:
+        """Return when the thread produced its first own message, from markers or ownership."""
+        if thread.own_first_ts is not None:
+            return thread.own_first_ts
+        moments = [r["ts"] for key, r in thread.responses.items() if key not in thread.copied_ids and r.get("ts")]
+        moments += [
+            item["created_at"]
+            for key, item in thread.items.items()
+            if key not in thread.copied_ids and item.get("created_at")
+        ]
+        return min(moments) if moments else None
+
+    def fork_edges(self) -> list[tuple]:
+        """Build ``fork_edges`` rows and set ``forked_from_id`` on continued sessions.
+
+        A session's direct predecessor is the last foreign producer its markers name; a
+        ``continued-in`` record in the predecessor confirms it or, when the successor's file is
+        absent, stands alone. Files without markers that hold copies of another thread's messages get
+        an edge to that thread by uuid overlap, flagged ambiguous because only start order picked
+        the direction. Sub-agents with a ``fork-context-ref`` inherit by reference, so their edge
+        carries the referenced length and the fork point in the parent's timeline.
+        """
+        rows: list[tuple] = []
+        linked: dict[str, tuple[str, int]] = {}
+
+        def edge(parent: str, child: str, **values: Any) -> None:
+            linked[child] = (parent, len(rows))
+            rows.append(
+                schema.row(
+                    "fork_edges",
+                    parent_thread_id=parent,
+                    child_thread_id=child,
+                    source=SOURCE,
+                    origin="session-jsonl",
+                    **{"ambiguous": False, **values},
+                )
+            )
+
+        for thread in self.threads.values():
+            if thread.parent is not None:
+                ref = thread.fork_ref
+                if ref is not None:
+                    parent_thread = self.threads.get(thread.parent)
+                    fork_point = parent_thread.uuid_ts.get(str(ref.get("parentLastUuid"))) if parent_thread else None
+                    edge(
+                        thread.parent,
+                        thread.thread_id,
+                        kind="subagent-fork",
+                        evidence="fork-context-ref",
+                        inherited_records=ref.get("contextLength"),
+                        fork_point_ts=fork_point,
+                        child_started_at=thread.first_prompt_ts or thread.first_ts,
+                    )
+                continue
+            if thread.producers:
+                parent = list(thread.producers)[-1]
+                thread.record["forked_from_id"] = parent
+                edge(
+                    parent,
+                    thread.thread_id,
+                    kind="continuation",
+                    evidence="marker",
+                    inherited_records=sum(thread.producers.values()),
+                    fork_point_ts=thread.inherited_last_ts,
+                    child_started_at=thread.own_first_ts,
+                )
+                continue
+            if thread.marker_seen:
+                # Unmarked copies inside a marked file fall before its own start; no edge needed.
+                continue
+            copied_owners = Counter(
+                self.owners[key]
+                for key in thread.copied_ids
+                if key in self.owners and self.owners[key] != thread.thread_id
+            )
+            if copied_owners:
+                parent, count = copied_owners.most_common(1)[0]
+                thread.record["forked_from_id"] = parent
+                copied_ts = [r["ts"] for key, r in thread.responses.items() if key in thread.copied_ids and r.get("ts")]
+                edge(
+                    parent,
+                    thread.thread_id,
+                    kind="continuation",
+                    evidence="uuid-overlap",
+                    ambiguous=True,
+                    inherited_records=count,
+                    fork_point_ts=max(copied_ts) if copied_ts else None,
+                    child_started_at=self.own_start(thread),
+                )
+        for thread in self.threads.values():
+            for successor, ts in thread.continued_in:
+                link = linked.get(successor)
+                if link is not None and link[0] == thread.thread_id:
+                    row = rows[link[1]]
+                    index = [name for name, _ in schema.COLUMNS["fork_edges"]].index("evidence")
+                    rows[link[1]] = row[:index] + (f"{row[index]}+continued-in",) + row[index + 1 :]
+                    continue
+                child = self.threads.get(successor)
+                edge(
+                    thread.thread_id,
+                    successor,
+                    kind="continuation",
+                    evidence="continued-in",
+                    child_started_at=(child.own_first_ts or child.first_prompt_ts) if child else ts,
+                )
+                if child is not None and not child.record.get("forked_from_id"):
+                    child.record["forked_from_id"] = thread.thread_id
+        return rows
 
     def usage_rows(self, thread: _Thread) -> tuple[list[tuple], list[tuple]]:
         """Build ``responses`` and synthesized ``token_counts`` rows with running totals."""
@@ -876,7 +1105,7 @@ class ClaudeIngest(BaseIngest):
                     thread_id=thread.thread_id,
                     turn_id=response["turn_id"],
                     root_turn_id=response["turn_id"],
-                    session_id=thread.parent or thread.thread_id,
+                    session_id=response.get("producer") or thread.parent or thread.thread_id,
                     response_id=response["response_id"],
                     ts=response["ts"],
                     rollout_ordinal=response["rollout_ordinal"],

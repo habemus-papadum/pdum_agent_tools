@@ -15,6 +15,11 @@ uv run pdum-history ingest claude --db ~/history/claude.duckdb
 uv run pdum-history schema --json
 ```
 
+`fork_edges` records which thread inherited context from which (continued Claude
+sessions by their `session_id` markers and `continued-in` records, sub-agent forks,
+Codex forks from the rollout's first line) and every thread carries `forked_from_id`,
+`lineage_id` and `lineage_depth`, so one lineage is a session as a person means it.
+
 Every row carries a `source_id` and a `provenance` row records the machine
 (`host_id` minted once under the launcher's data directory), user, agent, root,
 versions and window of each ingest, so files from several machines merge by union.

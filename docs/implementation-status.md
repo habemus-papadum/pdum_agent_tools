@@ -243,7 +243,9 @@ remaining platform/qualification gates. It is independent of both existing packa
 
 The fifth distribution, `habemus-papadum-agent-history`, reads a Codex home or a
 Claude Code configuration directory read-only into one DuckDB schema with blob
-tables, a 183-day window and per-thread coverage rows. The TypeScript package
+tables, a 183-day window, per-thread coverage rows and, since schema version 4,
+fork edges and lineage ids that join a continued session's files and its
+sub-agents into one unit. The TypeScript package
 `@habemus-papadum/agent-history` reads those files: invariant checks, the analysis
 question set, a session list and a terminal renderer for one session. Both are
 exercised against synthetic fixtures in tests and were run against real homes on

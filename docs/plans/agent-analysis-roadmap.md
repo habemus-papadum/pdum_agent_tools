@@ -1,6 +1,6 @@
 # Agent history and analysis roadmap
 
-**Status: direction notes, 16 October 2026; stages 1, 2 and 4 landed on 17 October 2026, followed the same day by schema version 3 with provenance, tags, repo, cache tiers and LiteLLM pricing** as `habemus-papadum-agent-history` and `@habemus-papadum/agent-history`, see the [guide](../agent-history.md). This records what the
+**Status: direction notes, 16 October 2026; stages 1, 2 and 4 landed on 17 October 2026, followed the same day by schema version 3 with provenance, tags, repo, cache tiers and LiteLLM pricing, then schema version 4 with fork edges and lineage ids** as `habemus-papadum-agent-history` and `@habemus-papadum/agent-history`, see the [guide](../agent-history.md). The two items left open after version 3, Claude lineage and the cost-state disagreement, are closed below under "Lessons from cc-miner"; Claude's `cleanupPeriodDays` on this machine was raised to 365 on 17 October 2026. This records what the
 launcher round and spike 035 taught us, the policy we agreed for old data, the
 three agent runtimes we intend to support, and a staged path toward one set of
 tools that serves a person at a desk, a swarm on cloud machines, and a browser.
@@ -190,7 +190,8 @@ deletes transcripts after its cleanup period, which defaults to 30 days, and
 the oldest file on this machine is from 9 September 2026 while cc-miner's
 June and July corpus survives only as Parquet. Two consequences. First, raise
 `cleanupPeriodDays` in Claude's settings so the six-month window has data to
-read, which is the operator's call. Second, stage 3 should write per-source,
+read, which is the operator's call and was done on this machine (365 days) on
+17 October 2026. Second, stage 3 should write per-source,
 per-month Parquet partitions and overwrite only the current month, as cc-miner
 does with `username=/host=/month=` partitions and an index file, so an ingest
 is incremental and a laptop cannot clobber a desktop. The DuckDB file then
@@ -221,18 +222,35 @@ common with the files on disk today, so the comparison is of method, not rows.
 - Price over the `iterations` ledger when it has more than one entry, since a
   model fallback hides the discarded attempt there. In the current corpus every
   ledger has one entry, so this is a guard, not a correction.
-- Use the `session_id` marker as confirmation, not as the decision. It names an
-  ancestor rather than the parent after a fork of a fork, and from 2.1.220 a
-  continued session carries it on native records. Our ownership rule, earliest
-  started thread owns an id, agreed with the marker on 482 messages, caught
-  1,575 sub-agent copies the marker does not mark, and left 322 marked records
-  as native, most of them continuations. Lineage drawn from uuid overlap, with
-  the marker to confirm and file birth time to break ties, is the next step if
-  fork trees matter.
-- Record what the transcript says about itself: attribution fields for skills,
-  plugins and MCP tools on assistant lines, aborted turns, estimated image
-  tokens from image headers, and a duty cycle from a 30-minute idle gap. All are
-  cheap columns and none exist here yet.
+- Lineage, done in schema version 4 on 17 October 2026. cc-miner's corpus made
+  the `session_id` marker a confirmation rather than the decision because its
+  builds left user records unmarked, so the last marked record could name a
+  grandparent. On the builds here (2.1.265 and later) user and assistant
+  records both carry the marker, and every foreign-marked uuid in the corpus
+  exists in the file it names, so the marker decides ownership and the last
+  foreign producer before a file's own messages is its direct parent. The
+  `continued-in` record confirms the edge or stands alone when the successor is
+  gone; files without markers fall back to uuid overlap with the direction
+  flagged ambiguous; sub-agents since 2.1.220 reference the parent's context
+  (`fork-context-ref`) instead of copying it. Two traps found on the way: a
+  continued session answers the prompt it inherited with responses of its own,
+  so an inherited turn must never mark its responses as copies (that had hidden
+  139 responses); and a `continued-in` record is stamped when the successor
+  starts, often days later, so it must not extend the last turn. The result is
+  `fork_edges`, `threads.lineage_id` and `lineage_depth`, with sub-agents in
+  their session's lineage; 22 of 89 Claude lineages here span more than one
+  file.
+- Cost-state, explained the same day. Claude's ledger starts with the process and
+  is carried into continued sessions, so a snapshot has to be compared with its
+  ancestor chain up to each branch point. Done that way, the remaining excess
+  is side requests the transcript never records as responses: away summaries
+  (`system:away_summary`, correlation 0.82 with the cache-read excess),
+  compactions (0.64) and title generation. With neither in the chain most
+  snapshots agree within two percent. The check stays informational.
+- Record what the transcript says about itself. Done: aborted-mid-stream events,
+  skill names on tool items, MCP server names, and a duty cycle question (Q24)
+  from a 30-minute idle gap over prompts and responses. Not done: estimated
+  image tokens from image headers; `image_count` is as far as we go.
 - Keep the corpus outside the repository and outside any build artifact; cc-miner
   once shipped 121 personal transcripts inside a desktop app bundle.
 

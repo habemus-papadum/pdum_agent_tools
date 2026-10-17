@@ -306,6 +306,46 @@ export const QUESTIONS: Question[] = [
           UNION ALL SELECT 'tool items still open', count(*) FROM items WHERE status = 'inProgress'`,
   },
   {
+    id: "Q23",
+    title: "Lineages: a session as a person means it, with its continuations and sub-agents",
+    tables: ["threads", "usage_events", "fork_edges"],
+    sql: `WITH __PRICES__,
+               usage AS (
+                 SELECT h.lineage_id, sum(u.total_tokens) AS tokens, sum(${USD_EXPRESSION}) AS usd,
+                        count(*) FILTER (WHERE p.model IS NULL) AS unpriced
+                 FROM usage_events u JOIN threads h USING (thread_id) LEFT JOIN turns t USING (thread_id, turn_id)
+                 LEFT JOIN prices p ON p.model = COALESCE(u.model, t.model) GROUP BY 1),
+               members AS (
+                 SELECT lineage_id, count(*) FILTER (WHERE parent_thread_id IS NULL) AS sessions,
+                        count(*) FILTER (WHERE parent_thread_id IS NOT NULL) AS sub_agents, max(lineage_depth) AS depth,
+                        min(created_at) AS first_at, max(updated_at) AS last_at
+                 FROM threads WHERE in_window GROUP BY 1)
+          SELECT m.lineage_id, m.sessions, m.sub_agents, m.depth, m.first_at,
+                 round(epoch(m.last_at - m.first_at) / 3600, 1) AS span_hours, u.tokens,
+                 CASE WHEN u.unpriced = 0 THEN round(u.usd, 2) END AS usd,
+                 (SELECT count(*) FROM members) AS lineages,
+                 (SELECT count(*) FROM members WHERE sessions > 1) AS continued_lineages,
+                 (SELECT count(*) FROM fork_edges WHERE kind = 'continuation') AS continuation_edges
+          FROM members m LEFT JOIN usage u USING (lineage_id) ORDER BY u.tokens DESC NULLS LAST LIMIT 8`,
+  },
+  {
+    id: "Q24",
+    title:
+      "Duty cycle: active hours per local day, where prompts and responses within 30 minutes of each other form one block",
+    tables: ["turns", "responses"],
+    sql: `WITH act AS (SELECT started_at AS t FROM turns WHERE started_at IS NOT NULL AND origin IS DISTINCT FROM 'copied-context'
+                       UNION ALL SELECT ts FROM responses WHERE ts IS NOT NULL AND origin <> 'copied-context'),
+               ordered AS (SELECT t, lag(t) OVER (ORDER BY t) AS prev_t FROM act),
+               blocks AS (SELECT t, sum(CASE WHEN prev_t IS NULL OR t > prev_t + INTERVAL 30 MINUTE THEN 1 ELSE 0 END)
+                                    OVER (ORDER BY t ROWS UNBOUNDED PRECEDING) AS block FROM ordered),
+               spans AS (SELECT block, min(t) AS start_at, max(t) AS end_at, count(*) AS instants FROM blocks GROUP BY 1)
+          SELECT __DAY__ AS day, count(*) AS blocks, sum(instants) AS instants,
+                 round(sum(epoch(end_at - start_at)) / 3600, 2) AS active_hours,
+                 round(epoch(max(end_at) - min(start_at)) / 3600, 2) AS span_hours,
+                 round(sum(epoch(end_at - start_at)) / NULLIF(epoch(max(end_at) - min(start_at)), 0), 3) AS duty_cycle
+          FROM spans GROUP BY 1 ORDER BY 1 DESC LIMIT 10`,
+  },
+  {
     id: "Q22",
     title: "Coverage: what the input could see",
     tables: ["coverage", "turns", "responses", "meta"],
@@ -328,12 +368,19 @@ export interface QuestionOptions {
   limitRows?: number;
 }
 
-async function hourExpression(db: HistoryDb, timeZone: string): Promise<string> {
+/** Local-time expressions for a zone DuckDB knows; UTC column values otherwise. */
+async function localExpressions(
+  db: HistoryDb,
+  timeZone: string,
+): Promise<{ hour: string; day: string }> {
   try {
     await db.query(`SELECT hour(timezone('${timeZone}', TIMESTAMP '2026-01-01 00:00:00'))`);
-    return `hour(timezone('${timeZone}', started_at))`;
+    return {
+      hour: `hour(timezone('${timeZone}', started_at))`,
+      day: `timezone('${timeZone}', start_at)::date`,
+    };
   } catch {
-    return "hour(started_at)";
+    return { hour: "hour(started_at)", day: "start_at::date" };
   }
 }
 
@@ -344,13 +391,14 @@ export async function runQuestions(
   questions: Question[] = QUESTIONS,
 ): Promise<QuestionResult[]> {
   const term = (options.term ?? "duckdb").replace(/'/g, "''");
-  const hour = await hourExpression(db, options.timeZone ?? "UTC");
+  const local = await localExpressions(db, options.timeZone ?? "UTC");
   const limit = options.limitRows ?? 15;
   const results: QuestionResult[] = [];
   for (const question of questions) {
     const sql = question.sql
       .replaceAll("__PRICES__", pricesCte())
-      .replaceAll("__HOUR__", hour)
+      .replaceAll("__HOUR__", local.hour)
+      .replaceAll("__DAY__", local.day)
       .replaceAll(SEARCH_TERM_PLACEHOLDER, term);
     const title = question.title.replaceAll(SEARCH_TERM_PLACEHOLDER, term);
     try {

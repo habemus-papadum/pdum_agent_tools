@@ -10,6 +10,7 @@ pnpm -C packages/agent-history cli check ~/history/codex.duckdb
 pnpm -C packages/agent-history cli questions ~/history/codex.duckdb --tz America/New_York --show
 pnpm -C packages/agent-history cli sessions ~/history/claude.duckdb --limit 10
 pnpm -C packages/agent-history cli show ~/history/claude.duckdb 89620c57 --blobs
+pnpm -C packages/agent-history cli sessions ~/history/claude.duckdb --lineage 89620c57
 pnpm -C packages/agent-history cli sql ~/history/codex.duckdb "select count(*) from items"
 pnpm -C packages/agent-history cli tag ~/history/codex.duckdb thread 01a140ad project=pencil-lab reviewed
 pnpm -C packages/agent-history cli sessions ~/history/codex.duckdb --tag project=pencil-lab
@@ -19,9 +20,10 @@ pnpm -C packages/agent-history cli prices show claude-fable-5-1
 `check` prints invariants: `zero` checks must be zero, `info` checks are numbers
 worth a glance, and the exit code is 1 when a zero check fails. `questions` runs
 the analysis set with cold and warm latency. `sessions` and `show` are the
-forensics view: recent threads with usage and a list-price estimate, and one
-session rendered as turns and items with optional tool-output excerpts from
-`item_blobs`.
+forensics view: recent threads with usage, a list-price estimate and their place in a
+lineage, and one session rendered as turns and items with optional tool-output
+excerpts from `item_blobs`; `sessions --lineage` lists every file and sub-agent of
+one lineage.
 
 The library exports `HistoryDb`, `runChecks`, `runQuestions`, `listSessions`,
 `loadSession`, `renderSession` and the schema contract. The contract is a copy of

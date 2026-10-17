@@ -16,10 +16,21 @@ export async function fixture(): Promise<HistoryDb> {
                         'codex-tui', '/work', 'https://example.invalid/org/repo.git', 'Fix the parser', 'gpt-6-astra',
                         true, 'codex-fs', 'state_5', false),
                        ('t1:child', TIMESTAMP '2026-10-01 10:00:30', TIMESTAMP '2026-10-01 10:00:50', 'subagent', '0.162.1',
-                        'codex-tui', '/work', NULL, NULL, 'gpt-6-astra', true, 'codex-fs', 'state_5', false)`);
+                        'codex-tui', '/work', NULL, NULL, 'gpt-6-astra', true, 'codex-fs', 'state_5', false),
+                       ('t2', TIMESTAMP '2026-10-01 11:00:00', TIMESTAMP '2026-10-01 11:05:00', 'vscode', '0.162.1',
+                        'codex-tui', '/work', 'https://example.invalid/org/repo.git', 'Continue the fix', 'gpt-6-astra',
+                        true, 'codex-fs', 'rollout', false)`);
   await db.run(
     `UPDATE threads SET parent_thread_id = 't1', agent_path = '/root/explore' WHERE thread_id = 't1:child'`,
   );
+  await db.run(`UPDATE threads SET forked_from_id = 't1' WHERE thread_id = 't2'`);
+  await db.run(
+    `UPDATE threads SET lineage_id = 't1', lineage_depth = CASE WHEN thread_id = 't1' THEN 0 ELSE 1 END`,
+  );
+  await db.run(`INSERT INTO fork_edges (parent_thread_id, child_thread_id, kind, evidence, ambiguous, inherited_records,
+                  fork_point_ts, child_started_at, source, origin)
+                VALUES ('t1', 't2', 'continuation', 'marker+continued-in', false, 3, TIMESTAMP '2026-10-01 10:00:50',
+                        TIMESTAMP '2026-10-01 11:00:00', 'codex-fs', 'rollout')`);
   await db.run(`INSERT INTO turns (thread_id, turn_id, root_turn_id, rollout_ordinal, status, started_at, completed_at,
                   duration_ms, time_to_first_token_ms, model, reasoning_effort, model_context_window, source, origin)
                 VALUES ('t1', 'u1', 'u1', 1, 'completed', TIMESTAMP '2026-10-01 10:00:00', TIMESTAMP '2026-10-01 10:01:00',
@@ -65,7 +76,8 @@ export async function fixture(): Promise<HistoryDb> {
                   turn_contexts, usage_records, token_counts, projection_turns, projection_items, rollout_item_completed,
                   response_items, compactions, unknown_line_types, source, origin)
                 VALUES ('t1', true, true, true, 'envelope', 12, 1, 2, 2, 1, 4, 4, 0, 1, 0, 'codex-fs', 'ingest-codex-fs'),
-                       ('t1:child', true, true, false, 'envelope', 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'codex-fs', 'ingest-codex-fs')`);
+                       ('t1:child', true, true, false, 'envelope', 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'codex-fs', 'ingest-codex-fs'),
+                       ('t2', true, false, false, 'envelope', 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'codex-fs', 'ingest-codex-fs')`);
   for (const table of Object.keys(schema.tables)) {
     if (schema.tables[table]?.some(([name]) => name === "source_id") && table !== "provenance") {
       await db.run(`UPDATE ${table} SET source_id = 'codex-abcd1234-00000001'`);

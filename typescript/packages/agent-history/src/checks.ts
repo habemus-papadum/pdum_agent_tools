@@ -19,6 +19,43 @@ export interface CheckResult extends Check {
   ms: number;
 }
 
+/**
+ * Claude's `cost-state` ledger starts when a session process starts and is carried into the
+ * session that continues it, so a snapshot is compared with the responses of its ancestor chain
+ * (each ancestor up to the point where the next session branched off, sub-agents included)
+ * between the ledger's `startTime` and the last response before the snapshot. Snapshots carry
+ * no timestamp of their own, so that last response stands in. What remains is work the
+ * transcript never records as a response: the summarisation requests behind away summaries and
+ * compactions, which explain most of the excess, title generation and retries.
+ */
+export const COST_STATE_SNAPSHOTS = `RECURSIVE snapshots AS (
+            SELECT e.thread_id, e.rollout_ordinal,
+                   (SELECT max(r.ts) FROM responses r WHERE r.thread_id = e.thread_id AND r.rollout_ordinal < e.rollout_ordinal) AS snapshot_at,
+                   epoch_ms(CAST(json_extract(e.detail, '$.startTime') AS BIGINT)) AS ledger_start,
+                   (SELECT sum(CAST(json_extract(value, '$.cacheReadInputTokens') AS BIGINT))
+                      FROM json_each(json_extract(e.detail, '$.modelUsage'))) AS cached,
+                   (SELECT sum(CAST(json_extract(value, '$.cacheCreationInputTokens') AS BIGINT))
+                      FROM json_each(json_extract(e.detail, '$.modelUsage'))) AS cache_write
+            FROM rollout_events e WHERE e.event_type = 'cost-state'),
+          chain(thread_id, ancestor, cutoff) AS (
+            SELECT thread_id, thread_id, NULL::TIMESTAMP FROM threads WHERE parent_thread_id IS NULL
+            UNION ALL
+            SELECT c.thread_id, e.parent_thread_id, e.fork_point_ts
+            FROM chain c JOIN fork_edges e ON e.child_thread_id = c.ancestor AND e.kind = 'continuation'),
+          lineage AS (
+            SELECT s.thread_id, s.rollout_ordinal,
+                   sum(r.cached_input_tokens) AS lineage_cached, sum(r.cache_write_input_tokens) AS lineage_cache_write
+            FROM snapshots s
+            JOIN chain c ON c.thread_id = s.thread_id
+            JOIN threads h ON COALESCE(h.parent_thread_id, h.thread_id) = c.ancestor
+            JOIN responses r ON r.thread_id = h.thread_id AND r.origin <> 'copied-context' AND r.ts <= s.snapshot_at
+                 AND (c.cutoff IS NULL OR r.ts <= c.cutoff)
+                 AND (s.ledger_start IS NULL OR r.ts >= s.ledger_start - INTERVAL 1 MINUTE)
+            GROUP BY 1, 2),
+          compared AS (
+            SELECT s.*, f.lineage_cached, f.lineage_cache_write
+            FROM snapshots s LEFT JOIN lineage f USING (thread_id, rollout_ordinal))`;
+
 export const CHECKS: Check[] = [
   {
     id: "schema-version",
@@ -32,7 +69,20 @@ export const CHECKS: Check[] = [
     kind: "zero",
     sql: `SELECT (SELECT count(*) FROM threads WHERE source_id IS NULL) + (SELECT count(*) FROM turns WHERE source_id IS NULL)
           + (SELECT count(*) FROM responses WHERE source_id IS NULL) + (SELECT count(*) FROM items WHERE source_id IS NULL)
-          + (SELECT count(*) FROM coverage WHERE source_id IS NULL)`,
+          + (SELECT count(*) FROM coverage WHERE source_id IS NULL) + (SELECT count(*) FROM fork_edges WHERE source_id IS NULL)`,
+  },
+  {
+    id: "threads-without-lineage",
+    title: "threads with no lineage_id",
+    kind: "zero",
+    sql: "SELECT count(*) FROM threads WHERE lineage_id IS NULL",
+  },
+  {
+    id: "fork-edges-child-before-parent",
+    title: "fork edges whose child started before its parent thread was created (evidence misread)",
+    kind: "zero",
+    sql: `SELECT count(*) FROM fork_edges e JOIN threads p ON p.thread_id = e.parent_thread_id
+          WHERE e.child_started_at IS NOT NULL AND p.created_at IS NOT NULL AND e.child_started_at < p.created_at`,
   },
   {
     id: "sources-without-provenance",
@@ -132,29 +182,43 @@ export const CHECKS: Check[] = [
     sql: "SELECT count(*) FROM responses WHERE origin = 'copied-context'",
   },
   {
+    id: "continued-lineages",
+    title: "lineages made of more than one session file (continuations and forks)",
+    kind: "info",
+    sql: `SELECT count(*) FROM (SELECT lineage_id FROM threads WHERE parent_thread_id IS NULL GROUP BY 1 HAVING count(*) > 1)`,
+  },
+  {
+    id: "fork-edges-ambiguous",
+    title:
+      "fork edges whose direction rested on start order alone (no marker, no continued-in record)",
+    kind: "info",
+    sql: "SELECT count(*) FROM fork_edges WHERE ambiguous",
+  },
+  {
+    id: "fork-edges-missing-endpoint",
+    title:
+      "fork edges whose parent or child has no thread row (deleted file or outside the window)",
+    kind: "info",
+    sql: `SELECT count(*) FROM fork_edges e
+          WHERE NOT EXISTS (SELECT 1 FROM threads h WHERE h.thread_id = e.parent_thread_id)
+             OR NOT EXISTS (SELECT 1 FROM threads h WHERE h.thread_id = e.child_thread_id)`,
+  },
+  {
+    id: "threads-with-several-predecessors",
+    title: "threads named as the child of more than one fork edge (signals disagree)",
+    kind: "info",
+    sql: "SELECT count(*) FROM (SELECT child_thread_id FROM fork_edges GROUP BY 1 HAVING count(*) > 1)",
+  },
+  {
     id: "claude-cost-state-snapshots",
     title:
-      "Claude cost-state snapshots whose cache read and write totals differ by over 2% from the session family's responses up to that point",
+      "Claude cost-state snapshots whose cache read and write totals differ by over 2% from the ancestor chain's responses between the ledger start and the snapshot (away-summary, compaction and title requests are never in the transcript)",
     kind: "info",
-    sql: `WITH snapshots AS (
-            SELECT e.thread_id, e.rollout_ordinal,
-                   (SELECT max(r.ts) FROM responses r WHERE r.thread_id = e.thread_id AND r.rollout_ordinal < e.rollout_ordinal) AS at,
-                   (SELECT sum(CAST(json_extract(value, '$.cacheReadInputTokens') AS BIGINT))
-                      FROM json_each(json_extract(e.detail, '$.modelUsage'))) AS cached,
-                   (SELECT sum(CAST(json_extract(value, '$.cacheCreationInputTokens') AS BIGINT))
-                      FROM json_each(json_extract(e.detail, '$.modelUsage'))) AS cache_write
-            FROM rollout_events e WHERE e.event_type = 'cost-state'),
-          family AS (
-            SELECT s.thread_id, s.rollout_ordinal,
-                   sum(r.cached_input_tokens) AS cached, sum(r.cache_write_input_tokens) AS cache_write
-            FROM snapshots s
-            JOIN threads h ON COALESCE(h.parent_thread_id, h.thread_id) = s.thread_id
-            JOIN responses r ON r.thread_id = h.thread_id AND r.origin <> 'copied-context' AND r.ts <= s.at
-            GROUP BY 1, 2)
-          SELECT count(*) FROM snapshots s LEFT JOIN family f USING (thread_id, rollout_ordinal)
-          WHERE s.at IS NOT NULL
-            AND (f.cached IS NULL OR abs(s.cached - f.cached) > 0.02 * greatest(s.cached, 1)
-                 OR abs(s.cache_write - f.cache_write) > 0.02 * greatest(s.cache_write, 1))`,
+    sql: `WITH ${COST_STATE_SNAPSHOTS}
+          SELECT count(*) FROM compared
+          WHERE snapshot_at IS NOT NULL
+            AND (lineage_cached IS NULL OR abs(cached - lineage_cached) > 0.02 * greatest(cached, 1)
+                 OR abs(cache_write - lineage_cache_write) > 0.02 * greatest(cache_write, 1))`,
   },
   {
     id: "delta-basis-share",

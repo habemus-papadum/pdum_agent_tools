@@ -17,6 +17,10 @@ export interface SessionSummary {
   usd: number | null;
   children: number;
   parentThreadId: string | null;
+  /** Root of the fork family; equals threadId on a root. */
+  lineageId: string | null;
+  /** Hops from the lineage root. */
+  lineageDepth: number;
 }
 
 export interface ItemView {
@@ -56,6 +60,10 @@ export interface SessionView {
   turns: TurnView[];
   children: Row[];
   events: Row[];
+  /** fork_edges rows naming this thread as the child. */
+  predecessors: Row[];
+  /** fork_edges rows naming this thread as the parent of another session (sub-agent forks excluded). */
+  successors: Row[];
   /** `key=value` tags from the annotations file, when one was attached. */
   tags?: string[];
 }
@@ -79,11 +87,17 @@ export async function listSessions(
     includeChildren?: boolean;
     like?: string;
     tag?: { key: string; value: string | null };
+    /** Only threads of this lineage (a lineage root thread id). */
+    lineage?: string;
   } = {},
 ): Promise<SessionSummary[]> {
   const limit = options.limit ?? 20;
   const filters = [options.includeChildren ? "true" : "h.parent_thread_id IS NULL"];
   const values: unknown[] = [];
+  if (options.lineage) {
+    filters.push("h.lineage_id = ?");
+    values.push(options.lineage);
+  }
   if (options.like) {
     filters.push("(h.title ILIKE ? OR h.cwd ILIKE ? OR h.repo ILIKE ? OR h.thread_id ILIKE ?)");
     const pattern = `%${options.like}%`;
@@ -105,7 +119,7 @@ export async function listSessions(
           turn_counts AS (SELECT thread_id, count(*) AS turns FROM turns WHERE origin IS DISTINCT FROM 'copied-context' GROUP BY 1),
           kids AS (SELECT parent_thread_id AS thread_id, count(*) AS children FROM threads WHERE parent_thread_id IS NOT NULL GROUP BY 1)
      SELECT h.thread_id, h.title, h.source_kind, h.cwd, h.repo, h.created_at, h.updated_at, h.model, h.parent_thread_id,
-            COALESCE(tc.turns, 0) AS turns, COALESCE(u.responses, 0) AS responses, COALESCE(u.total_tokens, 0) AS total_tokens,
+            h.lineage_id, h.lineage_depth, COALESCE(tc.turns, 0) AS turns, COALESCE(u.responses, 0) AS responses, COALESCE(u.total_tokens, 0) AS total_tokens,
             CASE WHEN u.unpriced = 0 THEN u.usd END AS usd, COALESCE(k.children, 0) AS children
      FROM threads h LEFT JOIN usage u USING (thread_id) LEFT JOIN turn_counts tc USING (thread_id) LEFT JOIN kids k USING (thread_id)
      WHERE h.in_window AND ${filters.join(" AND ")}
@@ -127,25 +141,38 @@ export async function listSessions(
     usd: row.usd === null || row.usd === undefined ? null : num(row.usd),
     children: num(row.children),
     parentThreadId: (row.parent_thread_id as string | null) ?? null,
+    lineageId: (row.lineage_id as string | null) ?? null,
+    lineageDepth:
+      row.lineage_depth === null || row.lineage_depth === undefined ? 0 : num(row.lineage_depth),
   }));
 }
 
-/** Resolve a thread id or unique prefix. */
+/**
+ * Resolve a thread id or unique prefix. A session id prefix also matches that session's
+ * sub-agents (`<session>:<agent>`), so when the candidates are one session and its sub-agents
+ * the session wins; `<prefix>:` or a longer prefix reaches a sub-agent.
+ */
 export async function resolveThread(db: HistoryDb, prefix: string): Promise<string> {
   const rows = await db.query<{ thread_id: string }>(
-    "SELECT thread_id FROM threads WHERE thread_id = ? OR thread_id LIKE ? ORDER BY thread_id = ? DESC LIMIT 3",
-    [prefix, `${prefix}%`, prefix],
+    "SELECT thread_id FROM threads WHERE thread_id LIKE ? ORDER BY thread_id LIMIT 12",
+    [`${prefix.replace(/[%_]/g, (c) => `\\${c}`)}%`],
   );
   if (rows.length === 0) {
-    throw new Error(`no thread matches ${prefix}`);
+    throw new Error(`no thread starts with ${prefix}`);
   }
-  if (rows.length > 1 && rows[0]?.thread_id !== prefix) {
-    throw new Error(`${prefix} is ambiguous: ${rows.map((r) => r.thread_id).join(", ")}`);
+  const ids = rows.map((row) => row.thread_id);
+  const exact = ids.find((id) => id === prefix);
+  if (exact) {
+    return exact;
   }
-  return String(rows[0]?.thread_id);
+  const sessions = ids.filter((id) => !id.includes(":"));
+  const chosen = ids.length === 1 ? ids[0] : sessions.length === 1 ? sessions[0] : undefined;
+  if (chosen && ids.every((id) => id === chosen || id.startsWith(`${chosen}:`))) {
+    return chosen;
+  }
+  throw new Error(`${prefix} is ambiguous: ${ids.join(", ")}`);
 }
 
-/** Load one thread with its turns, items, usage, children and notable events. */
 export async function loadSession(db: HistoryDb, threadId: string): Promise<SessionView> {
   const [thread] = await db.query("SELECT * FROM threads WHERE thread_id = ?", [threadId]);
   if (!thread) {
@@ -183,6 +210,16 @@ export async function loadSession(db: HistoryDb, threadId: string): Promise<Sess
      WHERE thread_id = ? AND (event_type IN ('compacted', 'api-error', 'cost-state', 'turn_aborted', 'continued-in', 'fork-context-ref')
                               OR event_type LIKE 'system:%' AND event_type NOT IN ('system:turn_duration'))
      ORDER BY rollout_ordinal`,
+    [threadId],
+  );
+  const predecessors = await db.query(
+    `SELECT parent_thread_id, kind, evidence, ambiguous, inherited_records, fork_point_ts, child_started_at
+     FROM fork_edges WHERE child_thread_id = ? ORDER BY child_started_at`,
+    [threadId],
+  );
+  const successors = await db.query(
+    `SELECT child_thread_id, kind, evidence, ambiguous, inherited_records, child_started_at
+     FROM fork_edges WHERE parent_thread_id = ? AND kind <> 'subagent-fork' ORDER BY child_started_at`,
     [threadId],
   );
   const byTurn = new Map<string, ItemView[]>();
@@ -227,7 +264,7 @@ export async function loadSession(db: HistoryDb, threadId: string): Promise<Sess
       items,
     });
   }
-  return { thread, turns, children, events };
+  return { thread, turns, children, events, predecessors, successors };
 }
 
 function itemView(row: Row): ItemView {
@@ -310,10 +347,29 @@ export function renderSession(view: SessionView, options: RenderOptions = {}): s
       `model ${cell(thread.model)}`,
       thread.repo ? `repo ${cell(thread.repo)}` : "",
       thread.parent_thread_id ? `parent ${cell(thread.parent_thread_id)}` : "",
+      thread.lineage_id && thread.lineage_id !== thread.thread_id
+        ? `lineage ${String(thread.lineage_id).slice(0, 12)} depth ${cell(thread.lineage_depth)}`
+        : "",
     ]
       .filter(Boolean)
       .join("  "),
   );
+  for (const edge of view.predecessors) {
+    const inherited =
+      edge.inherited_records === null || edge.inherited_records === undefined
+        ? ""
+        : `, inherited ${num(edge.inherited_records)} records`;
+    const point = edge.fork_point_ts ? `, fork point ${cell(edge.fork_point_ts)}` : "";
+    const flag = edge.ambiguous ? ", direction ambiguous" : "";
+    lines.push(
+      `continues ${String(edge.parent_thread_id).slice(0, 12)}  (${cell(edge.kind)} by ${cell(edge.evidence)}${inherited}${point}${flag})`,
+    );
+  }
+  for (const edge of view.successors) {
+    lines.push(
+      `continued in ${String(edge.child_thread_id).slice(0, 12)}  ${cell(edge.child_started_at)}  (${cell(edge.evidence)})`,
+    );
+  }
   if (view.tags && view.tags.length > 0) {
     lines.push(`tags ${view.tags.join("  ")}`);
   }
@@ -469,6 +525,7 @@ export function renderSessionList(sessions: SessionSummary[]): string {
     "tokens",
     "usd",
     "kids",
+    "lineage",
     "title / cwd",
   ];
   const rows = sessions.map((s) => [
@@ -480,6 +537,7 @@ export function renderSessionList(sessions: SessionSummary[]): string {
     formatTokens(s.totalTokens),
     s.usd === null ? "" : formatUsd(s.usd),
     String(s.children),
+    s.lineageDepth > 0 && s.lineageId ? `${s.lineageId.slice(0, 8)}+${s.lineageDepth}` : "",
     oneLine(s.title ?? s.repo ?? s.cwd ?? "", 60),
   ]);
   const widths = header.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i]?.length ?? 0)));

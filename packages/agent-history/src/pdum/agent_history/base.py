@@ -80,6 +80,52 @@ def host_identity(state_dir: Path | None = None) -> dict[str, str]:
     return identity
 
 
+def assign_lineage(threads: dict[str, dict[str, Any]]) -> dict[str, str]:
+    """Fill ``lineage_id`` and ``lineage_depth`` on every thread record from its predecessor chain.
+
+    A thread's predecessor is ``forked_from_id`` (the session it continued or forked from) or, for
+    a sub-agent, ``parent_thread_id``. The root of the chain is the lineage id and the hop count is
+    the depth. A chain that leaves the corpus ends at the missing predecessor, which still names the
+    lineage so siblings of a deleted session stay together; a cycle breaks at its first repeat.
+
+    Parameters
+    ----------
+    threads : dict
+        Thread records by id, updated in place.
+
+    Returns
+    -------
+    dict
+        ``{thread_id: reason}`` for chains that cycled.
+    """
+    notes: dict[str, str] = {}
+    memo: dict[str, tuple[str, int]] = {}
+
+    def resolve(thread_id: str, seen: tuple[str, ...]) -> tuple[str, int]:
+        if thread_id in memo:
+            return memo[thread_id]
+        record = threads.get(thread_id)
+        if record is None:
+            return thread_id, 0
+        predecessor = record.get("forked_from_id") or record.get("parent_thread_id")
+        if not predecessor or predecessor == thread_id:
+            result = (thread_id, 0)
+        elif predecessor in seen:
+            notes[thread_id] = f"lineage of {thread_id} cycles through {predecessor}"
+            result = (thread_id, 0)
+        else:
+            root, depth = resolve(predecessor, (*seen, thread_id))
+            result = (root, depth + 1)
+        memo[thread_id] = result
+        return result
+
+    for thread_id, record in threads.items():
+        root, depth = resolve(thread_id, ())
+        record["lineage_id"] = root
+        record["lineage_depth"] = depth
+    return notes
+
+
 def repo_from_origin(origin: str | None) -> str | None:
     """Normalize a git remote URL to ``owner/name`` when it has that shape.
 

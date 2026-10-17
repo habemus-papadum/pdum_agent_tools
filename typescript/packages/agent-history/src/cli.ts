@@ -135,6 +135,10 @@ program
   .option("--children", "include sub-agent threads")
   .option("--like <text>", "filter by title, working directory, repository or id")
   .option("--tag <key[=value]>", "only threads carrying this tag")
+  .option(
+    "--lineage <thread>",
+    "only the lineage of this thread (id or unique prefix), sub-agents included",
+  )
   .option("--tags <path>", "tags file; defaults to <db>.tags.duckdb")
   .option("--json", "print JSON instead of a table")
   .action(
@@ -145,12 +149,22 @@ program
         children?: boolean;
         like?: string;
         tag?: string;
+        lineage?: string;
         tags?: string;
         json?: boolean;
       },
     ) => {
       const db = await HistoryDb.open(path);
       try {
+        let lineage: string | undefined;
+        if (options.lineage) {
+          const member = await resolveThread(db, options.lineage);
+          const [row] = await db.query<{ lineage_id: string | null }>(
+            "SELECT lineage_id FROM threads WHERE thread_id = ?",
+            [member],
+          );
+          lineage = row?.lineage_id ?? member;
+        }
         const attached = await attachTags(db, options.tags ?? defaultTagsPath(path));
         let tag: { key: string; value: string | null } | undefined;
         if (options.tag) {
@@ -161,9 +175,10 @@ program
         }
         const sessions = await listSessions(db, {
           limit: Number.parseInt(options.limit, 10) || 20,
-          includeChildren: options.children,
+          includeChildren: options.children || lineage !== undefined,
           like: options.like,
           tag,
+          lineage,
         });
         console.log(
           options.json ? JSON.stringify(sessions, bigintSafe, 2) : renderSessionList(sessions),

@@ -3,7 +3,9 @@
 Every table carries ``source`` (``codex-fs``, ``claude-fs``, ``codex-api``, ``live``) and
 ``origin`` (the concrete input such as ``state_5``, ``rollout`` or ``thread/items/list``).
 Timestamps are naive UTC. Blobs live in their own tables so a later MotherDuck migration can
-move them to object storage without touching the fact tables. :func:`describe` renders the
+move them to object storage without touching the fact tables. ``fork_edges`` records which thread
+inherited context from which (continued sessions, forks, forked sub-agents) and ``threads.lineage_id``
+names the root of that chain, which is what a person means by "a session". :func:`describe` renders the
 contract as JSON; the TypeScript package keeps a copy and a parity test fails when they drift.
 """
 
@@ -18,7 +20,7 @@ try:  # pyarrow turns a row batch into one bulk insert; executemany is the slow 
 except ImportError:  # pragma: no cover - depends on the environment
     _pa = None
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 """Bump when a table, column or view changes shape; the TypeScript parity test reads it."""
 
 COLUMNS: dict[str, list[tuple[str, str]]] = {
@@ -46,6 +48,8 @@ COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("session_id", "VARCHAR"),
         ("forked_from_id", "VARCHAR"),
         ("parent_thread_id", "VARCHAR"),
+        ("lineage_id", "VARCHAR"),
+        ("lineage_depth", "INTEGER"),
         ("created_at", "TIMESTAMP"),
         ("updated_at", "TIMESTAMP"),
         ("source_kind", "VARCHAR"),
@@ -80,6 +84,19 @@ COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("parent_thread_id", "VARCHAR"),
         ("child_thread_id", "VARCHAR"),
         ("status", "VARCHAR"),
+        ("source_id", "VARCHAR"),
+        ("source", "VARCHAR"),
+        ("origin", "VARCHAR"),
+    ],
+    "fork_edges": [
+        ("parent_thread_id", "VARCHAR"),
+        ("child_thread_id", "VARCHAR"),
+        ("kind", "VARCHAR"),
+        ("evidence", "VARCHAR"),
+        ("ambiguous", "BOOLEAN"),
+        ("inherited_records", "INTEGER"),
+        ("fork_point_ts", "TIMESTAMP"),
+        ("child_started_at", "TIMESTAMP"),
         ("source_id", "VARCHAR"),
         ("source", "VARCHAR"),
         ("origin", "VARCHAR"),
