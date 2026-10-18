@@ -29,6 +29,31 @@ cd typescript && MOTHERDUCK_TOKEN=... pnpm -C packages/agent-history cli check m
 After `pnpm -r build`, `node packages/agent-history/dist/cli.js` runs the same
 commands without `tsx`.
 
+## Answering a question with the toolkit
+
+This is the runbook for an agent, or a person, asked something about agentic usage.
+
+1. Refresh: `uv run --env-file .env pdum-history sync` (or `--target local` when
+   MotherDuck is not needed). It only reads files that changed, so running it
+   first is cheap and makes "as of now" true.
+2. Trust the data before quoting it: `agent-history check <db>` must end with
+   `0 failing`. A failing `zero` check is a planning item, not something to work
+   around in a query.
+3. Start from the standard set: `agent-history questions <db> --show` answers the
+   recurring questions (cost by month, cache behaviour, tool failures, lineages,
+   duty cycle) with the price snapshot's date stamped on every priced figure.
+4. Go ad hoc with `agent-history sql <db> "..."`. The tables are in `pdum-history
+   schema`; the grain is thread, turn, response, item, with `usage_events` as the
+   deduplicated usage view and `lineage_id` as the unit a person calls a session.
+   Prefer `items.text` to `item_blobs` for text search on MotherDuck.
+5. Look at individual sessions with `sessions`, `sessions --lineage`, `show` and
+   `show --blobs`, and leave notes with `tag` so the next reader finds them.
+6. Say what the numbers cannot: list prices are a proxy for spend, Codex usage
+   before September 2026 comes from counter deltas, Codex command durations are
+   process-start times, and Claude's own cost ledger includes requests the
+   transcript never shows. The section "What the data can and cannot say" has the
+   full list.
+
 ## Sync: one command for the machine
 
 `pdum-history sync` reads one YAML file that says what this machine ingests and

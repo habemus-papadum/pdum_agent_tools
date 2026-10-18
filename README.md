@@ -18,7 +18,7 @@ the wider architecture proposals are not all implemented.
 | [habemus-papadum-codex-launcher](packages/codex-launcher/README.md) | `pdum.codex_launcher` | Codex homes as profiles, including your own with `--default`; launch app-servers with native overrides, record runs and inspect every process using a home. |
 | [habemus-papadum-hostfork](packages/hostfork/README.md) | `pdum.hostfork` | Host-derived views, private storage, ordinary Python subprocesses, independent deadlines and recovery. |
 | [habemus-papadum-claude-launcher](packages/claude-launcher/README.md) | `pdum.claude_launcher` | Isolated Claude profiles, foreground workers for official browser/Node SDK clients, and saved-history management. New, unreleased package. |
-| [habemus-papadum-agent-history](packages/agent-history/README.md) | `pdum.agent_history` | Read Codex homes and Claude Code directories into one DuckDB schema with blob tables, a six-month window and coverage rows. Pairs with the TypeScript `@habemus-papadum/agent-history` checks, questions and session renderer. New, unreleased package. |
+| [habemus-papadum-agent-history](packages/agent-history/README.md) | `pdum.agent_history` | Sync Codex homes, Claude Code directories and launcher profiles into one DuckDB schema, incrementally, into local files or MotherDuck, with lineage, provenance and a six-month window. Pairs with the TypeScript `@habemus-papadum/agent-history` checks, questions, SQL and session renderer, which read either target. New, unreleased package. |
 
 The Codex and Claude launchers use MITM only when selected; their `mitm` extras
 install that integration. Their `management` extras add optional FastAPI adapters.
