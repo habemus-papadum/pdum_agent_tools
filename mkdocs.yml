@@ -27,6 +27,7 @@ nav:
   - Research and spikes: research.md
   - Codex client findings: codex-client-findings.md
   - Agent history: agent-history.md
+  - Context consumption findings: context-consumption.md
   - Reference:
       - Agent history Python API: reference/python/agent-history.md
       - Agent history TypeScript API: reference/typescript/agent-history/index.md

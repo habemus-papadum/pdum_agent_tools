@@ -183,6 +183,10 @@ planning item for a separate session, not something to patch inline.
 - Codex command items from unified exec complete at process startup, so their
   item duration is zero for most commands. Tool wall time comes from the raw
   call and output pairs in `response_items`.
+- A Codex home that only ran `codex exec` has rollouts but no materialized
+  projection. Its items are then built from the rollout's `item_completed`
+  events (`origin = 'rollout'`), after normalizing the core's item shape to the
+  v2 shape; the summary notes say when that happened.
 - Claude Code files copy earlier context verbatim when a session continues, ids
   included. The `session_id` marker on each message settles what a file owns
   (see Lineage above), and ownership never needs another file, which is what

@@ -65,6 +65,7 @@ original scope, recommendations and cost ledgers.
 | 034 | Live client, launcher processor and offline analysis agree; local OTLP adds coverage. Hosted Logfire is untested. | [Observation and telemetry](spikes/034-codex-observation.md) |
 | 035 | A read-only filesystem ingester answers every analysis question from DuckDB in milliseconds; read RPCs return identical items but no usage, model or fork lineage. | [Historical analysis paths](spikes/035-codex-analysis.md) |
 | 036 | Both history files load into one MotherDuck database in 71 s with matching counts and bytes; simple queries answer in 25–80 ms, two writers commit concurrently, a thread replaces in under a second; substring search over the blobs is seven times slower than local. | [MotherDuck seed](spikes/036-motherduck-seed.md) |
+| 037 | Astra does not add context faster than Fable per step; Codex's 258k window (a catalog default, overridable to 872k) makes the same turn fill a third of it. One task run on three arms became the first eval baseline. | [Context burn](spikes/037-context-burn.md) |
 
 For the current Hostfork direction, read the [architecture findings](../../docs/specs/hostfork/spike-findings.md).
 Spikes 020–024 use only the Python research workspace and local Linux facilities;

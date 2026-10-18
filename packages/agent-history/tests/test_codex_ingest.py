@@ -405,7 +405,10 @@ def test_ingest_models_the_window_and_counts_the_rest(home: Path, tmp_path: Path
         assert con.execute("select count(*) from logs").fetchone()[0] == 2
         # In-window facts.
         assert con.execute("select count(*) from items where thread_id = ?", [THREAD]).fetchone()[0] == 4
-        assert con.execute("select count(*) from item_blobs").fetchone()[0] == 4
+        # The child thread has no projection rows, so its one item comes from the rollout's item_completed event.
+        derived = con.execute("select item_type, origin, text from items where thread_id = ?", [CHILD]).fetchall()
+        assert derived == [("agentMessage", "rollout", "")]
+        assert con.execute("select count(*) from item_blobs").fetchone()[0] == 5
         assert con.execute("select count(*) from responses").fetchone()[0] == 2
         assert con.execute("select count(*) from token_counts").fetchone()[0] == 4
         model, effort, ttft, window = con.execute(
@@ -503,3 +506,13 @@ def test_readonly_open_falls_back_when_the_wal_side_file_is_missing(tmp_path: Pa
     opened.close()
     assert how in {"mode=ro", "query_only fallback (-shm absent)"}
     time.sleep(0)  # keep the import used in the fallback-free branch
+
+
+def test_unmaterialized_projection_is_skipped(tmp_path: Path):
+    """A home that only ran ``codex exec`` has thread_history_1.sqlite without its tables."""
+    home = tmp_path / "home"
+    home.mkdir()
+    sqlite3.connect(home / "thread_history_1.sqlite").close()
+    summary = ingest_codex_home(home, tmp_path / "codex.duckdb", window_days=183)
+    assert "thread_history_1.sqlite has no projection tables" in summary.notes
+    assert summary.tables["turns"] == 0

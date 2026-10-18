@@ -61,6 +61,10 @@ for the project layout and commands.
 - `experiments/` contains the imported agent-spike research workspace and future
   spikes. Read its own `AGENTS.md` before editing it. Research findings are not
   automatically implementation contracts for the distributable packages.
+- `experiments/evals/` is the agent eval battery: one bounded task given to Codex,
+  Claude Code or an agent of our own, measured from the shared agent-history schema
+  and compared with recorded baselines. Its `README.md` is the runbook; raw run data
+  stays under `~/history/evals/`, never in git.
 
 ## Python and dependencies
 
