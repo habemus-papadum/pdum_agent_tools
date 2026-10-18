@@ -10,10 +10,19 @@ message blocks land in `item_blobs` so a later move to MotherDuck can relocate
 blobs without touching the facts.
 
 ```sh
-uv run pdum-history ingest codex --db ~/history/codex.duckdb
-uv run pdum-history ingest claude --db ~/history/claude.duckdb
+uv run pdum-history sync --example            # a per-machine history.yaml to fill in
+uv run pdum-history sync                      # every Codex home, Claude dir and launcher profile into every target
+uv run --env-file .env pdum-history sync --target cloud   # a MotherDuck target, token from the environment
+uv run pdum-history ingest codex --db ~/history/codex.duckdb      # one source into one fresh file
+uv run pdum-history ingest claude --db ~/history/claude.duckdb --sync
 uv run pdum-history schema --json
 ```
+
+A sync is incremental: the target's `ingest_ledger` remembers each file's size,
+modification time and fingerprint per source, only new or grown files are parsed, each
+changed thread's rows are replaced in one transaction, and files that vanished from the
+agent's store are marked gone while their rows stay. Targets are local DuckDB files or
+`md:<database>` on MotherDuck.
 
 `fork_edges` records which thread inherited context from which (continued Claude
 sessions by their `session_id` markers and `continued-in` records, sub-agent forks,

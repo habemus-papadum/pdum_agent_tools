@@ -5,8 +5,10 @@ Every table carries ``source`` (``codex-fs``, ``claude-fs``, ``codex-api``, ``li
 Timestamps are naive UTC. Blobs live in their own tables so a later MotherDuck migration can
 move them to object storage without touching the fact tables. ``fork_edges`` records which thread
 inherited context from which (continued sessions, forks, forked sub-agents) and ``threads.lineage_id``
-names the root of that chain, which is what a person means by "a session". :func:`describe` renders the
-contract as JSON; the TypeScript package keeps a copy and a parity test fails when they drift.
+names the root of that chain, which is what a person means by "a session". ``thread_links`` holds the
+per-thread facts those are derived from and ``ingest_ledger`` what each source's files looked like when
+they were last read, so a run can replace only the threads whose files changed. :func:`describe` renders
+the contract as JSON; the TypeScript package keeps a copy and a parity test fails when they drift.
 """
 
 from __future__ import annotations
@@ -20,7 +22,7 @@ try:  # pyarrow turns a row batch into one bulk insert; executemany is the slow 
 except ImportError:  # pragma: no cover - depends on the environment
     _pa = None
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 """Bump when a table, column or view changes shape; the TypeScript parity test reads it."""
 
 COLUMNS: dict[str, list[tuple[str, str]]] = {
@@ -191,6 +193,7 @@ COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("thread_id", "VARCHAR"),
         ("turn_id", "VARCHAR"),
         ("item_id", "VARCHAR"),
+        ("uuid", "VARCHAR"),
         ("rollout_ordinal", "BIGINT"),
         ("item_type", "VARCHAR"),
         ("created_at", "TIMESTAMP"),
@@ -289,9 +292,36 @@ COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("response_items", "INTEGER"),
         ("compactions", "INTEGER"),
         ("unknown_line_types", "INTEGER"),
+        ("marker_lines", "INTEGER"),
         ("source_id", "VARCHAR"),
         ("source", "VARCHAR"),
         ("origin", "VARCHAR"),
+    ],
+    "thread_links": [
+        ("thread_id", "VARCHAR"),
+        ("kind", "VARCHAR"),
+        ("target_thread_id", "VARCHAR"),
+        ("ordinal", "INTEGER"),
+        ("records", "INTEGER"),
+        ("ts", "TIMESTAMP"),
+        ("detail", "VARCHAR"),
+        ("source_id", "VARCHAR"),
+        ("source", "VARCHAR"),
+        ("origin", "VARCHAR"),
+    ],
+    "ingest_ledger": [
+        ("source_id", "VARCHAR"),
+        ("unit_id", "VARCHAR"),
+        ("path", "VARCHAR"),
+        ("bytes", "BIGINT"),
+        ("mtime", "TIMESTAMP"),
+        ("fingerprint", "VARCHAR"),
+        ("status", "VARCHAR"),
+        ("thread_ids", "VARCHAR"),
+        ("first_seen_at", "TIMESTAMP"),
+        ("last_seen_at", "TIMESTAMP"),
+        ("last_ingested_at", "TIMESTAMP"),
+        ("run_id", "VARCHAR"),
     ],
     "ingest_runs": [
         ("run_id", "VARCHAR"),

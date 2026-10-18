@@ -99,9 +99,17 @@ export const CHECKS: Check[] = [
   },
   {
     id: "duplicate-responses",
-    title: "duplicate response ids within one source, ignoring copied context",
+    title: "duplicate response ids within one source id, ignoring copied context",
     kind: "zero",
-    sql: "SELECT count(*) - count(DISTINCT source || response_id) FROM responses WHERE origin <> 'copied-context'",
+    sql: "SELECT count(*) - count(DISTINCT source_id || response_id) FROM responses WHERE origin <> 'copied-context'",
+  },
+  {
+    id: "responses-shared-across-sources",
+    title:
+      "response ids present in more than one source id (a transcript copied between homes; usage counts it once)",
+    kind: "info",
+    sql: `SELECT count(*) FROM (SELECT response_id FROM responses WHERE origin <> 'copied-context'
+                                GROUP BY source, response_id HAVING count(DISTINCT source_id) > 1)`,
   },
   {
     id: "responses-without-turn",
@@ -188,11 +196,13 @@ export const CHECKS: Check[] = [
     sql: `SELECT count(*) FROM (SELECT lineage_id FROM threads WHERE parent_thread_id IS NULL GROUP BY 1 HAVING count(*) > 1)`,
   },
   {
-    id: "fork-edges-ambiguous",
+    id: "claude-threads-without-markers",
     title:
-      "fork edges whose direction rested on start order alone (no marker, no continued-in record)",
+      "Claude session files inside the window with turns but no session_id markers (ownership taken at face value)",
     kind: "info",
-    sql: "SELECT count(*) FROM fork_edges WHERE ambiguous",
+    sql: `SELECT count(*) FROM coverage c JOIN threads h USING (thread_id)
+          WHERE c.in_window AND h.source LIKE 'claude%' AND h.parent_thread_id IS NULL AND COALESCE(c.marker_lines, 0) = 0
+            AND EXISTS (SELECT 1 FROM turns t WHERE t.thread_id = c.thread_id)`,
   },
   {
     id: "fork-edges-missing-endpoint",

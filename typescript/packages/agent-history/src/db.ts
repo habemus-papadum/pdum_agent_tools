@@ -3,9 +3,46 @@ import { type DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
 /** A row with DuckDB values converted to plain JavaScript (bigint for BIGINT, Date for timestamps). */
 export type Row = Record<string, unknown>;
 
+/** Whether a database target names a MotherDuck database (`md:<database>`) rather than a local file. */
+export function isMotherDuck(target: string): boolean {
+  return target.startsWith("md:");
+}
+
 /**
- * One open DuckDB file. `query` runs SQL and returns plain rows; `close` releases the
- * instance. Open read-only by default: the analysis side never writes a history file.
+ * The connection string for a MotherDuck target: the database alone (`attach_mode=single`),
+ * so `tagsdb.tags` and the history tables resolve inside it and nothing else is attached.
+ */
+export function motherDuckConnectionString(target: string): string {
+  if (/[?&]attach_mode=/.test(target)) {
+    return target;
+  }
+  return `${target}${target.includes("?") ? "&" : "?"}attach_mode=single`;
+}
+
+/**
+ * Create the DuckDB instance behind a target. A local file gets `localOptions` unchanged. A
+ * MotherDuck target is opened with its token from `MOTHERDUCK_TOKEN` (or `motherduck_token`)
+ * when either is set; otherwise the extension's own default applies. It is never read-only:
+ * tags are written into the same database.
+ */
+export async function createInstance(
+  target: string,
+  localOptions: Record<string, string> = {},
+): Promise<DuckDBInstance> {
+  if (!isMotherDuck(target)) {
+    return DuckDBInstance.create(target, localOptions);
+  }
+  const token = process.env.MOTHERDUCK_TOKEN || process.env.motherduck_token;
+  return DuckDBInstance.create(
+    motherDuckConnectionString(target),
+    token ? { motherduck_token: token } : {},
+  );
+}
+
+/**
+ * One open DuckDB database: a local file or a MotherDuck database. `query` runs SQL and
+ * returns plain rows; `close` releases the instance. A local file opens read-only by default:
+ * the analysis side never writes a history table.
  */
 export class HistoryDb {
   private constructor(
@@ -16,10 +53,7 @@ export class HistoryDb {
 
   static async open(path: string, options: { readOnly?: boolean } = {}): Promise<HistoryDb> {
     const readOnly = options.readOnly ?? true;
-    const instance = await DuckDBInstance.create(
-      path,
-      readOnly ? { access_mode: "READ_ONLY" } : {},
-    );
+    const instance = await createInstance(path, readOnly ? { access_mode: "READ_ONLY" } : {});
     const connection = await instance.connect();
     return new HistoryDb(instance, connection, path);
   }

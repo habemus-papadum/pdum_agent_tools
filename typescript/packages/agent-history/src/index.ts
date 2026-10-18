@@ -9,11 +9,15 @@ export {
   SUBJECT_KINDS,
   type SubjectKind,
   TAGS_DDL,
+  TAGS_TABLE,
   type Tag,
+  type TagsLayout,
+  tagsDdl,
+  tagsLayout,
   tagsOf,
 } from "./annotations.ts";
 export { CHECKS, type Check, type CheckResult, runChecks } from "./checks.ts";
-export { cell, HistoryDb, num, type Row } from "./db.ts";
+export { cell, HistoryDb, isMotherDuck, num, type Row } from "./db.ts";
 export {
   blobExcerpt,
   formatDuration,

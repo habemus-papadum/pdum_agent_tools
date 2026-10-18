@@ -1,6 +1,6 @@
 # Agent history and analysis roadmap
 
-**Status: direction notes, 16 October 2026; stages 1, 2 and 4 landed on 17 October 2026, followed the same day by schema version 3 with provenance, tags, repo, cache tiers and LiteLLM pricing, then schema version 4 with fork edges and lineage ids** as `habemus-papadum-agent-history` and `@habemus-papadum/agent-history`, see the [guide](../agent-history.md). The two items left open after version 3, Claude lineage and the cost-state disagreement, are closed below under "Lessons from cc-miner"; Claude's `cleanupPeriodDays` on this machine was raised to 365 on 17 October 2026. This records what the
+**Status: direction notes, 16 October 2026; stages 1, 2 and 4 landed on 17 October 2026, followed the same day by schema version 3 with provenance, tags, repo, cache tiers and LiteLLM pricing, then schema version 4 with fork edges and lineage ids; on 18 October 2026 schema version 5 brought `pdum-history sync` (one per-machine YAML, incremental ledger, local or MotherDuck targets) and the TypeScript CLI learned `md:` targets, which is the agreed stopping point** for `habemus-papadum-agent-history` and `@habemus-papadum/agent-history`, see the [guide](../agent-history.md). Stage 3 was resolved as "MotherDuck is a target of the same sync, not a Parquet mirror"; see "Where this stops" at the end. The two items left open after version 3, Claude lineage and the cost-state disagreement, are closed below under "Lessons from cc-miner"; Claude's `cleanupPeriodDays` on this machine was raised to 365 on 17 October 2026. This records what the
 launcher round and spike 035 taught us, the policy we agreed for old data, the
 three agent runtimes we intend to support, and a staged path toward one set of
 tools that serves a person at a desk, a swarm on cloud machines, and a browser.
@@ -264,3 +264,20 @@ common with the files on disk today, so the comparison is of method, not rows.
   the bulk; diffs and messages are what forensics reads most.
 - Whether the Claude ingester should store the API request shapes, which make
   cache analysis exact but add volume.
+
+## Where this stops (18 October 2026)
+
+The toolkit is a set of commands an agent can run to answer questions about
+agentic usage: `pdum-history sync` to bring every Codex home, Claude directory
+and launcher profile on a machine into a local DuckDB file and, optionally, a
+MotherDuck database, incrementally and from several machines; `agent-history`
+to check, question, list, show and run SQL against either. The MotherDuck seed
+(spike 036) measured the load and query paths. Deliberately not built, until a
+concrete need appears: a browser or WASM client, any UI, live ingestion, the
+Agents SDK runtime, Parquet or S3 partitions, moving blobs to object storage,
+read scaling, scheduling beyond documenting the one command, and a raw-transcript
+archive table. Parquet lost its place because MotherDuck supplies the durable
+store and the coordination point that cc-miner used partitions for, and because
+our policy of no schema shims means parsed Parquet could not be re-parsed anyway;
+the raw transcripts are what would deserve archiving, and Claude's retention was
+raised instead.

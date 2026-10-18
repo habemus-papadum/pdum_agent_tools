@@ -1176,6 +1176,7 @@ dependencies = [
     { name = "duckdb" },
     { name = "platformdirs" },
     { name = "pyarrow" },
+    { name = "pyyaml" },
     { name = "rich" },
     { name = "typer" },
 ]
@@ -1185,6 +1186,7 @@ requires-dist = [
     { name = "duckdb", specifier = ">=1.5,<2" },
     { name = "platformdirs", specifier = ">=4,<5" },
     { name = "pyarrow", specifier = ">=20,<27" },
+    { name = "pyyaml", specifier = ">=6,<7" },
     { name = "rich", specifier = ">=14,<16" },
     { name = "typer", specifier = ">=0.16,<1" },
 ]

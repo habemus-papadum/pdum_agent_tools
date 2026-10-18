@@ -434,7 +434,7 @@ def test_ingest_models_the_window_and_counts_the_rest(home: Path, tmp_path: Path
         assert events["compacted"] == 2 and events["task_complete"] == 2
         assert con.execute("select count(*) from response_items where origin = 'rollout-legacy'").fetchone()[0] == 0
         meta = dict(con.execute("select key, value from meta").fetchall())
-        assert meta["schema_version"] == str(schema.SCHEMA_VERSION) and meta["source"] == "codex-fs"
+        assert meta["schema_version"] == str(schema.SCHEMA_VERSION) and meta["last_run_id"] == summary.run_id
         provenance = con.execute(
             "select source_id, agent, host_id, os_user, agent_versions, schema_version from provenance"
         ).fetchall()

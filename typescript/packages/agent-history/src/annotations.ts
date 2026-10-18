@@ -1,13 +1,30 @@
 import { existsSync } from "node:fs";
-import { type DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
-import type { HistoryDb, Row } from "./db.ts";
+import type { DuckDBConnection, DuckDBInstance } from "@duckdb/node-api";
+import { createInstance, type HistoryDb, isMotherDuck, type Row } from "./db.ts";
 
 /**
- * Tags live in their own DuckDB file so they survive a rebuild of the history file and a
- * move of the facts to MotherDuck. Subjects are the stable ids of the shared schema.
+ * Tags live in their own DuckDB file beside a local history file, so they survive a rebuild of
+ * the facts. On MotherDuck they live in the history database itself, in schema `tagsdb`, so
+ * every `tagsdb.tags` reference works in both layouts. Subjects are the stable ids of the
+ * shared schema.
  */
-export const TAGS_DDL = `CREATE TABLE IF NOT EXISTS tags (
+export type TagsLayout = "file" | "schema";
+
+/** Where tags live for a tags target: a sibling file, or the `tagsdb` schema of a MotherDuck database. */
+export function tagsLayout(tagsPath: string): TagsLayout {
+  return isMotherDuck(tagsPath) ? "schema" : "file";
+}
+
+/** Qualified name of the tags table in each layout. */
+export const TAGS_TABLE: Record<TagsLayout, string> = { file: "tags", schema: "tagsdb.tags" };
+
+/** `CREATE TABLE IF NOT EXISTS` for the tags table under the given qualified name. */
+export function tagsDdl(table = TAGS_TABLE.file): string {
+  return `CREATE TABLE IF NOT EXISTS ${table} (
   subject_kind VARCHAR, subject_id VARCHAR, key VARCHAR, value VARCHAR, author VARCHAR, created_at TIMESTAMP)`;
+}
+
+export const TAGS_DDL = tagsDdl();
 
 export type SubjectKind = "thread" | "turn" | "item" | "source";
 export const SUBJECT_KINDS: SubjectKind[] = ["thread", "turn", "item", "source"];
@@ -21,8 +38,14 @@ export interface Tag {
   createdAt: Date | null;
 }
 
-/** `codex.duckdb` keeps its tags in `codex.tags.duckdb` beside it unless told otherwise. */
+/**
+ * `codex.duckdb` keeps its tags in `codex.tags.duckdb` beside it unless told otherwise; a
+ * MotherDuck database (`md:<database>`) keeps them inside itself.
+ */
 export function defaultTagsPath(historyPath: string): string {
+  if (isMotherDuck(historyPath)) {
+    return historyPath;
+  }
   return `${historyPath.replace(/\.duckdb$/, "")}.tags.duckdb`;
 }
 
@@ -31,13 +54,25 @@ export class Annotations {
     private readonly instance: DuckDBInstance,
     private readonly connection: DuckDBConnection,
     readonly path: string,
+    /** Qualified table every statement targets: `tags` in a tags file, `tagsdb.tags` in a shared database. */
+    readonly table: string,
   ) {}
 
-  static async open(path: string): Promise<Annotations> {
-    const instance = await DuckDBInstance.create(path);
+  /**
+   * Open a tags store read-write, creating the table when missing. The layout follows the
+   * target (`md:` means schema mode) unless `options.layout` says otherwise, which lets a local
+   * file stand in for a MotherDuck database in tests.
+   */
+  static async open(path: string, options: { layout?: TagsLayout } = {}): Promise<Annotations> {
+    const layout = options.layout ?? tagsLayout(path);
+    const table = TAGS_TABLE[layout];
+    const instance = await createInstance(path);
     const connection = await instance.connect();
-    await connection.run(TAGS_DDL);
-    return new Annotations(instance, connection, path);
+    if (layout === "schema") {
+      await connection.run("CREATE SCHEMA IF NOT EXISTS tagsdb");
+    }
+    await connection.run(tagsDdl(table));
+    return new Annotations(instance, connection, path, table);
   }
 
   async set(
@@ -47,22 +82,16 @@ export class Annotations {
     value: string | null,
     author: string | null,
   ): Promise<void> {
+    await this.remove(kind, id, key);
     await this.connection.run(
-      "DELETE FROM tags WHERE subject_kind = ? AND subject_id = ? AND key = ?",
-      [kind, id, key] as never,
+      `INSERT INTO ${this.table} VALUES (?, ?, ?, ?, ?, now()::timestamp)`,
+      [kind, id, key, value, author] as never,
     );
-    await this.connection.run("INSERT INTO tags VALUES (?, ?, ?, ?, ?, now()::timestamp)", [
-      kind,
-      id,
-      key,
-      value,
-      author,
-    ] as never);
   }
 
   async remove(kind: SubjectKind, id: string, key: string): Promise<void> {
     await this.connection.run(
-      "DELETE FROM tags WHERE subject_kind = ? AND subject_id = ? AND key = ?",
+      `DELETE FROM ${this.table} WHERE subject_kind = ? AND subject_id = ? AND key = ?`,
       [kind, id, key] as never,
     );
   }
@@ -82,7 +111,7 @@ export class Annotations {
       where.push("key = ?");
       values.push(filter.key);
     }
-    const sql = `SELECT subject_kind, subject_id, key, value, author, created_at FROM tags
+    const sql = `SELECT subject_kind, subject_id, key, value, author, created_at FROM ${this.table}
                  ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY created_at, subject_id, key`;
     const reader = await this.connection.runAndReadAll(sql, values as never);
     return (reader.getRowObjectsJS() as Row[]).map((row) => ({
@@ -102,10 +131,18 @@ export class Annotations {
 }
 
 /**
- * Attach the tags file to a read-only history connection as `tagsdb` when it exists, so SQL
- * can join `tagsdb.tags`. Returns whether anything was attached.
+ * Make `tagsdb.tags` resolvable on a history connection, so SQL can join it, and return whether
+ * it does. A tags file is attached read-only as catalog `tagsdb` when it exists. A MotherDuck
+ * target attaches nothing: the tags are the `tagsdb` schema of the open database, and this
+ * only reports whether that table exists. Nothing is created either way.
  */
 export async function attachTags(db: HistoryDb, tagsPath: string): Promise<boolean> {
+  if (tagsLayout(tagsPath) === "schema") {
+    const count = await db.scalar<bigint>(
+      "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'tagsdb' AND table_name = 'tags'",
+    );
+    return Number(count) > 0;
+  }
   if (!existsSync(tagsPath)) {
     return false;
   }

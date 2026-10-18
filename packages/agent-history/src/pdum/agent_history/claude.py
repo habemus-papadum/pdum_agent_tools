@@ -11,8 +11,11 @@ A continued or forked session copies its inherited transcript into the new file,
 timestamps included. Since Claude Code 2.1.199 every copied message keeps the id of the session
 that produced it in ``session_id`` while ``sessionId`` names the file, so the marker decides what a
 file owns and names the direct predecessor (the last foreign producer before the file's own
-messages). Files without markers fall back to uuid ownership by start order. Sub-agents since
-2.1.220 reference the parent's context (``fork-context-ref``) instead of copying it.
+messages). Unmarked messages before a file's first own message are copies too; unmarked files
+are taken at face value. Sub-agents since 2.1.220 reference the parent's context
+(``fork-context-ref``) instead of copying it. Each file is one unit of incremental work: parsing
+it needs no other file, and what it says about other threads goes to ``thread_links`` for
+:mod:`pdum.agent_history.derive` to turn into fork edges and lineage after publishing.
 """
 
 from __future__ import annotations
@@ -27,7 +30,9 @@ from typing import Any
 
 from . import items as item_columns
 from . import schema
-from .base import DEFAULT_WINDOW_DAYS, BaseIngest, IngestSummary, assign_lineage
+from .base import DEFAULT_WINDOW_DAYS, BaseIngest, IngestSummary
+from .ledger import Unit
+from .targets import Target
 
 SOURCE = "claude-fs"
 FORMAT = "claude-jsonl"
@@ -148,8 +153,7 @@ class _Thread:
         """Session named by the marker of the record being read, when foreign."""
         self.producers: Counter[str] = Counter()
         """Foreign producers in order of first appearance; the last one is the direct predecessor."""
-        self.inherited_last_ts: datetime | None = None
-        self.uuid_ts: dict[str, datetime] = {}
+        self.producer_last_ts: dict[str, datetime] = {}
         self.continued_in: list[tuple[str, datetime | None]] = []
         self.fork_ref: dict[str, Any] | None = None
 
@@ -176,8 +180,8 @@ class _Thread:
         self.marker = "foreign"
         self.producer = producer
         self.producers[producer] += 1
-        if ts is not None and (self.inherited_last_ts is None or ts > self.inherited_last_ts):
-            self.inherited_last_ts = ts
+        if ts is not None and ts > self.producer_last_ts.get(producer, datetime.min):
+            self.producer_last_ts[producer] = ts
 
     @property
     def turn(self) -> dict[str, Any] | None:
@@ -210,11 +214,6 @@ class _Thread:
             return self.own_first_ts
         return self.first_prompt_ts
 
-    def start_key(self) -> tuple[datetime, int]:
-        """Sort key for ownership: earlier own start first, a session before its sub-agents."""
-        started = self.own_start_hint() or self.first_ts or datetime.max
-        return started, 1 if self.parent else 0
-
     def see(self, ts: datetime | None, *, activity: bool = True) -> None:
         """Track the thread's span and, for message records, extend the open turn."""
         if ts is None:
@@ -235,41 +234,66 @@ class ClaudeIngest(BaseIngest):
     ----------
     claude_dir : Path
         Claude configuration directory holding ``projects/``.
-    db_path : Path
-        DuckDB file to create; an existing file is replaced.
+    target : Target or Path or str
+        Local DuckDB file or ``md:<database>`` to publish into.
     window_days : int or None
         Sessions first seen before ``now - window_days`` are counted, not modelled. None disables.
     blobs : bool
         Store tool calls with their results and message blocks in ``item_blobs``.
     now : datetime or None
         Reference time for the window; defaults to the current UTC time.
+    mode : str
+        ``rebuild``, ``sync`` or ``full``; see :class:`~pdum.agent_history.base.BaseIngest`.
     """
 
     def __init__(
         self,
         claude_dir: Path,
-        db_path: Path,
+        target: Target | Path | str,
         *,
         window_days: int | None = DEFAULT_WINDOW_DAYS,
         blobs: bool = True,
         now: datetime | None = None,
+        mode: str = "rebuild",
+        host: dict[str, str] | None = None,
     ) -> None:
-        super().__init__(SOURCE, "claude", claude_dir, db_path, window_days=window_days, blobs=blobs, now=now)
+        super().__init__(
+            SOURCE, "claude", claude_dir, target, window_days=window_days, blobs=blobs, now=now, host=host, mode=mode
+        )
         self.threads: dict[str, _Thread] = {}
-        self.owners: dict[str, str] = {}
+
+    # ------------------------------------------------------------------- scan
+    def scan(self) -> dict[str, Unit]:
+        """List every session and sub-agent file under ``projects/`` as a unit, from metadata alone."""
+        projects = self.root / "projects"
+        if not projects.is_dir():
+            return {}
+        units: dict[str, Unit] = {}
+        for path in sorted(projects.glob("*/*.jsonl")):
+            units[path.stem] = Unit.from_path(path.stem, path)
+        for path in sorted(projects.glob("*/*/subagents/**/*.jsonl")):
+            parts = path.relative_to(projects).parts
+            session_id = parts[1]
+            agent_id = path.stem.removeprefix("agent-")
+            units[f"{session_id}:{agent_id}"] = Unit.from_path(f"{session_id}:{agent_id}", path, parent=session_id)
+        return units
 
     # ----------------------------------------------------------------- ingest
-    def ingest(self) -> None:
-        """Read every session and sub-agent file under ``projects/``."""
+    def ingest(self, units: dict[str, Unit]) -> None:
+        """Read the given session and sub-agent files."""
         started = time.perf_counter()
-        projects = self.root / "projects"
-        mains = sorted(projects.glob("*/*.jsonl")) if projects.is_dir() else []
-        subs = sorted(projects.glob("*/*/subagents/**/*.jsonl")) if projects.is_dir() else []
         lines = 0
         skipped = 0
-        for path in mains + subs:
-            parent = path.relative_to(projects).parts[1] if "subagents" in path.relative_to(projects).parts else None
-            count = self.session(path, parent)
+        mains = subs = 0
+        for unit in sorted(units.values(), key=lambda u: str(u.path)):
+            if unit.path is None:
+                continue
+            parent = unit.extra.get("parent")
+            mains += parent is None
+            subs += parent is not None
+            before = set(self.threads)
+            count = self.session(unit.path, parent)
+            self.unit_threads[unit.unit_id] = sorted({unit.unit_id, *(set(self.threads) - before)})
             if count is None:
                 skipped += 1
             else:
@@ -278,7 +302,7 @@ class ClaudeIngest(BaseIngest):
             "sessions",
             started,
             lines,
-            f"session files {len(mains)}; sub-agent files {len(subs)}; outside window {skipped}",
+            f"session files {mains}; sub-agent files {subs}; outside window {skipped}",
         )
         self.finish()
 
@@ -370,8 +394,8 @@ class ClaudeIngest(BaseIngest):
         self.describe_thread(thread, record)
         if kind in {"user", "assistant"}:
             thread.mark(record, ts)
-            if isinstance(record.get("uuid"), str) and ts is not None:
-                thread.uuid_ts[record["uuid"]] = ts
+            if thread.marker is not None:
+                cover["marker_lines"] += 1
         if kind == "user":
             self.user(thread, cover, record, ts, number)
         elif kind == "assistant":
@@ -478,6 +502,7 @@ class ClaudeIngest(BaseIngest):
                 "thread_id": thread.thread_id,
                 "turn_id": (thread.turn or {}).get("turn_id"),
                 "item_id": item_id,
+                "uuid": record.get("uuid"),
                 "rollout_ordinal": number,
                 "item_type": "contextCompaction",
                 "created_at": ts,
@@ -561,6 +586,7 @@ class ClaudeIngest(BaseIngest):
             "thread_id": thread.thread_id,
             "turn_id": turn_id,
             "item_id": item_id,
+            "uuid": record.get("uuid"),
             "rollout_ordinal": number,
             "item_type": "userMessage",
             "created_at": ts,
@@ -658,6 +684,7 @@ class ClaudeIngest(BaseIngest):
                 "thread_id": thread.thread_id,
                 "turn_id": turn["turn_id"],
                 "item_id": item_id,
+                "uuid": record.get("uuid"),
                 "rollout_ordinal": number,
                 "created_at": ts,
                 "status": "completed",
@@ -844,11 +871,6 @@ class ClaudeIngest(BaseIngest):
         item_columns_set = dict(schema.COLUMNS["items"])
         thread_rows: list[tuple] = []
         turn_rows: list[tuple] = []
-        self.assign_owners()
-        edges = self.fork_edges()
-        for note in assign_lineage({thread_id: thread.record for thread_id, thread in self.threads.items()}).values():
-            self.summary.notes.append(note)
-        self.write("fork_edges", edges)
         for thread in self.threads.values():
             self.close_turn(thread)
             for turn in thread.turns:
@@ -918,7 +940,8 @@ class ClaudeIngest(BaseIngest):
                 )
             self.write("rollout_events", thread.events)
             self.write("response_items", thread.response_items)
-            if thread.parent and thread.parent in self.threads:
+            self.write("thread_links", self.links(thread))
+            if thread.parent:
                 self.write(
                     "spawn_edges",
                     [
@@ -942,134 +965,66 @@ class ClaudeIngest(BaseIngest):
             f"threads {len(thread_rows)}; turns {len(turn_rows)}; coverage {cover_rows}",
         )
 
-    def assign_owners(self) -> None:
-        """Mark response and item identifiers that another thread owns.
-
-        A marker settles ownership outright. For identifiers without one (files written before
-        2.1.199, sub-agent files), the earliest-started thread holding an id owns it and every later
-        thread holding it has a copy. Sub-agents reuse their parent's prompt id for their own first
-        turn, so turn ids never take part.
-        """
-        owners: dict[str, str] = {}
-        for thread in self.threads.values():
-            for key in thread.own_ids:
-                owners.setdefault(key, thread.thread_id)
-        for thread in sorted(self.threads.values(), key=lambda t: t.start_key()):
-            for key in (*thread.responses, *thread.items):
-                if key in thread.copied_ids or key in thread.own_ids:
-                    continue
-                owner = owners.setdefault(key, thread.thread_id)
-                if owner != thread.thread_id:
-                    thread.copied_ids.add(key)
-        self.owners = owners
-
     def own_start(self, thread: _Thread) -> datetime | None:
-        """Return when the thread produced its first own message, from markers or ownership."""
+        """Return when the thread produced its first own message, from markers or the boundary rule."""
         if thread.own_first_ts is not None:
             return thread.own_first_ts
-        moments = [r["ts"] for key, r in thread.responses.items() if key not in thread.copied_ids and r.get("ts")]
+        moments = [
+            r["ts"] for key, r in thread.responses.items() if r.get("ts") and not thread.is_copied(None, r["ts"], key)
+        ]
         moments += [
             item["created_at"]
             for key, item in thread.items.items()
-            if key not in thread.copied_ids and item.get("created_at")
+            if item.get("created_at") and not thread.is_copied(None, item["created_at"], key)
         ]
         return min(moments) if moments else None
 
-    def fork_edges(self) -> list[tuple]:
-        """Build ``fork_edges`` rows and set ``forked_from_id`` on continued sessions.
-
-        A session's direct predecessor is the last foreign producer its markers name; a
-        ``continued-in`` record in the predecessor confirms it or, when the successor's file is
-        absent, stands alone. Files without markers that hold copies of another thread's messages get
-        an edge to that thread by uuid overlap, flagged ambiguous because only start order picked
-        the direction. Sub-agents with a ``fork-context-ref`` inherit by reference, so their edge
-        carries the referenced length and the fork point in the parent's timeline.
-        """
+    def links(self, thread: _Thread) -> list[tuple]:
+        """What this file says about other threads: producers it copied, its successor, its fork reference."""
         rows: list[tuple] = []
-        linked: dict[str, tuple[str, int]] = {}
-
-        def edge(parent: str, child: str, **values: Any) -> None:
-            linked[child] = (parent, len(rows))
+        for ordinal, (producer, count) in enumerate(thread.producers.items()):
             rows.append(
                 schema.row(
-                    "fork_edges",
-                    parent_thread_id=parent,
-                    child_thread_id=child,
+                    "thread_links",
+                    thread_id=thread.thread_id,
+                    kind="producer",
+                    target_thread_id=producer,
+                    ordinal=ordinal,
+                    records=count,
+                    ts=thread.producer_last_ts.get(producer),
                     source=SOURCE,
                     origin="session-jsonl",
-                    **{"ambiguous": False, **values},
                 )
             )
-
-        for thread in self.threads.values():
-            if thread.parent is not None:
-                ref = thread.fork_ref
-                if ref is not None:
-                    parent_thread = self.threads.get(thread.parent)
-                    fork_point = parent_thread.uuid_ts.get(str(ref.get("parentLastUuid"))) if parent_thread else None
-                    edge(
-                        thread.parent,
-                        thread.thread_id,
-                        kind="subagent-fork",
-                        evidence="fork-context-ref",
-                        inherited_records=ref.get("contextLength"),
-                        fork_point_ts=fork_point,
-                        child_started_at=thread.first_prompt_ts or thread.first_ts,
-                    )
-                continue
-            if thread.producers:
-                parent = list(thread.producers)[-1]
-                thread.record["forked_from_id"] = parent
-                edge(
-                    parent,
-                    thread.thread_id,
-                    kind="continuation",
-                    evidence="marker",
-                    inherited_records=sum(thread.producers.values()),
-                    fork_point_ts=thread.inherited_last_ts,
-                    child_started_at=thread.own_first_ts,
+        for ordinal, (successor, ts) in enumerate(thread.continued_in):
+            rows.append(
+                schema.row(
+                    "thread_links",
+                    thread_id=thread.thread_id,
+                    kind="continued-in",
+                    target_thread_id=successor,
+                    ordinal=ordinal,
+                    ts=ts,
+                    source=SOURCE,
+                    origin="session-jsonl",
                 )
-                continue
-            if thread.marker_seen:
-                # Unmarked copies inside a marked file fall before its own start; no edge needed.
-                continue
-            copied_owners = Counter(
-                self.owners[key]
-                for key in thread.copied_ids
-                if key in self.owners and self.owners[key] != thread.thread_id
             )
-            if copied_owners:
-                parent, count = copied_owners.most_common(1)[0]
-                thread.record["forked_from_id"] = parent
-                copied_ts = [r["ts"] for key, r in thread.responses.items() if key in thread.copied_ids and r.get("ts")]
-                edge(
-                    parent,
-                    thread.thread_id,
-                    kind="continuation",
-                    evidence="uuid-overlap",
-                    ambiguous=True,
-                    inherited_records=count,
-                    fork_point_ts=max(copied_ts) if copied_ts else None,
-                    child_started_at=self.own_start(thread),
+        if thread.fork_ref is not None:
+            ref = thread.fork_ref
+            rows.append(
+                schema.row(
+                    "thread_links",
+                    thread_id=thread.thread_id,
+                    kind="fork-context-ref",
+                    target_thread_id=ref.get("parentSessionId") or thread.parent,
+                    ordinal=0,
+                    records=ref.get("contextLength"),
+                    ts=thread.first_prompt_ts or thread.first_ts,
+                    detail=json.dumps({"parentLastUuid": ref.get("parentLastUuid")}),
+                    source=SOURCE,
+                    origin="session-jsonl",
                 )
-        for thread in self.threads.values():
-            for successor, ts in thread.continued_in:
-                link = linked.get(successor)
-                if link is not None and link[0] == thread.thread_id:
-                    row = rows[link[1]]
-                    index = [name for name, _ in schema.COLUMNS["fork_edges"]].index("evidence")
-                    rows[link[1]] = row[:index] + (f"{row[index]}+continued-in",) + row[index + 1 :]
-                    continue
-                child = self.threads.get(successor)
-                edge(
-                    thread.thread_id,
-                    successor,
-                    kind="continuation",
-                    evidence="continued-in",
-                    child_started_at=(child.own_first_ts or child.first_prompt_ts) if child else ts,
-                )
-                if child is not None and not child.record.get("forked_from_id"):
-                    child.record["forked_from_id"] = thread.thread_id
+            )
         return rows
 
     def usage_rows(self, thread: _Thread) -> tuple[list[tuple], list[tuple]]:
@@ -1158,11 +1113,12 @@ class ClaudeIngest(BaseIngest):
 
 def ingest_claude_dir(
     claude_dir: Path | None = None,
-    db_path: Path | None = None,
+    db_path: Target | Path | str | None = None,
     *,
     window_days: int | None = DEFAULT_WINDOW_DAYS,
     blobs: bool = True,
     now: datetime | None = None,
+    mode: str = "rebuild",
 ) -> IngestSummary:
     """Ingest a Claude Code configuration directory into a DuckDB file.
 
@@ -1170,14 +1126,17 @@ def ingest_claude_dir(
     ----------
     claude_dir : Path or None
         Configuration directory; defaults to ``$CLAUDE_CONFIG_DIR`` or ``~/.claude``.
-    db_path : Path or None
-        Target DuckDB file; defaults to ``claude-history.duckdb`` in the current directory.
+    db_path : Target or Path or str or None
+        Target DuckDB file or ``md:<database>``; defaults to ``claude-history.duckdb`` in the
+        current directory.
     window_days : int or None
         Support window in days; None ingests everything.
     blobs : bool
         Store tool calls with results and message blocks in ``item_blobs``.
     now : datetime or None
         Reference time for the window, for tests.
+    mode : str
+        ``rebuild`` (fresh local file), ``sync`` (incremental) or ``full`` (sync re-reading everything).
 
     Returns
     -------
@@ -1190,5 +1149,6 @@ def ingest_claude_dir(
         window_days=window_days,
         blobs=blobs,
         now=now,
+        mode=mode,
     )
     return ingest.run()

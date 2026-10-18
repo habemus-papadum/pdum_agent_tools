@@ -37,13 +37,13 @@ function subjectKind(value: string): SubjectKind {
 const program = new Command()
   .name("agent-history")
   .description(
-    "Checks, questions, forensics and tags over DuckDB files written by pdum-history. History files are only ever read; tags live in a separate file.",
+    "Checks, questions, forensics and tags over DuckDB files written by pdum-history, or the same tables on MotherDuck (md:<database>). History tables are only ever read; tags live in a sibling file, or in the tagsdb schema of a MotherDuck database.",
   );
 
 program
   .command("check")
   .description("Print the invariants: numbers that should be zero, and numbers worth a glance.")
-  .argument("<db>", "DuckDB file written by pdum-history")
+  .argument("<db>", "DuckDB file written by pdum-history, or md:<database>")
   .option("--json", "print JSON instead of a table")
   .action(async (path: string, options: { json?: boolean }) => {
     const db = await HistoryDb.open(path);
@@ -78,7 +78,7 @@ program
 program
   .command("questions")
   .description("Run the analysis question set with cold and warm latency.")
-  .argument("<db>", "DuckDB file written by pdum-history")
+  .argument("<db>", "DuckDB file written by pdum-history, or md:<database>")
   .option("--json", "print JSON instead of tables")
   .option("--show", "print the result rows of every question")
   .option("--term <text>", "full-text search term for Q5", "duckdb")
@@ -130,7 +130,7 @@ program
 program
   .command("sessions")
   .description("List recent sessions with turns, responses, tokens and a list-price estimate.")
-  .argument("<db>", "DuckDB file written by pdum-history")
+  .argument("<db>", "DuckDB file written by pdum-history, or md:<database>")
   .option("--limit <n>", "number of sessions", "20")
   .option("--children", "include sub-agent threads")
   .option("--like <text>", "filter by title, working directory, repository or id")
@@ -139,7 +139,7 @@ program
     "--lineage <thread>",
     "only the lineage of this thread (id or unique prefix), sub-agents included",
   )
-  .option("--tags <path>", "tags file; defaults to <db>.tags.duckdb")
+  .option("--tags <path>", "tags file; defaults to <db>.tags.duckdb, or <db> itself for md:")
   .option("--json", "print JSON instead of a table")
   .action(
     async (
@@ -169,7 +169,7 @@ program
         let tag: { key: string; value: string | null } | undefined;
         if (options.tag) {
           if (!attached) {
-            throw new Error("no tags file; use `agent-history tag` first");
+            throw new Error("no tags yet; use `agent-history tag` first");
           }
           tag = parseTagArguments([options.tag])[0];
         }
@@ -195,13 +195,13 @@ program
 program
   .command("show")
   .description("Print one session as turns and items; a unique id prefix is enough.")
-  .argument("<db>", "DuckDB file written by pdum-history")
+  .argument("<db>", "DuckDB file written by pdum-history, or md:<database>")
   .argument("<thread>", "thread id or unique prefix")
   .option("--turn <n>", "only this turn number")
   .option("--blobs", "include excerpts of tool output and diffs")
   .option("--no-thinking", "hide reasoning items")
   .option("--width <n>", "characters of text per item line", "110")
-  .option("--tags <path>", "tags file; defaults to <db>.tags.duckdb")
+  .option("--tags <path>", "tags file; defaults to <db>.tags.duckdb, or <db> itself for md:")
   .option("--json", "print the loaded session as JSON")
   .action(
     async (
@@ -245,11 +245,11 @@ program
 program
   .command("tag")
   .description("Set tags on a thread, turn, item or source; `key=value` or a bare `key`.")
-  .argument("<db>", "history file the tags belong to")
+  .argument("<db>", "history file or md:<database> the tags belong to")
   .argument("<kind>", `one of ${SUBJECT_KINDS.join(", ")}`)
   .argument("<id>", "subject id, or a unique thread id prefix")
   .argument("<tags...>", "key=value pairs")
-  .option("--tags <path>", "tags file; defaults to <db>.tags.duckdb")
+  .option("--tags <path>", "tags file; defaults to <db>.tags.duckdb, or <db> itself for md:")
   .option("--author <name>", "who set the tag", userInfo().username)
   .option("--remove", "remove these keys instead of setting them")
   .action(
@@ -292,11 +292,11 @@ program
 program
   .command("tags")
   .description("List tags, optionally filtered by kind, id or key.")
-  .argument("<db>", "history file the tags belong to")
+  .argument("<db>", "history file or md:<database> the tags belong to")
   .option("--kind <kind>", `one of ${SUBJECT_KINDS.join(", ")}`)
   .option("--id <id>", "subject id")
   .option("--key <key>", "tag key")
-  .option("--tags <path>", "tags file; defaults to <db>.tags.duckdb")
+  .option("--tags <path>", "tags file; defaults to <db>.tags.duckdb, or <db> itself for md:")
   .option("--json", "print JSON instead of a table")
   .action(
     async (
@@ -371,7 +371,7 @@ prices
 program
   .command("sql")
   .description("Run one SQL statement against a history file and print the rows.")
-  .argument("<db>", "DuckDB file written by pdum-history")
+  .argument("<db>", "DuckDB file written by pdum-history, or md:<database>")
   .argument("<sql>", "statement to run")
   .option("--tags <path>", "also attach this tags file as tagsdb")
   .option("--json", "print JSON instead of a table")

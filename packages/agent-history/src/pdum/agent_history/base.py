@@ -1,4 +1,11 @@
-"""Scaffolding shared by the ingesters: provenance, run summary, phases, coverage and compaction."""
+"""Scaffolding shared by the ingesters: provenance, run summary, staging, publishing, compaction.
+
+A run scans its source for units (one transcript file each), asks the target's ledger which units
+changed, parses only those into a staging database, and publishes them into the target by replacing
+each changed thread's rows inside one transaction. The target is a local DuckDB file or a
+MotherDuck database; the same path serves both. Lineage is then recomputed from the store, see
+:mod:`pdum.agent_history.derive`.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +15,7 @@ import json
 import os
 import platform
 import socket
+import tempfile
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
@@ -21,10 +29,29 @@ from urllib.parse import urlparse
 import duckdb
 import platformdirs
 
+from . import ledger as ledger_module
 from . import schema
+from .targets import Target, ensure_schema
 
 DEFAULT_WINDOW_DAYS = 183
 """Roughly six months; older history is counted, not modelled."""
+
+THREAD_KEYED_TABLES = (
+    "threads",
+    "turns",
+    "responses",
+    "token_counts",
+    "items",
+    "item_blobs",
+    "rollout_events",
+    "response_items",
+    "coverage",
+    "thread_links",
+)
+"""Tables whose rows belong to one thread and are replaced with it."""
+
+CHILD_KEYED_TABLES = ("spawn_edges", "fork_edges")
+"""Tables keyed by the child thread; the child's rows are replaced with it."""
 
 
 def ingester_version() -> str:
@@ -169,8 +196,11 @@ class IngestSummary:
         Provenance key written to every row; stable for one agent, machine and root.
     root : str
         Directory that was read.
-    db_path : str
-        DuckDB file that was written.
+    target : str
+        Where rows were published: a file path or ``md:<database>``.
+    mode : str
+        ``rebuild`` for a fresh local file, ``sync`` for an incremental run, ``full`` for a sync
+        that re-read every unit.
     window_cutoff : str or None
         ISO timestamp before which threads are only counted, or None when unlimited.
     """
@@ -179,16 +209,25 @@ class IngestSummary:
     source: str
     source_id: str
     root: str
-    db_path: str
+    target: str
+    mode: str
     window_cutoff: str | None
+    label: str = ""
     host: dict[str, str] = field(default_factory=dict)
+    units: dict[str, int] = field(default_factory=dict)
     phases: dict[str, dict[str, Any]] = field(default_factory=dict)
     tables: dict[str, int] = field(default_factory=dict)
+    derived: dict[str, Any] = field(default_factory=dict)
     unknown_line_types: dict[str, int] = field(default_factory=dict)
     ignored_line_types: dict[str, int] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
     db_bytes: int = 0
     total_seconds: float = 0.0
+
+    @property
+    def db_path(self) -> str:
+        """The target spec, kept under its old name for callers that printed it."""
+        return self.target
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-compatible dictionary."""
@@ -217,7 +256,7 @@ def compact(db_path: Path) -> None:
 
 
 class BaseIngest:
-    """Common run scaffolding for one ingest into a fresh DuckDB file.
+    """Common run scaffolding for one source into one target.
 
     Parameters
     ----------
@@ -227,8 +266,8 @@ class BaseIngest:
         Agent kind recorded in provenance, ``codex`` or ``claude``.
     root : Path
         Directory to read.
-    db_path : Path
-        DuckDB file to create; an existing file is replaced.
+    target : Target or Path or str
+        Where to publish: a local DuckDB file or ``md:<database>``.
     window_days : int or None
         Threads anchored before ``now - window_days`` are counted, not modelled. None disables.
     blobs : bool
@@ -237,6 +276,10 @@ class BaseIngest:
         Reference time for the window; defaults to the current UTC time.
     host : dict or None
         Host identity; defaults to :func:`host_identity`.
+    mode : str
+        ``rebuild`` replaces a local file outright (the default of ``pdum-history ingest``);
+        ``sync`` replaces only the threads whose files changed since the ledger was written;
+        ``full`` is a sync that re-reads every unit, used after a schema change.
     """
 
     def __init__(
@@ -244,17 +287,23 @@ class BaseIngest:
         source: str,
         agent: str,
         root: Path,
-        db_path: Path,
+        target: Target | Path | str,
         *,
         window_days: int | None = DEFAULT_WINDOW_DAYS,
         blobs: bool = True,
         now: datetime | None = None,
         host: dict[str, str] | None = None,
+        mode: str = "rebuild",
     ) -> None:
+        if mode not in {"rebuild", "sync", "full"}:
+            raise ValueError(f"unknown mode {mode!r}")
         self.source = source
         self.agent = agent
         self.root = root.expanduser().resolve()
-        self.db_path = db_path.expanduser().resolve()
+        self.target = target if isinstance(target, Target) else Target(str(target))
+        if mode == "rebuild" and self.target.motherduck:
+            mode = "full"
+        self.mode = mode
         self.blobs = blobs
         reference = now or datetime.now(UTC).replace(tzinfo=None)
         self.cutoff = reference - timedelta(days=window_days) if window_days is not None else None
@@ -268,16 +317,25 @@ class BaseIngest:
             source=source,
             source_id=self.source_id,
             root=str(self.root),
-            db_path=str(self.db_path),
+            target=self.target.spec,
+            mode=mode,
             window_cutoff=self.cutoff.isoformat() if self.cutoff else None,
             host={k: v for k, v in self.host.items() if k != "created_at"},
         )
         self.coverage: dict[str, dict[str, Any]] = {}
+        self.unit_threads: dict[str, list[str]] = {}
+        """Thread ids each unit produced this run, for the ledger and for later replacement."""
         self.con: duckdb.DuckDBPyConnection | None = None
         self._source_index = {
             table: [index for index, (name, _) in enumerate(columns) if name == "source_id"]
             for table, columns in schema.COLUMNS.items()
         }
+
+    # ---------------------------------------------------------------- helpers
+    @property
+    def db_path(self) -> Path:
+        """The local target file; raises for MotherDuck targets."""
+        return self.target.path
 
     def in_window(self, moment: datetime | None) -> bool:
         """Return whether a thread anchored at ``moment`` is modelled."""
@@ -339,6 +397,7 @@ class BaseIngest:
                 "response_items": 0,
                 "compactions": 0,
                 "unknown_line_types": 0,
+                "marker_lines": 0,
             },
         )
 
@@ -379,27 +438,46 @@ class BaseIngest:
         )
         meta = {
             "schema_version": str(schema.SCHEMA_VERSION),
-            "run_id": self.run_id,
-            "source": self.source,
-            "source_id": self.source_id,
-            "root": str(self.root),
-            "window_cutoff": self.summary.window_cutoff or "",
-            "ingested_at": now.isoformat(),
+            "last_run_id": self.run_id,
+            "last_ingested_at": now.isoformat(),
             **(extra_meta or {}),
         }
         self.write("meta", [schema.row("meta", key=key, value=value) for key, value in meta.items()])
         return len(cover_rows)
 
+    # -------------------------------------------------------------------- run
     def run(self) -> IngestSummary:
-        """Open the database, run :meth:`ingest`, compact the file and return the summary."""
+        """Scan, plan, ingest the changed units, publish, derive lineage and return the summary."""
         total = time.perf_counter()
-        if self.db_path.exists():
-            self.db_path.unlink()
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.con = duckdb.connect(str(self.db_path))
+        scan = self.scan()
+        if self.mode == "rebuild":
+            self._rebuild(scan)
+        else:
+            self._sync(scan)
+        self.summary.total_seconds = round(time.perf_counter() - total, 3)
+        return self.summary
+
+    def _rebuild(self, scan: dict[str, ledger_module.Unit]) -> None:
+        """Write a fresh local file directly, then compact it."""
+        from .derive import dedupe_responses, derive_lineage
+
+        path = self.db_path
+        if path.exists():
+            path.unlink()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        plan = ledger_module.plan(scan, {}, full=True)
+        self.summary.units = plan.counts
+        self.con = duckdb.connect(str(path))
         try:
             schema.create(self.con)
-            self.ingest()
+            self.ingest(plan.changed)
+            now = datetime.now(UTC).replace(tzinfo=None)
+            self.write(
+                "ingest_ledger", ledger_module.rows(self.source_id, self.run_id, plan, {}, self.unit_threads, now)
+            )
+            self.summary.derived = derive_lineage(self.con, self.source_id, self.source)
+            self.summary.derived["deduplicated"] = dedupe_responses(self.con, self.source_id)
+            self.summary.notes.extend(self.summary.derived.get("notes", []))
             self.summary.tables = {
                 table: self.con.execute(f"select count(*) from {table}").fetchone()[0] for table in schema.COLUMNS
             }
@@ -407,10 +485,126 @@ class BaseIngest:
         finally:
             self.con.close()
             self.con = None
-        compact(self.db_path)
-        self.summary.db_bytes = self.db_path.stat().st_size
-        self.summary.total_seconds = round(time.perf_counter() - total, 3)
-        return self.summary
+        compact(path)
+        self.summary.db_bytes = path.stat().st_size
 
-    def ingest(self) -> None:  # pragma: no cover - subclasses implement
+    def _sync(self, scan: dict[str, ledger_module.Unit]) -> None:
+        """Parse changed units into a staging file and publish them into the target."""
+        target_con = self.target.connect()
+        try:
+            ensure_schema(target_con, rebuild=self.mode == "full")
+            stored = ledger_module.read(target_con, self.source_id)
+            self.prepare(target_con)
+        finally:
+            target_con.close()
+        plan = ledger_module.plan(scan, stored, full=self.mode == "full")
+        self.summary.units = plan.counts
+        staging_dir = Path(tempfile.mkdtemp(prefix="pdum-history-"))
+        staging = staging_dir / "staging.duckdb"
+        self.con = duckdb.connect(str(staging))
+        try:
+            schema.create(self.con)
+            self.ingest(plan.changed)
+            now = datetime.now(UTC).replace(tzinfo=None)
+            self.write(
+                "ingest_ledger", ledger_module.rows(self.source_id, self.run_id, plan, stored, self.unit_threads, now)
+            )
+            self.summary.tables = {
+                table: self.con.execute(f"select count(*) from {table}").fetchone()[0] for table in schema.COLUMNS
+            }
+            self.con.execute("CHECKPOINT")
+        finally:
+            self.con.close()
+            self.con = None
+        try:
+            self.publish(staging, plan, stored)
+        finally:
+            staging.unlink(missing_ok=True)
+            staging.with_name(staging.name + ".wal").unlink(missing_ok=True)
+            try:
+                staging_dir.rmdir()
+            except OSError:  # pragma: no cover - leftover temp files
+                pass
+
+    def publish(self, staging: Path, plan: ledger_module.Plan, stored: dict[str, ledger_module.LedgerRow]) -> None:
+        """Replace the changed threads' rows in the target with the staged rows, then derive lineage."""
+        from .derive import dedupe_responses, derive_lineage
+
+        started = time.perf_counter()
+        replaced: set[str] = set()
+        for unit_id in plan.changed:
+            replaced.update(self.unit_threads.get(unit_id) or [unit_id])
+            row = stored.get(unit_id)
+            if row is not None:
+                replaced.update(row.thread_ids)
+        con = self.target.connect()
+        alias = f"staging_{self.run_id}"
+        try:
+            # MotherDuck remembers attachments across sessions, so never reuse a name and always detach.
+            con.execute(f"DETACH DATABASE IF EXISTS {alias}")
+            con.execute(f"ATTACH '{staging}' AS {alias} (READ_ONLY)")
+            con.execute("BEGIN TRANSACTION")
+            con.execute("CREATE TEMP TABLE _replaced (thread_id VARCHAR)")
+            if replaced:
+                con.executemany("INSERT INTO _replaced VALUES (?)", [(thread_id,) for thread_id in sorted(replaced)])
+            for table in THREAD_KEYED_TABLES:
+                con.execute(
+                    f"DELETE FROM {table} WHERE source_id = ? AND thread_id IN (SELECT thread_id FROM _replaced)",
+                    [self.source_id],
+                )
+            for table in CHILD_KEYED_TABLES:
+                con.execute(
+                    f"DELETE FROM {table} WHERE source_id = ? AND child_thread_id IN (SELECT thread_id FROM _replaced)",
+                    [self.source_id],
+                )
+            if self.mode == "full":
+                con.execute("DELETE FROM logs WHERE source_id = ?", [self.source_id])
+            con.execute("DELETE FROM provenance WHERE source_id = ?", [self.source_id])
+            con.execute(f"DELETE FROM meta WHERE key IN (SELECT key FROM {alias}.meta)")
+            touched_units = sorted({*plan.changed, *plan.gone})
+            if touched_units:
+                con.execute("CREATE TEMP TABLE _units (unit_id VARCHAR)")
+                con.executemany("INSERT INTO _units VALUES (?)", [(unit_id,) for unit_id in touched_units])
+                con.execute(
+                    "DELETE FROM ingest_ledger WHERE source_id = ? AND unit_id IN (SELECT unit_id FROM _units)",
+                    [self.source_id],
+                )
+            for table in schema.COLUMNS:
+                con.execute(f"INSERT INTO {table} SELECT * FROM {alias}.{table}")
+            deduplicated = dedupe_responses(con, self.source_id)
+            con.execute("COMMIT")
+            self.summary.derived = derive_lineage(con, self.source_id, self.source)
+            self.summary.derived["deduplicated"] = deduplicated
+            self.summary.notes.extend(self.summary.derived.get("notes", []))
+            if not self.target.motherduck:
+                con.execute("CHECKPOINT")
+                self.summary.db_bytes = self.db_path.stat().st_size
+        except Exception:
+            try:
+                con.execute("ROLLBACK")
+            except duckdb.Error:  # pragma: no cover - nothing to roll back
+                pass
+            raise
+        finally:
+            try:
+                con.execute(f"DETACH DATABASE IF EXISTS {alias}")
+            except duckdb.Error:  # pragma: no cover - connection already unusable
+                pass
+            con.close()
+        self.summary.phases["publish"] = {
+            "seconds": round(time.perf_counter() - started, 3),
+            "rows": sum(self.summary.tables.values()),
+            "detail": f"threads replaced {len(replaced)}; units gone {len(plan.gone)}",
+        }
+
+    # ------------------------------------------------------------- subclasses
+    def scan(self) -> dict[str, ledger_module.Unit]:  # pragma: no cover - subclasses implement
+        """Return every unit the source holds, keyed by unit id, from file metadata alone."""
+        raise NotImplementedError
+
+    def prepare(self, target: duckdb.DuckDBPyConnection) -> None:
+        """Read anything a sync needs from the target before parsing, such as a log watermark."""
+
+    def ingest(self, units: dict[str, ledger_module.Unit]) -> None:  # pragma: no cover - subclasses implement
+        """Parse the given units and write their rows."""
         raise NotImplementedError

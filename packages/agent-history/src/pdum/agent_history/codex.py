@@ -5,22 +5,32 @@ Inputs are the thread catalogue (``state_5.sqlite``), the history projection
 ``sessions/`` and ``archived_sessions/``. Rollouts are the record: they alone hold per-response
 usage, rate limits, turn settings and fork lineage. Threads older than the support window are
 listed in ``coverage`` with ``in_window = false`` and otherwise skipped.
+
+A unit of incremental work is one thread: its rollout file plus its catalogue row, whose
+``updated_at`` and archived flag are the change fingerprint. The catalogue, projection and logs
+are small databases that every run reads, but rows are written only for the units being replaced;
+logs are appended from the target's last timestamp.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import duckdb
+
 from . import items as item_columns
 from . import schema
-from .base import DEFAULT_WINDOW_DAYS, BaseIngest, IngestSummary, assign_lineage, compact, repo_from_origin
+from .base import DEFAULT_WINDOW_DAYS, BaseIngest, IngestSummary, compact, repo_from_origin
+from .ledger import Unit
 from .sqlite import open_readonly
+from .targets import Target
 
 SOURCE = "codex-fs"
 __all__ = ["DEFAULT_WINDOW_DAYS", "CodexIngest", "IngestSummary", "compact", "default_codex_home", "ingest_codex_home"]
@@ -42,6 +52,8 @@ PASSTHROUGH_EVENTS = {
     "realtime_item",
     "session_meta",
 }
+ROLLOUT_NAME = re.compile(r"^rollout-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-(.+)$")
+"""``rollout-<timestamp>-<thread id>``; the id after the timestamp names the thread."""
 
 
 def default_codex_home() -> Path:
@@ -62,40 +74,89 @@ def _usage_fields(prefix: str, usage: dict[str, Any] | None, keys: tuple[str, ..
     return {f"{prefix}{name}": usage.get(name) for name in names}
 
 
+def _chunks(values: list[str], size: int = 500) -> list[list[str]]:
+    return [values[index : index + size] for index in range(0, len(values), size)]
+
+
 class CodexIngest(BaseIngest):
-    """One ingest of a Codex home into a fresh DuckDB file.
+    """One ingest of a Codex home into a target.
 
     Parameters
     ----------
     home : Path
         Codex home to read.
-    db_path : Path
-        DuckDB file to create; an existing file is replaced.
+    target : Target or Path or str
+        Local DuckDB file or ``md:<database>`` to publish into.
     window_days : int or None
         Threads created before ``now - window_days`` are counted, not modelled. None disables.
     blobs : bool
         Store full item JSON in ``item_blobs``.
     now : datetime or None
         Reference time for the window; defaults to the current UTC time.
+    mode : str
+        ``rebuild``, ``sync`` or ``full``; see :class:`~pdum.agent_history.base.BaseIngest`.
     """
 
     def __init__(
         self,
         home: Path,
-        db_path: Path,
+        target: Target | Path | str,
         *,
         window_days: int | None = DEFAULT_WINDOW_DAYS,
         blobs: bool = True,
         now: datetime | None = None,
+        mode: str = "rebuild",
+        host: dict[str, str] | None = None,
     ) -> None:
-        super().__init__(SOURCE, "codex", home, db_path, window_days=window_days, blobs=blobs, now=now)
+        super().__init__(
+            SOURCE, "codex", home, target, window_days=window_days, blobs=blobs, now=now, host=host, mode=mode
+        )
         self.home = self.root
         self.threads: dict[str, dict[str, Any]] = {}
         self.turns: dict[tuple[str, str], dict[str, Any]] = {}
+        self.units: dict[str, Unit] = {}
+        self.window_by_thread: dict[str, bool] = {}
+        self.logs_watermark: datetime | None = None
+
+    # ------------------------------------------------------------------- scan
+    def scan(self) -> dict[str, Unit]:
+        """List every thread as a unit: its rollout file, if any, plus its catalogue fingerprint."""
+        rollouts: dict[str, Path] = {}
+        for path in sorted((self.home / "sessions").glob("*/*/*/rollout-*.jsonl")) + sorted(
+            (self.home / "archived_sessions").glob("rollout-*.jsonl")
+        ):
+            match = ROLLOUT_NAME.match(path.stem)
+            rollouts[match.group(1) if match else path.stem] = path
+        fingerprints: dict[str, str] = {}
+        state = self.home / "state_5.sqlite"
+        if state.exists():
+            connection, _ = open_readonly(state)
+            try:
+                for thread_id, updated_ms, updated, archived in connection.execute(
+                    "select id, updated_at_ms, updated_at, archived from threads"
+                ):
+                    fingerprints[thread_id] = f"{updated_ms or updated}|{int(bool(archived))}"
+            finally:
+                connection.close()
+        units: dict[str, Unit] = {}
+        for thread_id in sorted(set(rollouts) | set(fingerprints)):
+            path = rollouts.get(thread_id)
+            fingerprint = fingerprints.get(thread_id)
+            if path is not None:
+                units[thread_id] = Unit.from_path(thread_id, path, fingerprint)
+            else:
+                units[thread_id] = Unit(thread_id, None, fingerprint=fingerprint)
+        return units
+
+    def prepare(self, target: duckdb.DuckDBPyConnection) -> None:
+        """Remember the newest log already published, so a sync appends only newer log rows."""
+        row = target.execute("select max(ts) from logs where source_id = ?", [self.source_id]).fetchone()
+        self.logs_watermark = row[0] if row else None
 
     # ----------------------------------------------------------------- ingest
-    def ingest(self) -> None:
-        """Read the catalogue, every rollout, the projection and the logs."""
+    def ingest(self, units: dict[str, Unit]) -> None:
+        """Read the catalogue, the given units' rollouts, their projection rows and new logs."""
+        self.units = units
         self.catalogue()
         self.rollouts()
         self.projection()
@@ -115,6 +176,11 @@ class CodexIngest(BaseIngest):
         connection.row_factory = sqlite3.Row
         count = 0
         for record in connection.execute("select * from threads"):
+            created = schema.from_ms(record["created_at_ms"] or record["created_at"])
+            in_window = self.in_window(created)
+            self.window_by_thread[record["id"]] = in_window
+            if record["id"] not in self.units:
+                continue
             source = record["source"] or ""
             source_kind = source
             if source.startswith("{"):
@@ -123,7 +189,6 @@ class CodexIngest(BaseIngest):
                     source_kind = next(iter(parsed)) if isinstance(parsed, dict) and parsed else source[:32]
                 except ValueError:
                     source_kind = source[:32]
-            created = schema.from_ms(record["created_at_ms"] or record["created_at"])
             self.threads[record["id"]] = {
                 "thread_id": record["id"],
                 "created_at": created,
@@ -149,12 +214,13 @@ class CodexIngest(BaseIngest):
                 "agent_role": record["agent_role"],
                 "agent_path": record["agent_path"],
                 "rollout_path": record["rollout_path"],
-                "in_window": self.in_window(created),
+                "in_window": in_window,
                 "origin": "state_5",
             }
             cover = self.cover(record["id"])
             cover["in_catalogue"] = True
-            cover["in_window"] = self.in_window(created)
+            cover["in_window"] = in_window
+            self.unit_threads.setdefault(record["id"], [record["id"]])
             if record["cli_version"]:
                 self.versions.add(str(record["cli_version"]))
             count += 1
@@ -170,6 +236,7 @@ class CodexIngest(BaseIngest):
             for parent, child, status in connection.execute(
                 "select parent_thread_id, child_thread_id, status from thread_spawn_edges"
             )
+            if child in self.units
         ]
         self.write("spawn_edges", edges)
         connection.close()
@@ -179,16 +246,15 @@ class CodexIngest(BaseIngest):
     def rollouts(self) -> None:
         assert self.con is not None
         started = time.perf_counter()
-        files = sorted((self.home / "sessions").glob("*/*/*/rollout-*.jsonl"))
-        files += sorted((self.home / "archived_sessions").glob("rollout-*.jsonl"))
+        files = [(unit_id, unit.path) for unit_id, unit in sorted(self.units.items()) if unit.path is not None]
         compressed = len(list((self.home / "sessions").glob("*/*/*/rollout-*.zst")))
         compressed += len(list((self.home / "archived_sessions").glob("rollout-*.zst")))
         total_bytes = 0
         total_lines = 0
         skipped = 0
-        for path in files:
+        for unit_id, path in files:
             total_bytes += path.stat().st_size
-            lines = self.rollout(path)
+            lines = self.rollout(path, unit_id)
             if lines is None:
                 skipped += 1
             else:
@@ -200,7 +266,7 @@ class CodexIngest(BaseIngest):
             f"files {len(files)}; bytes {total_bytes}; outside window {skipped}; compressed skipped {compressed}",
         )
 
-    def rollout(self, path: Path) -> int | None:
+    def rollout(self, path: Path, unit_id: str) -> int | None:
         """Read one rollout; return its line count, or None when outside the window."""
         assert self.con is not None
         responses: list[tuple] = []
@@ -228,10 +294,13 @@ class CodexIngest(BaseIngest):
                         thread_id = payload.get("id")
                     else:
                         fmt = "legacy"
-                        thread_id = record.get("id") or path.stem.split("-", 4)[-1]
+                        thread_id = record.get("id") or unit_id
                         payload = record
                     if not thread_id:
                         return lines
+                    if thread_id != unit_id:
+                        self.summary.notes.append(f"rollout {path.name} names thread {thread_id}")
+                    self.unit_threads[unit_id] = sorted({unit_id, thread_id})
                     cover = self.cover(thread_id)
                     cover["rollout_format"] = fmt
                     anchor = self.session_meta(thread_id, payload, path, fmt)
@@ -619,62 +688,65 @@ class CodexIngest(BaseIngest):
         blobs: list[tuple] = []
         item_rows = 0
         skipped_items = 0
-        cursor = connection.execute(
-            "select thread_id, turn_id, item_id, rollout_ordinal, created_at_ms, started_at_ms, completed_at_ms, "
-            "item_type, item_json from thread_items"
-        )
-        while True:
-            chunk = cursor.fetchmany(2000)
-            if not chunk:
-                break
-            for record in chunk:
-                if not self.thread_in_window(record["thread_id"], record["created_at_ms"]):
-                    skipped_items += 1
-                    continue
-                raw = record["item_json"]
-                try:
-                    item = json.loads(raw)
-                except ValueError:
-                    item = {"type": record["item_type"], "id": record["item_id"]}
-                columns = item_columns.extract(item)
-                duration = None
-                if record["started_at_ms"] and record["completed_at_ms"]:
-                    duration = record["completed_at_ms"] - record["started_at_ms"]
-                columns.update(
-                    thread_id=record["thread_id"],
-                    turn_id=record["turn_id"],
-                    item_id=record["item_id"],
-                    rollout_ordinal=record["rollout_ordinal"],
-                    item_type=record["item_type"] or columns.get("item_type"),
-                    created_at=schema.from_ms(record["created_at_ms"]),
-                    started_at=schema.from_ms(record["started_at_ms"]),
-                    completed_at=schema.from_ms(record["completed_at_ms"]),
-                    duration_ms=duration,
-                    item_json_bytes=len(raw),
-                    source=SOURCE,
-                    origin="thread_history_1",
-                )
-                batch.append(schema.row("items", **columns))
-                if self.blobs:
-                    blobs.append(
-                        schema.row(
-                            "item_blobs",
-                            thread_id=record["thread_id"],
-                            turn_id=record["turn_id"],
-                            item_id=record["item_id"],
-                            item_json=raw,
-                            source=SOURCE,
-                            origin="thread_history_1",
-                        )
+        for chunk in _chunks(sorted(self.units)):
+            placeholders = ", ".join("?" for _ in chunk)
+            cursor = connection.execute(
+                "select thread_id, turn_id, item_id, rollout_ordinal, created_at_ms, started_at_ms, completed_at_ms, "
+                f"item_type, item_json from thread_items where thread_id in ({placeholders})",
+                chunk,
+            )
+            while True:
+                rows = cursor.fetchmany(2000)
+                if not rows:
+                    break
+                for record in rows:
+                    if not self.thread_in_window(record["thread_id"], record["created_at_ms"]):
+                        skipped_items += 1
+                        continue
+                    raw = record["item_json"]
+                    try:
+                        item = json.loads(raw)
+                    except ValueError:
+                        item = {"type": record["item_type"], "id": record["item_id"]}
+                    columns = item_columns.extract(item)
+                    duration = None
+                    if record["started_at_ms"] and record["completed_at_ms"]:
+                        duration = record["completed_at_ms"] - record["started_at_ms"]
+                    columns.update(
+                        thread_id=record["thread_id"],
+                        turn_id=record["turn_id"],
+                        item_id=record["item_id"],
+                        rollout_ordinal=record["rollout_ordinal"],
+                        item_type=record["item_type"] or columns.get("item_type"),
+                        created_at=schema.from_ms(record["created_at_ms"]),
+                        started_at=schema.from_ms(record["started_at_ms"]),
+                        completed_at=schema.from_ms(record["completed_at_ms"]),
+                        duration_ms=duration,
+                        item_json_bytes=len(raw),
+                        source=SOURCE,
+                        origin="thread_history_1",
                     )
-                cover = self.cover(record["thread_id"])
-                cover["in_projection"] = True
-                cover["projection_items"] += 1
-                item_rows += 1
-            self.write("items", batch)
-            self.write("item_blobs", blobs)
-            batch.clear()
-            blobs.clear()
+                    batch.append(schema.row("items", **columns))
+                    if self.blobs:
+                        blobs.append(
+                            schema.row(
+                                "item_blobs",
+                                thread_id=record["thread_id"],
+                                turn_id=record["turn_id"],
+                                item_id=record["item_id"],
+                                item_json=raw,
+                                source=SOURCE,
+                                origin="thread_history_1",
+                            )
+                        )
+                    cover = self.cover(record["thread_id"])
+                    cover["in_projection"] = True
+                    cover["projection_items"] += 1
+                    item_rows += 1
+                self.write("items", batch)
+                self.write("item_blobs", blobs)
+                batch.clear()
+                blobs.clear()
         connection.close()
         self.phase(
             "projection",
@@ -684,10 +756,14 @@ class CodexIngest(BaseIngest):
         )
 
     def thread_in_window(self, thread_id: str, fallback_ms: Any) -> bool:
-        """Decide membership for a projection row by its thread, else by its own timestamp."""
+        """Decide membership for a projection row: only this run's units, by their window, else by timestamp."""
+        if thread_id not in self.units:
+            return False
         cover = self.coverage.get(thread_id)
         if cover is not None:
             return bool(cover["in_window"])
+        if thread_id in self.window_by_thread:
+            return self.window_by_thread[thread_id]
         return self.in_window(schema.from_ms(fallback_ms))
 
     # ------------------------------------------------------------------- logs
@@ -701,9 +777,17 @@ class CodexIngest(BaseIngest):
             return
         connection, how = open_readonly(path)
         rows = []
-        cutoff_seconds = self.cutoff.replace(tzinfo=UTC).timestamp() if self.cutoff else 0
-        query = "select ts, ts_nanos, level, target, feedback_log_body, thread_id, process_uuid from logs where ts >= ?"
-        for ts, nanos, level, target, body, thread_id, process_uuid in connection.execute(query, (cutoff_seconds,)):
+        if self.logs_watermark is not None:
+            since = self.logs_watermark.replace(tzinfo=UTC).timestamp()
+            query = (
+                "select ts, ts_nanos, level, target, feedback_log_body, thread_id, process_uuid from logs where ts > ?"
+            )
+        else:
+            since = self.cutoff.replace(tzinfo=UTC).timestamp() if self.cutoff else 0
+            query = (
+                "select ts, ts_nanos, level, target, feedback_log_body, thread_id, process_uuid from logs where ts >= ?"
+            )
+        for ts, nanos, level, target, body, thread_id, process_uuid in connection.execute(query, (since,)):
             moment = datetime.fromtimestamp(ts + (nanos or 0) / 1e9, tz=UTC).replace(tzinfo=None) if ts else None
             rows.append(
                 schema.row(
@@ -720,7 +804,7 @@ class CodexIngest(BaseIngest):
             )
         connection.close()
         self.write("logs", rows)
-        self.phase("logs", started, len(rows), how)
+        self.phase("logs", started, len(rows), f"{how}; since watermark {self.logs_watermark is not None}")
 
     # ----------------------------------------------------------------- finish
     def finish(self) -> None:
@@ -728,9 +812,7 @@ class CodexIngest(BaseIngest):
         started = time.perf_counter()
         thread_columns = dict(schema.COLUMNS["threads"])
         thread_rows = []
-        edges = []
-        for note in assign_lineage(self.threads).values():
-            self.summary.notes.append(note)
+        links = []
         for thread in self.threads.values():
             thread.setdefault("source", SOURCE)
             thread.setdefault("in_window", True)
@@ -738,21 +820,20 @@ class CodexIngest(BaseIngest):
             parent = thread.get("forked_from_id")
             if parent and parent != thread["thread_id"]:
                 # The rollout's session_meta names the fork parent; the catalogue does not record forks.
-                edges.append(
+                links.append(
                     schema.row(
-                        "fork_edges",
-                        parent_thread_id=parent,
-                        child_thread_id=thread["thread_id"],
-                        kind="fork",
-                        evidence="rollout",
-                        ambiguous=False,
-                        child_started_at=thread.get("created_at"),
+                        "thread_links",
+                        thread_id=thread["thread_id"],
+                        kind="forked-from",
+                        target_thread_id=parent,
+                        ordinal=0,
+                        ts=thread.get("created_at"),
                         source=SOURCE,
                         origin=thread.get("origin"),
                     )
                 )
         self.write("threads", thread_rows)
-        self.write("fork_edges", edges)
+        self.write("thread_links", links)
         turn_rows = [
             schema.row("turns", **{**turn, "source": SOURCE})
             for turn in self.turns.values()
@@ -770,26 +851,30 @@ class CodexIngest(BaseIngest):
 
 def ingest_codex_home(
     home: Path | None = None,
-    db_path: Path | None = None,
+    db_path: Target | Path | str | None = None,
     *,
     window_days: int | None = DEFAULT_WINDOW_DAYS,
     blobs: bool = True,
     now: datetime | None = None,
+    mode: str = "rebuild",
 ) -> IngestSummary:
-    """Ingest a Codex home into a DuckDB file.
+    """Ingest a Codex home into a DuckDB file or MotherDuck database.
 
     Parameters
     ----------
     home : Path or None
         Codex home; defaults to ``$CODEX_HOME`` or ``~/.codex``.
-    db_path : Path or None
-        Target DuckDB file; defaults to ``codex-history.duckdb`` in the current directory.
+    db_path : Target or Path or str or None
+        Target DuckDB file or ``md:<database>``; defaults to ``codex-history.duckdb`` in the
+        current directory.
     window_days : int or None
         Support window in days; None ingests everything.
     blobs : bool
         Store full item JSON in ``item_blobs``.
     now : datetime or None
         Reference time for the window, for tests.
+    mode : str
+        ``rebuild`` (fresh local file), ``sync`` (incremental) or ``full`` (sync re-reading everything).
 
     Returns
     -------
@@ -802,5 +887,6 @@ def ingest_codex_home(
         window_days=window_days,
         blobs=blobs,
         now=now,
+        mode=mode,
     )
     return ingest.run()

@@ -15,6 +15,7 @@ pnpm -C packages/agent-history cli sql ~/history/codex.duckdb "select count(*) f
 pnpm -C packages/agent-history cli tag ~/history/codex.duckdb thread 01a140ad project=pencil-lab reviewed
 pnpm -C packages/agent-history cli sessions ~/history/codex.duckdb --tag project=pencil-lab
 pnpm -C packages/agent-history cli prices show claude-fable-5-1
+MOTHERDUCK_TOKEN=... pnpm -C packages/agent-history cli sessions md:agent_history --limit 10
 ```
 
 `check` prints invariants: `zero` checks must be zero, `info` checks are numbers
@@ -32,3 +33,9 @@ and CI keep the two in step. Prices come from a trimmed LiteLLM snapshot in
 `src/litellm-snapshot.json`, stamped on every priced output and refreshed with
 `prices refresh`. Tags live in a sibling `<db>.tags.duckdb` file written by `tag`
 and read by `sessions`, `show` and `sql` as `tagsdb.tags`.
+
+Every command also takes a MotherDuck database, `md:<database>`, in place of a file,
+once `pdum-history` has written the same tables there. The token comes from
+`MOTHERDUCK_TOKEN` (for example through `node --env-file=.env dist/cli.js ...` or an
+exported variable). Tags on MotherDuck live inside the same database as the
+`tagsdb.tags` table, so `tag`, `--tag` and `tagsdb.tags` in `sql` work unchanged.

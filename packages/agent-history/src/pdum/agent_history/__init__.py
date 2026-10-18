@@ -10,15 +10,23 @@ produced a fact. Query, invariant and forensics code lives in the TypeScript pac
 from .base import DEFAULT_WINDOW_DAYS, IngestSummary
 from .claude import ClaudeIngest, ingest_claude_dir
 from .codex import CodexIngest, ingest_codex_home
+from .config import Config
+from .config import load as load_config
 from .schema import SCHEMA_VERSION, describe
+from .sync import sync
+from .targets import Target
 
 __all__ = [
     "DEFAULT_WINDOW_DAYS",
     "SCHEMA_VERSION",
     "ClaudeIngest",
     "CodexIngest",
+    "Config",
     "IngestSummary",
+    "Target",
     "describe",
     "ingest_claude_dir",
     "ingest_codex_home",
+    "load_config",
+    "sync",
 ]
