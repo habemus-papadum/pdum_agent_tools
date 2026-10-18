@@ -1,0 +1,380 @@
+{
+  "envelope": {
+    "context_read_millions": [
+      1.49,
+      2.83
+    ],
+    "cost_usd": [
+      3.31,
+      7.77
+    ],
+    "growth_per_step": [
+      3416,
+      6932
+    ],
+    "output_tokens": [
+      19298,
+      72206
+    ],
+    "peak_ctx": [
+      92012,
+      185016
+    ],
+    "steps": [
+      22,
+      25
+    ],
+    "tool_bytes": [
+      216976,
+      256741
+    ],
+    "tool_calls": [
+      34,
+      59
+    ],
+    "wall_minutes": [
+      7.1,
+      14.4
+    ]
+  },
+  "generated_at": "2026-10-18T14:06:10Z",
+  "runs": [
+    {
+      "agent": "codex",
+      "cache_share": 0.898,
+      "checks": {
+        "build": {
+          "detail": "",
+          "ok": true
+        },
+        "files-outside-package": {
+          "detail": "8",
+          "ok": true
+        },
+        "install": {
+          "detail": "",
+          "ok": true
+        },
+        "lint": {
+          "detail": "",
+          "ok": true
+        },
+        "package-present": {
+          "detail": "",
+          "ok": true
+        },
+        "python-untouched": {
+          "detail": "",
+          "ok": true
+        },
+        "test": {
+          "detail": "45 passed",
+          "ok": true
+        },
+        "test-workspace": {
+          "detail": "",
+          "ok": true
+        },
+        "typecheck": {
+          "detail": "",
+          "ok": true
+        }
+      },
+      "compactions": 0,
+      "context_read_millions": 1.49,
+      "cost_usd": 3.81,
+      "cost_usd_ledger": null,
+      "cost_usd_list": 3.81,
+      "exit_code": 0,
+      "expectations": {
+        "coverage": {
+          "launch_options": {
+            "found": 5,
+            "missing": [],
+            "total": 5
+          },
+          "profile_fields": {
+            "found": 4,
+            "missing": [],
+            "total": 4
+          },
+          "routes": {
+            "found": 6,
+            "missing": [],
+            "total": 6
+          },
+          "session_fields": {
+            "found": 9,
+            "missing": [],
+            "total": 9
+          },
+          "status_fields": {
+            "found": 9,
+            "missing": [],
+            "total": 9
+          },
+          "verbs": {
+            "found": 3,
+            "missing": [],
+            "total": 3
+          },
+          "worker_fields": {
+            "found": 13,
+            "missing": [],
+            "total": 13
+          }
+        },
+        "package_exists": true
+      },
+      "failed_commands": 8,
+      "file_changes": 5,
+      "flags": [],
+      "growth_per_step": 3416,
+      "label": "codex-astra-default",
+      "main_thread": "01a14c07-fa1b-77f0-95cc-278986383bad",
+      "model": "gpt-6-astra",
+      "output_tokens": 19298,
+      "peak_ctx": 92012,
+      "peak_pct_window": 35.6,
+      "ran_tests": true,
+      "ran_typecheck": true,
+      "reasoning_tokens": 2712,
+      "responses_total": 22,
+      "run_id": "2026-10-17-launcher-client-codex-astra-default",
+      "start_ctx": 20266,
+      "steps": 22,
+      "task": "launcher-client",
+      "threads": 1,
+      "tool_bytes": 216976,
+      "tool_calls": 39,
+      "wall_minutes": 9.2,
+      "window": 258400
+    },
+    {
+      "agent": "codex",
+      "cache_share": 0.943,
+      "checks": {
+        "build": {
+          "detail": "",
+          "ok": true
+        },
+        "files-outside-package": {
+          "detail": "8",
+          "ok": true
+        },
+        "install": {
+          "detail": "",
+          "ok": true
+        },
+        "lint": {
+          "detail": "",
+          "ok": true
+        },
+        "package-present": {
+          "detail": "",
+          "ok": true
+        },
+        "python-untouched": {
+          "detail": "",
+          "ok": true
+        },
+        "test": {
+          "detail": "47 passed",
+          "ok": true
+        },
+        "test-workspace": {
+          "detail": "",
+          "ok": true
+        },
+        "typecheck": {
+          "detail": "",
+          "ok": true
+        }
+      },
+      "compactions": 0,
+      "context_read_millions": 1.49,
+      "cost_usd": 3.31,
+      "cost_usd_ledger": null,
+      "cost_usd_list": 3.31,
+      "exit_code": 0,
+      "expectations": {
+        "coverage": {
+          "launch_options": {
+            "found": 5,
+            "missing": [],
+            "total": 5
+          },
+          "profile_fields": {
+            "found": 4,
+            "missing": [],
+            "total": 4
+          },
+          "routes": {
+            "found": 6,
+            "missing": [],
+            "total": 6
+          },
+          "session_fields": {
+            "found": 9,
+            "missing": [],
+            "total": 9
+          },
+          "status_fields": {
+            "found": 9,
+            "missing": [],
+            "total": 9
+          },
+          "verbs": {
+            "found": 3,
+            "missing": [],
+            "total": 3
+          },
+          "worker_fields": {
+            "found": 13,
+            "missing": [],
+            "total": 13
+          }
+        },
+        "package_exists": true
+      },
+      "failed_commands": 6,
+      "file_changes": 5,
+      "flags": [],
+      "growth_per_step": 3441,
+      "label": "codex-astra-872k",
+      "main_thread": "01a14c10-aae8-7981-aa00-1c9b8908ce88",
+      "model": "gpt-6-astra",
+      "output_tokens": 21150,
+      "peak_ctx": 92450,
+      "peak_pct_window": 11.2,
+      "ran_tests": true,
+      "ran_typecheck": true,
+      "reasoning_tokens": 3571,
+      "responses_total": 22,
+      "run_id": "2026-10-17-launcher-client-codex-astra-872k",
+      "start_ctx": 20184,
+      "steps": 22,
+      "task": "launcher-client",
+      "threads": 1,
+      "tool_bytes": 230348,
+      "tool_calls": 34,
+      "wall_minutes": 7.1,
+      "window": 828400
+    },
+    {
+      "agent": "claude",
+      "asked_question": false,
+      "cache_share": 0.938,
+      "checks": {
+        "build": {
+          "detail": "",
+          "ok": true
+        },
+        "files-outside-package": {
+          "detail": "11",
+          "ok": true
+        },
+        "install": {
+          "detail": "",
+          "ok": true
+        },
+        "lint": {
+          "detail": "",
+          "ok": true
+        },
+        "package-present": {
+          "detail": "",
+          "ok": true
+        },
+        "python-untouched": {
+          "detail": "",
+          "ok": true
+        },
+        "test": {
+          "detail": "24 passed",
+          "ok": true
+        },
+        "test-workspace": {
+          "detail": "",
+          "ok": true
+        },
+        "typecheck": {
+          "detail": "",
+          "ok": true
+        }
+      },
+      "compactions": 0,
+      "context_read_millions": 2.83,
+      "cost_usd": 7.77,
+      "cost_usd_ledger": 7.77,
+      "cost_usd_list": 6.46,
+      "exit_code": 0,
+      "expectations": {
+        "coverage": {
+          "launch_options": {
+            "found": 5,
+            "missing": [],
+            "total": 5
+          },
+          "profile_fields": {
+            "found": 4,
+            "missing": [],
+            "total": 4
+          },
+          "routes": {
+            "found": 6,
+            "missing": [],
+            "total": 6
+          },
+          "session_fields": {
+            "found": 9,
+            "missing": [],
+            "total": 9
+          },
+          "status_fields": {
+            "found": 9,
+            "missing": [],
+            "total": 9
+          },
+          "verbs": {
+            "found": 3,
+            "missing": [],
+            "total": 3
+          },
+          "worker_fields": {
+            "found": 13,
+            "missing": [],
+            "total": 13
+          }
+        },
+        "package_exists": true
+      },
+      "failed_commands": 6,
+      "file_changes": 0,
+      "flags": [],
+      "growth_per_step": 6932,
+      "label": "claude-fable-xhigh",
+      "main_thread": "281cfad3-43c2-4096-848a-6189104ba934",
+      "model": "claude-fable-5-1",
+      "output_tokens": 72206,
+      "peak_ctx": 185016,
+      "peak_pct_window": 18.5,
+      "ran_tests": true,
+      "ran_typecheck": true,
+      "reasoning_tokens": null,
+      "responses_total": 25,
+      "result_subtype": "success",
+      "run_id": "2026-10-17-launcher-client-claude-fable-xhigh",
+      "start_ctx": 18657,
+      "steps": 25,
+      "task": "launcher-client",
+      "thinking_tokens": 35883,
+      "threads": 1,
+      "tool_bytes": 256741,
+      "tool_calls": 59,
+      "wall_minutes": 14.4,
+      "window": 1000000
+    }
+  ],
+  "task": "launcher-client"
+}

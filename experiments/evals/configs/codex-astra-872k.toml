@@ -1,0 +1,13 @@
+# Arm B of the 2026-10-17 baseline: as arm A with the window raised to the catalog's maximum.
+[run]
+task = "launcher-client"
+label = "codex-astra-872k"
+agent = "codex"
+
+[codex]
+model = "gpt-6-astra"
+reasoning_effort = "xhigh"
+# Codex clamps this to the catalog's max_context_window (872,000 for Astra) and reports 95% of it.
+model_context_window = 872000
+from_codex_home = "~/.codex"
+clean = true

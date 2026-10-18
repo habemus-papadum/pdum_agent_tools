@@ -1,0 +1,16 @@
+# Template for an agent that is neither Codex nor Claude Code, such as our own browser-runnable agent.
+# Copy, rename, and point `run` at the agent. The agent must leave its trace in the shared
+# agent-history schema (threads, turns, responses, items, rollout_events, token_counts), either by
+# writing {run_dir}/history.duckdb itself or by writing a file named in `history` below.
+[run]
+task = "launcher-client"
+label = "my-agent"
+agent = "command"
+# Context window the metrics should divide by when the history has no token_counts rows.
+window = 400000
+
+[command]
+# Executed with the worktree as the working directory. Placeholders: {worktree}, {prompt} (shell-quoted),
+# {prompt_file}, {run_dir}. The environment also carries EVAL_RUN_DIR and EVAL_WORKTREE.
+run = "node ~/src/my-agent/dist/cli.js --cwd {worktree} --prompt-file {prompt_file} --trace {run_dir}/history.duckdb"
+# history = "{worktree}/.agent/history.duckdb"

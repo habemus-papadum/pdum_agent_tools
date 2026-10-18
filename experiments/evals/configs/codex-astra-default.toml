@@ -1,0 +1,14 @@
+# Arm A of the 2026-10-17 baseline: Codex with Astra at xhigh and the catalog's default window.
+[run]
+task = "launcher-client"
+label = "codex-astra-default"
+agent = "codex"
+
+[codex]
+model = "gpt-6-astra"
+reasoning_effort = "xhigh"
+# 0 keeps the served catalog default (272,000, reported as 258,400 after Codex's 95% factor).
+model_context_window = 0
+# Auth is copied from this home; its config is imported without plugins, MCP servers or skills.
+from_codex_home = "~/.codex"
+clean = true

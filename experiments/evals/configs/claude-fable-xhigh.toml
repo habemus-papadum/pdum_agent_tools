@@ -1,0 +1,18 @@
+# Arm C of the 2026-10-17 baseline: Claude Code with Fable 5.1 at xhigh in a clean profile.
+[run]
+task = "launcher-client"
+label = "claude-fable-xhigh"
+agent = "claude"
+# Used only when neither the history nor Claude's result JSON names the window.
+window = 1000000
+
+[claude]
+# The launcher borrows the existing login for the run; the source login is never modified.
+auth = "reuse-login"
+setting_sources = "user,project"
+
+[claude.settings]
+model = "fable"
+effortLevel = "xhigh"
+alwaysThinkingEnabled = true
+skipDangerousModePermissionPrompt = true

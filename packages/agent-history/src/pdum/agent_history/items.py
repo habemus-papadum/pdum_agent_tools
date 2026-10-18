@@ -1,7 +1,9 @@
 """Column extraction from one Codex v2 ``ThreadItem`` JSON object.
 
 The same function serves the SQLite projection, ``thread/items/list`` pages and live
-``item/completed`` notifications, because all three carry the camelCase v2 shape.
+``item/completed`` notifications, because all three carry the camelCase v2 shape. Rollout
+``item_completed`` events carry the core's own shape instead (PascalCase or snake_case type,
+snake_case fields); :func:`normalize_core_item` turns that into the v2 shape first.
 """
 
 from __future__ import annotations
@@ -172,4 +174,92 @@ def extract(item: dict[str, Any]) -> dict[str, Any]:
     if text is not None:
         out["text"] = text[:20000]
         out["text_len"] = len(text)
+    return out
+
+
+def _camel(name: str) -> str:
+    if "_" in name:
+        head, *rest = name.split("_")
+        return head.lower() + "".join(part.capitalize() for part in rest)
+    return name[:1].lower() + name[1:]
+
+
+def _duration_ms(item: dict[str, Any]) -> int | None:
+    duration = item.get("duration")
+    if isinstance(duration, dict):
+        return int(duration.get("secs") or 0) * 1000 + int(duration.get("nanos") or 0) // 1_000_000
+    value = item.get("duration_ms", item.get("durationMs"))
+    return int(value) if isinstance(value, (int, float)) else None
+
+
+def normalize_core_item(item: dict[str, Any]) -> dict[str, Any]:
+    """Return the camelCase v2 shape of an item recorded by a rollout ``item_completed`` event.
+
+    Parameters
+    ----------
+    item : dict
+        The core's item object: a PascalCase or snake_case ``type`` and snake_case fields such as
+        ``process_id``, ``aggregated_output``, ``exit_code``, a ``duration`` with ``secs`` and
+        ``nanos``, a ``command`` list, a ``file://`` working directory and ``changes`` keyed by path.
+
+    Returns
+    -------
+    dict
+        An object :func:`extract` understands. Fields with no v2 counterpart keep a camelCase name.
+    """
+    kind = _camel(str(item.get("type") or ""))
+    out: dict[str, Any] = {"type": kind, "id": item.get("id"), "status": item.get("status")}
+    if kind == "commandExecution":
+        command = item.get("command")
+        if isinstance(command, list):
+            command = shlex.join(str(part) for part in command)
+        cwd = item.get("cwd")
+        if isinstance(cwd, str) and cwd.startswith("file://"):
+            cwd = cwd[len("file://") :]
+        out.update(
+            command=command,
+            cwd=cwd,
+            processId=item.get("process_id", item.get("processId")),
+            source=item.get("source"),
+            aggregatedOutput=item.get("aggregated_output", item.get("aggregatedOutput")),
+            exitCode=item.get("exit_code", item.get("exitCode")),
+            durationMs=_duration_ms(item),
+            commandActions=item.get("parsed_cmd") or item.get("commandActions") or [],
+        )
+    elif kind == "fileChange":
+        changes = item.get("changes")
+        if isinstance(changes, dict):
+            listed = []
+            for path, change in changes.items():
+                change = change if isinstance(change, dict) else {}
+                diff = change.get("diff")
+                if diff is None:
+                    sign = "-" if change.get("type") == "delete" else "+"
+                    body = "\n".join(sign + line for line in str(change.get("content") or "").splitlines())
+                    diff = f"@@ -0,0 +1 @@\n{body}" if body else ""
+                listed.append({"path": path, "kind": change.get("type"), "diff": diff})
+            changes = listed
+        out["changes"] = changes or []
+    elif kind == "agentMessage":
+        content = item.get("content")
+        if isinstance(content, list):
+            text = "".join(str(part.get("text") or "") for part in content if isinstance(part, dict))
+        else:
+            text = str(item.get("text") or "")
+        out.update(text=text, phase=item.get("phase"))
+    elif kind == "reasoning":
+        out["summary"] = item.get("summary_text") or item.get("summary") or []
+    elif kind == "userMessage":
+        out["content"] = item.get("content") or []
+    elif kind == "mcpToolCall":
+        out.update(
+            server=item.get("server"),
+            tool=item.get("tool"),
+            durationMs=_duration_ms(item),
+            result=item.get("result"),
+            error=item.get("error"),
+        )
+    else:
+        for key, value in item.items():
+            out.setdefault(_camel(key), value)
     return out

@@ -13,7 +13,7 @@ import json
 import os
 import sqlite3
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -92,6 +92,8 @@ class CodexIngest(BaseIngest):
         self.home = self.root
         self.threads: dict[str, dict[str, Any]] = {}
         self.turns: dict[tuple[str, str], dict[str, Any]] = {}
+        self.rollout_items: dict[str, list[tuple[str | None, dict[str, Any], datetime | None, int]]] = {}
+        """``item_completed`` payloads per thread, the fallback when the projection never materialized."""
 
     # ----------------------------------------------------------------- ingest
     def ingest(self) -> None:
@@ -310,6 +312,9 @@ class CodexIngest(BaseIngest):
                         counts.append(self.token_count(thread_id, current_turn, payload, ts, ordinal))
                     elif sub == "item_completed":
                         cover["rollout_item_completed"] += 1
+                        self.rollout_items.setdefault(thread_id, []).append(
+                            (payload.get("turn_id") or current_turn, payload.get("item") or {}, ts, ordinal)
+                        )
                     else:
                         if sub in {"task_started", "task_complete", "turn_aborted"}:
                             current_turn = payload.get("turn_id") or current_turn
@@ -572,10 +577,19 @@ class CodexIngest(BaseIngest):
         path = self.home / "thread_history_1.sqlite"
         if not path.exists():
             self.summary.notes.append("thread_history_1.sqlite absent")
-            self.phase("projection", started, 0, "absent")
+            derived = self.items_from_rollouts()
+            self.phase("projection", started, derived, f"absent; items from rollout events {derived}")
             return
         connection, how = open_readonly(path)
         connection.row_factory = sqlite3.Row
+        tables = {row[0] for row in connection.execute("select name from sqlite_master where type = 'table'")}
+        if "thread_turns" not in tables or "thread_items" not in tables:
+            # A home that only ever ran `codex exec` has the file but never materialized the projection.
+            connection.close()
+            self.summary.notes.append("thread_history_1.sqlite has no projection tables")
+            derived = self.items_from_rollouts()
+            self.phase("projection", started, derived, f"{how}; unmaterialized; items from rollout events {derived}")
+            return
         turn_rows = 0
         skipped_turns = 0
         for record in connection.execute("select * from thread_turns"):
@@ -676,12 +690,67 @@ class CodexIngest(BaseIngest):
             batch.clear()
             blobs.clear()
         connection.close()
+        derived = self.items_from_rollouts()
         self.phase(
             "projection",
             started,
-            item_rows,
-            f"{how}; turns {turn_rows}; blobs {self.blobs}; outside window turns {skipped_turns} items {skipped_items}",
+            item_rows + derived,
+            f"{how}; turns {turn_rows}; blobs {self.blobs}; outside window turns {skipped_turns} "
+            f"items {skipped_items}; items from rollout events {derived}",
         )
+
+    def items_from_rollouts(self) -> int:
+        """Write items from rollout ``item_completed`` events for threads the projection does not cover.
+
+        A home that only ran ``codex exec`` has rollouts but no materialized projection, so its tool
+        calls would otherwise be lost. The core's item shape is normalized to the v2 shape first.
+        Returns the number of items written.
+        """
+        rows: list[tuple] = []
+        blobs: list[tuple] = []
+        threads = 0
+        for thread_id, entries in self.rollout_items.items():
+            cover = self.cover(thread_id)
+            if cover["projection_items"] > 0 or not cover["in_window"]:
+                continue
+            threads += 1
+            for turn_id, raw_item, ts, ordinal in entries:
+                item = item_columns.normalize_core_item(raw_item)
+                columns = item_columns.extract(item)
+                duration = columns.get("exec_duration_ms")
+                started_at = ts - timedelta(milliseconds=duration) if ts is not None and duration else None
+                item_id = item.get("id") or f"{thread_id}:{ordinal}"
+                columns.update(
+                    thread_id=thread_id,
+                    turn_id=turn_id,
+                    item_id=item_id,
+                    rollout_ordinal=ordinal,
+                    created_at=ts,
+                    started_at=started_at,
+                    completed_at=ts,
+                    duration_ms=duration,
+                    item_json_bytes=len(json.dumps(raw_item)),
+                    source=SOURCE,
+                    origin="rollout",
+                )
+                rows.append(schema.row("items", **columns))
+                if self.blobs:
+                    blobs.append(
+                        schema.row(
+                            "item_blobs",
+                            thread_id=thread_id,
+                            turn_id=turn_id,
+                            item_id=item_id,
+                            item_json=json.dumps(item),
+                            source=SOURCE,
+                            origin="rollout",
+                        )
+                    )
+        self.write("items", rows)
+        self.write("item_blobs", blobs)
+        if rows:
+            self.summary.notes.append(f"items of {threads} threads come from rollout item_completed events")
+        return len(rows)
 
     def thread_in_window(self, thread_id: str, fallback_ms: Any) -> bool:
         """Decide membership for a projection row by its thread, else by its own timestamp."""

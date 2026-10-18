@@ -1,0 +1,24 @@
+{
+  "package_dir": "typescript/packages/claude-launcher-client",
+  "search": ["src", "test", "README.md"],
+  "must_contain": {
+    "routes": ["api/profiles", "api/status", "api/workers", "/sessions", "/fork", "/workers/"],
+    "verbs": ["PATCH", "DELETE", "POST"],
+    "worker_fields": [
+      "profileId", "conversationId", "websocketUrl", "exit_code", "created_at", "started_at", "stopped_at",
+      "transport_errors", "observation_errors", "cleanup_errors", "input_bytes", "output_bytes", "stderr_bytes"
+    ],
+    "status_fields": [
+      "workers_with_results", "conversation_totals_usd", "parse_errors", "missing_result_cost",
+      "pending_bytes", "pending_records", "lag_seconds", "bytes_written", "storage_free_bytes"
+    ],
+    "session_fields": [
+      "session_id", "last_modified", "custom_title", "first_prompt", "git_branch", "file_size",
+      "parent_tool_use_id", "parent_agent_id", "upToMessageId"
+    ],
+    "launch_options": ["permission_mode", "max_turns", "max_budget_usd", "sandbox", "tools"],
+    "profile_fields": ["settingSources", "authentication", "workspace", "directory"]
+  },
+  "min_tests": 15,
+  "tests_must_mention": ["fetch"]
+}
