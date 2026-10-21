@@ -1,0 +1,14 @@
+{
+  "name": "@agent-spike/045-hp-behavior",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "run": "node --import tsx cli.mjs",
+    "delegate": "node --import tsx delegate.mjs",
+    "test": "node --import tsx --test history.test.mjs native.test.mjs",
+    "build": "tsx build-browser.ts"
+  },
+  "dependencies": {
+    "openai": "catalog:"
+  }
+}

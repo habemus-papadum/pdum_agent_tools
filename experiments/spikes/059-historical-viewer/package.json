@@ -1,0 +1,14 @@
+{
+  "name": "@agent-spike/historical-viewer",
+  "private": true,
+  "type": "module",
+  "exports": {".": "./src/index.ts", "./page": "./src/page.tsx", "./card": "./src/card.tsx"},
+  "aiui": {"sitePage": {"title": "History", "desc": "Read native Claude and Codex history", "order": 59, "card": "./card"}},
+  "dependencies": {
+    "@habemus-papadum/aiui-viz": "link:../../../.dev/aiui/packages/aiui-viz",
+    "@habemus-papadum/aiui-design": "link:../../../.dev/aiui/packages/aiui-design",
+    "@solidjs/web": "catalog:", "solid-js": "catalog:",
+    "marked": "catalog:", "katex": "catalog:", "mermaid": "catalog:", "highlight.js": "catalog:"
+  },
+  "devDependencies": {"vitest": "catalog:"}
+}

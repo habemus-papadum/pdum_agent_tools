@@ -1,0 +1,6 @@
+{
+  "name": "@agent-spike/046-hp-power-user-audit",
+  "private": true,
+  "type": "module",
+  "scripts": { "verify-sources": "node audit.mjs", "probe": "node --import tsx lifetime-probe.mjs" }
+}

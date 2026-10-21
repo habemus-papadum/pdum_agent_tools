@@ -29,7 +29,7 @@ or an application authorization system on the default path.
 | Long-running connections | No arbitrary authorization/idle expiry and no forced reconnect after 15 minutes. Shutdown, failures and genuine transport limits still apply. |
 | Profiles | A profile directory is a Codex home with launcher metadata in `.pdum/`; the user's own home is the `--default` profile. Native Codex configuration stays native, and launch passes choices as `-c` overrides instead of editing it. |
 | Temporary work | Clean or cloned temporary profiles are first-class. Cloning and credential reuse should be quick, predictable, and warning-based rather than permission-gated. |
-| Process lifetime | Foreground CLI or application-owned async context; no launcher daemon or automatic restart. Attaching to a foreign server is an explicit testing affordance. tmux/Docker can supply external supervision. |
+| Process lifetime | Provider launchers retain foreground/application-owned library lifetimes. The accepted unified host coordinator may run foreground or later as one optional daemon; separate provider daemons and seamless crash survival are not implied. Attaching to a foreign server remains an explicit testing affordance. |
 | Profile ownership | Codex coordinates concurrent processes in one home natively, so the launcher records each run it starts and inspects homes rather than holding an exclusive lease. Claude permits multiple independent workers per profile. Record owned PIDs and process identity; make status and verified stop/cleanup straightforward. |
 | MITM | No sidecar by default. Explicit interception starts with the consumer; recording can start off and be toggled later without replacing its connection. |
 | Captures | Recording is off until enabled. Then preserve complete observed application payloads without initial size caps, truncation thresholds or run quotas. Redaction is optional. |
@@ -108,8 +108,22 @@ adapters later; their actual size depends on the chosen integration.
 
 An optional async FastAPI management adapter is welcome, but must reuse existing
 status/stop/capture operations and never become a second process owner. It is not
-required for the first local slice. Remote profile migration and daemon mode are
-out of initial scope; simple lifecycle seams are enough preparation for later.
+required for the first local slice.
+
+**19 October 2026 direction:** the [unified host coordinator](plans/agent-orchestrator/components/21-host-coordinator.md)
+can compose the libraries and expose discovery/profile/launch/status services to
+a TypeScript management client. Start foreground; optional daemon hosting and
+partner-host management are accepted directions for later implementation. This
+extends the earlier no-daemon scope at the coordinating layer without changing
+the existing provider libraries' current ownership contracts.
+
+The [pragmatic recovery sketch](plans/agent-orchestrator/failure-recovery.md)
+separates rediscovery, client rejoin and reconstruction from history. Seamless
+continuation is desirable where it earns its complexity, not a prerequisite.
+Execution and some information may be lost; an operator or authorized recovery
+agent may inspect what remains and relaunch. Report uncertainty and lineage,
+avoid blind action replay, and leave exact automation/loss policies for preferences
+and measured failure spikes. No new mandatory confirmation system is implied.
 
 ## Lockdown is a later, separate mode
 
@@ -119,6 +133,28 @@ rules. Its exact contract needs a separate design. It is not implemented, not a
 first-release prerequisite, and not a reason to build dormant enforcement machinery
 throughout the trusted default path. Existing simple configuration switches may be
 used deliberately without claiming that a complete lockdown mode exists.
+
+## Explicit intent and staged decisions
+
+For orchestrator and client/UI development, use the
+[working method](plans/agent-orchestrator/methodology.md): decide which questions
+matter before each slice, ask when unresolved behavior becomes a real dependency,
+and leave later questions open. Mocks can explore alternatives without silently
+establishing defaults. Routine delegated engineering choices remain the agent's
+responsibility; important lifetime recommendations are discussed when needed.
+
+Make intent explicit before reducing friction through inference. A prompt that
+steers the current turn, a queued next turn and an interruption/replacement are
+different user choices. Show meaningful target/timing/effect and the observed
+outcome. Later inferred choices must remain visible and overridable, with an
+inspectable reason; do not describe an inferred choice as an explicit request.
+This is interface semantics, not an additional approval/grant system.
+
+The [provisional visual direction](plans/agent-orchestrator/visual-direction.md)
+records personal UI preferences: dense controls, expressive color and CSS
+experiments grounded in Habemus Papadum's design system. Review the experiments
+and consider useful patterns for upstream reuse; do not freeze a mock into a
+global design rule.
 
 ## Test reality, not simulated provider success
 

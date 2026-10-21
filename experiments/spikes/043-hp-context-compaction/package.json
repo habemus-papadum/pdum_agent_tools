@@ -1,0 +1,17 @@
+{
+  "name": "@agent-spike/043-hp-context-compaction",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "tsx --test src/compaction.test.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsx src/build.ts",
+    "live": "tsx src/live.ts --live"
+  },
+  "dependencies": {
+    "openai": "catalog:"
+  },
+  "devDependencies": {
+    "esbuild": "catalog:"
+  }
+}

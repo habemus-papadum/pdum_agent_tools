@@ -14,6 +14,22 @@ for the project layout and commands.
 - Implementation of the agreed architecture is authorized. Use `docs/specs/` and
   `docs/plans/` as the design baseline; record supported behavior and remaining
   gates honestly rather than claiming the whole proposal is implemented.
+- Before runtime/client/coordinator work, review the applicable entries in
+  [runtime contracts and gotchas](docs/runtime-contracts.md). Cite their RC IDs in
+  the slice plan and connect them to acceptance checks. Keep new consequential
+  findings versioned there, with evidence and unresolved policy clearly separated.
+- For orchestrator/SDK/UI slices, follow the [working method](docs/plans/agent-orchestrator/methodology.md).
+  Read the [provisional visual preferences](docs/plans/agent-orchestrator/visual-direction.md)
+  for UI work: compact, expressive experiments grounded in Habemus Papadum's
+  source-linked design system, with useful patterns considered for upstream reuse.
+  Before starting, identify which open questions need answers now, which a mock
+  can explore, which engineering decisions are delegated, and when deferred
+  questions become relevant. Ask before implementing dependent unresolved product
+  behavior; do not guess or repeatedly ask already answered questions. Preserve
+  the user's original component comments and link summaries to the right owners.
+  Default to small sequential slices; the user may explicitly request parallel
+  disposable mocks with separate ownership and review notes. Make action target, timing and effect explicit first;
+  later inferred intent must be visible, inspectable and easy to override.
 - Keep MITM functionality independent of AI agents and Codex-specific concerns.
 - Claude live clients are the official browser and Node SDKs. The Python launcher
   owns profiles/processes and relays bytes; it never owns a second conversation
@@ -39,10 +55,18 @@ for the project layout and commands.
 - Make temporary profiles and credential reuse convenient, with concise warnings
   instead of repeated consent gates. Trusted runtime captures may include secrets;
   simple optional masking is fine, comprehensive redaction is not a prerequisite.
-- Keep launch application-owned/foreground, with PID-aware status and cleanup;
-  no launcher daemon. Attaching a client to a server the launcher did not start is
-  a testing affordance, never the default. MITM is absent unless requested. Hostfork explicitly supports detached environments and reopening
-  management by recorded identity; it does not restore previous asyncio pipe handles.
+- Keep provider launcher libraries application-owned/foreground, with PID-aware
+  status and cleanup. The accepted [unified coordinator direction](docs/plans/agent-orchestrator/components/21-host-coordinator.md)
+  composes those libraries through one host management service, foreground first
+  and optionally daemon-hosted later; do not add separate provider daemons.
+  This is a plan, not a claim of implemented daemon or crash-survival behavior.
+  [Recovery](docs/plans/agent-orchestrator/failure-recovery.md) may accept execution/data
+  loss and use an authorized agent to inspect history and relaunch work; seamless
+  recovery is not a prerequisite. Preserve uncertainty and avoid blind action replay.
+  Attaching to a server the launcher did not start remains an explicit testing
+  affordance rather than the default. MITM is absent unless requested. Hostfork
+  supports detached environments and reopening management by recorded identity;
+  it does not restore previous asyncio pipe handles.
 - Keep observation inspection-only and asynchronous: copying/enqueueing must not
   wait for parsing, recording or export. Monitor capture backlog/storage; do not
   introduce initial payload caps, truncation thresholds, queue-admission limits
@@ -85,6 +109,12 @@ for the project layout and commands.
 
 ## TypeScript workspace
 
+- Local AIUI development uses the ignored `.dev/aiui` source link, created with
+  `./scripts/link-aiui.sh` (default sibling `../pdum_aiui`). For current framework
+  behavior, read that checkout's skills, `packages/aiui-viz/CATALOG.md`, docs and
+  source rather than relying on an older plugin snapshot. Read its `AGENTS.md`
+  before upstream edits and preserve existing work. This source link does not
+  install package dependencies; add those only to an actual consuming app.
 - `typescript/` is the production pnpm workspace (pnpm 11, Node 26, Biome, Vitest,
   Vite). Run its commands from `typescript/`; it has its own lockfile and never
   shares dependencies with `experiments/` or `examples/`. Ordinary Python

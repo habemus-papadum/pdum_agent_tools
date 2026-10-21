@@ -1,0 +1,11 @@
+import { build } from 'esbuild';
+import { mkdir, copyFile, writeFile } from 'node:fs/promises';
+import { loadNativeInputs } from '../041-hp-codex-fidelity/src/local.ts';
+import { LIVE_SUFFIX } from './src/live.ts';
+const directory = new URL('./', import.meta.url).pathname;
+await mkdir(`${directory}/dist`, { recursive: true });
+await build({ entryPoints: [`${directory}/src/worker.ts`], outdir: `${directory}/dist`, platform: 'browser', format: 'esm', target: 'es2024', bundle: true });
+await copyFile(`${directory}/index.html`, `${directory}/dist/index.html`);
+const native = await loadNativeInputs();
+await writeFile(`${directory}/dist/instructions.json`, JSON.stringify(native.instructions.text + LIVE_SUFFIX));
+console.log('Built work integration for a browser Worker');

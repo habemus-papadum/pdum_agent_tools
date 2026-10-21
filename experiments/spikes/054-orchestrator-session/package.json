@@ -1,0 +1,18 @@
+{
+  "name": "@agent-spike/orchestrator-session-mock",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@habemus-papadum/aiui-viz": "link:../../../.dev/aiui/packages/aiui-viz",
+    "@habemus-papadum/aiui-design": "link:../../../.dev/aiui/packages/aiui-design",
+    "solid-js": "catalog:",
+    "@solidjs/web": "catalog:",
+    "@uwdata/vgplot": "catalog:",
+    "@uwdata/mosaic-core": "catalog:",
+    "@uwdata/mosaic-sql": "catalog:",
+    "@duckdb/duckdb-wasm": "catalog:"
+  },
+  "devDependencies": {
+    "vitest": "catalog:"
+  }
+}

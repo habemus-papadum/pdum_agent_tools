@@ -36,7 +36,48 @@ qualifies native history/admin, multiple-client, remote-tool and observation
 behavior. Its proposed client/analysis layers remain research, not additional
 public APIs implemented by this launcher.
 The [client API design](specs/codex-client.md) and
-[delivery plan](plans/codex-client.md) await review before a TypeScript package is built.
+[delivery plan](plans/codex-client.md) form the reviewed design baseline.
+The [HP Agent research round](hp-agent-findings.md)
+adds proposed refinements before construction. Its working browser/Node runtime is
+experimental code under `experiments/`, not a production client or agent package.
+The [behavioral follow-up](hp-agent-behavior.md) passed small real coding and
+browser application tasks; its tools, compaction and evaluation code also remain research.
+The [power-user pass](hp-agent-parity.md) adds source-aligned session/agent/tool
+modules, wakeable mailbox waits, explicit follow-ups and interruption scopes.
+The [work integration round](hp-agent-work.md) adds parallel/exclusive scheduling,
+per-step tool snapshots and shared background-job lifetimes for async JavaScript
+and Node processes. Independent clients, cancellation, disposal and live
+Node/browser tool selection passed. AIUI cell integration, persistent recovery,
+PTY controls, user queues and request arbitration remain explicit gaps.
+The [AIUI integration contract](specs/hp-aiui-integration.md) permits targeted
+upstream changes; no upstream implementation or production runtime package exists yet.
+The [agent orchestrator map](plans/agent-orchestrator/index.md) now organizes the
+intended web application into twenty-two design stubs. Two disposable web
+studies now explore overview and session/source/prompt interactions, using only
+fixtures. Their [runbook](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/spikes/055-orchestrator-mock-lab/README.md)
+records 23 Node checks, 10 keyboard/cell tests, 24 real browser-database assertions
+and Chrome interaction/visual inspection. The revised mocks use actual Solid/AIUI
+components, controls, durable resources and cells, with the source compiler and
+requested development dock. They explore native Mosaic filtering, group
+collapse/focus, a Space-led mode-engine command map, attributed usage/timeline
+navigation and source preview/detail/pinning on desktop and phone, following the
+[provisional Habemus Papadum visual direction](plans/agent-orchestrator/visual-direction.md).
+No production orchestrator or client SDK is implemented. Browser/Electron
+packaging and isolated live-development instances remain a separate design entry.
+Typechecking, Vite compilation and state preservation across selected graph/UI
+hot edits were checked. Oracle/provider sessions were not connected; bulk-render
+and focused-Lens hot-update diagnostics remain recorded follow-ups.
+The [Round A tracker](plans/agent-orchestrator/next-mock-rounds.md) adds a native
+history exporter and read-only viewer plus a separate authentication simulation.
+The selected export has 7 Codex and 9 Claude sessions, read without activating
+conversation work. Authentication previews map to existing launcher operations;
+they do not execute login or write profile configuration. Round B's ingestion
+screen will configure the existing ingestor, not a replacement schema.
+The 19 October [unified coordinator](plans/agent-orchestrator/components/21-host-coordinator.md)
+and [recovery sketch](plans/agent-orchestrator/failure-recovery.md) are accepted
+planning directions only. Current launcher lifetimes are unchanged; daemon
+hosting, independent session survival and history-driven recovery automation
+have not been implemented or qualified.
 
 - Async directory-based profiles, atomic creation and source copying, unknown
   native TOML preservation, executable selection and clean/inherited environments.

@@ -14,6 +14,7 @@ nav:
   - Home: index.md
   - Development: development.md
   - Implementation status: implementation-status.md
+  - Runtime contracts and gotchas: runtime-contracts.md
   - Profile setup and authentication: profiles.md
   - Claude launcher:
       - Operator and API guide: claude.md
@@ -26,6 +27,47 @@ nav:
   - Testing: testing.md
   - Research and spikes: research.md
   - Codex client findings: codex-client-findings.md
+  - HP Agent findings: hp-agent-findings.md
+  - HP Agent behavioral findings: hp-agent-behavior.md
+  - HP Agent power-user parity: hp-agent-parity.md
+  - HP Agent parallel work: hp-agent-work.md
+  - Agent orchestrator design:
+      - Component map: plans/agent-orchestrator/index.md
+      - Working method: plans/agent-orchestrator/methodology.md
+      - Provisional visual direction: plans/agent-orchestrator/visual-direction.md
+      - First slices: plans/agent-orchestrator/first-slices.md
+      - Next mock rounds: plans/agent-orchestrator/next-mock-rounds.md
+      - Development flow and packaging: plans/agent-orchestrator/development-flow.md
+      - Failure and recovery sketch: plans/agent-orchestrator/failure-recovery.md
+      - Client SDKs:
+          - Connections and shared mechanics: plans/agent-orchestrator/components/01-client-foundation.md
+          - Codex client: plans/agent-orchestrator/components/02-codex-client.md
+          - Claude integration: plans/agent-orchestrator/components/03-claude-client.md
+          - HP client and hosts: plans/agent-orchestrator/components/04-hp-client.md
+      - Management:
+          - Unified host coordinator: plans/agent-orchestrator/components/21-host-coordinator.md
+          - Hosts and discovery: plans/agent-orchestrator/components/05-hosts-discovery.md
+          - Profiles and authentication: plans/agent-orchestrator/components/06-profiles-auth.md
+          - Launch configuration: plans/agent-orchestrator/components/07-launch-configuration.md
+      - Live workspace:
+          - Agent overview: plans/agent-orchestrator/components/08-agent-overview.md
+          - Session workspace: plans/agent-orchestrator/components/09-session-workspace.md
+          - Transcript and tools: plans/agent-orchestrator/components/10-transcript-tools.md
+          - Subagents and jobs: plans/agent-orchestrator/components/11-subagents-jobs.md
+      - Prompting:
+          - Composer and inspection: plans/agent-orchestrator/components/12-prompt-composer.md
+          - Voice, screen and pencil: plans/agent-orchestrator/components/13-multimodal-inputs.md
+      - History and understanding:
+          - History and branching: plans/agent-orchestrator/components/14-history-branching.md
+          - Traces, health and cost: plans/agent-orchestrator/components/15-observation-health.md
+          - Ingestion and analytics: plans/agent-orchestrator/components/16-ingestion-analytics.md
+      - Host tools and later infrastructure:
+          - Files and commands: plans/agent-orchestrator/components/17-files-commands.md
+          - Environments and recovery: plans/agent-orchestrator/components/18-environments-recovery.md
+      - Composition and reuse:
+          - Development instances and delivery: plans/agent-orchestrator/components/22-development-delivery.md
+          - Application shell: plans/agent-orchestrator/components/19-application-shell.md
+          - Component lab and AIUI: plans/agent-orchestrator/components/20-component-lab.md
   - Agent history: agent-history.md
   - Context consumption findings: context-consumption.md
   - Reference:
@@ -36,6 +78,7 @@ nav:
       - Agreed design principles: design-principles.md
       - Codex launcher: specs/codex-launcher.md
       - Codex client API: specs/codex-client.md
+      - HP and AIUI integration: specs/hp-aiui-integration.md
       - Claude launcher: specs/claude-launcher.md
       - MITM sidecar: specs/mitm.md
       - Hostfork:

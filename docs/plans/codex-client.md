@@ -6,7 +6,49 @@ The user requested a design review before construction. Read the
 [combined findings](../codex-client-findings.md) for supporting experiments.
 This plan does not authorize publishing a package or changing release workflows.
 
+**18 October update:** the design was reviewed as a baseline, followed by the
+[HP Agent spikes](../hp-agent-findings.md). Their proposed client refinements
+should be folded into C1/C2 before production construction. A separate
+`agent-history` package now occupies the production TypeScript workspace.
+The [behavioral follow-up](../hp-agent-behavior.md) adds tools, explicit compaction
+and model-selected child evidence; it recommends preserving host/runtime/history
+boundaries when refining this plan, not promoting the prototype wholesale.
+The [power-user parity inventory](../hp-agent-parity.md) is the subsequent design
+checklist: preserve separate note/follow-up/steer/wait/interruption semantics,
+native user queues and multi-client request arbitration. Selected HP control
+behavior is now implemented in research; broad native parity remains unclaimed.
+The [parallel work round](../hp-agent-work.md) qualifies independent job and
+wait lifetimes, graceful client detach, and explicit runtime ownership. Preserve
+those distinctions when introducing client job handles; the
+[AIUI contract](../specs/hp-aiui-integration.md) remains a separate integration plan.
+
+**Application direction:** the [agent orchestrator component map](agent-orchestrator/index.md)
+is the intended real consumer: Codex, official Claude clients and HP in a browser
+workspace spanning configured hosts/profiles. Its twenty-two cards are design stubs
+for user refinement, not an implemented app. Use mocks and selected vertical
+slices to guide this SDK; C1–C5 remain a technical checklist rather than a reason
+to finish the whole client before reviewing UI. Multi-host profile/auth/launch
+management belongs beside the Codex SDK, beyond the narrow `/launcher` adapter
+described below. The eventual orchestrator can consume the reusable reference
+components without making the SDK depend on AIUI.
+The accepted [unified host coordinator](agent-orchestrator/components/21-host-coordinator.md)
+will own that management boundary, with foreground and optional daemon hosting.
+Its [recovery policy sketch](agent-orchestrator/failure-recovery.md) permits an
+explicit or policy-enabled reconstruction/relaunch from history after loss;
+this does not turn SDK transport reconnect into automatic action replay.
+The [working method](agent-orchestrator/methodology.md) now governs each slice:
+review which questions need answers, make action intent explicit, and expose any
+later inferred choices. The [first-slice proposal](agent-orchestrator/first-slices.md)
+now includes two explicitly requested parallel throwaway UI mocks and targeted information-placement measurements;
+the entire C1–C5 checklist is not a prerequisite for a visible reviewable slice.
+
 ## Intended result
+
+Review [runtime contracts and gotchas](../runtime-contracts.md) before each
+affected slice. RC-02/RC-03/RC-05/RC-07 inform attachment, resume, input delivery
+and recovery checks; RC-04/RC-06 govern promises about background work and timeout
+configuration. These are versioned integration facts, with policy choices still
+open where marked, rather than additional implemented SDK behavior.
 
 Deliver one TypeScript package that works from a browser and Node, with complete
 typed access to the selected native protocol and a small set of useful higher-level
@@ -49,11 +91,11 @@ docs/specs/codex-client.md      contract under review
 docs/plans/codex-client.md      work and acceptance gates
 ```
 
-Create this workspace only after review. It stays independent of Python's root
-uv workspace, `experiments/` and the existing Claude example. Do not move their
-locks or promote research scripts wholesale. A root setup convenience can call
-the new workspace later, but ordinary Python installation must not acquire Node
-or a native Codex runtime dependency.
+Extend the existing workspace after reviewing the follow-up refinements. It stays
+independent of Python's root uv workspace, `experiments/` and the Claude example.
+Preserve its catalogue/lock and existing agent-history package; do not replace
+workspace tooling or promote research scripts wholesale. Ordinary Python
+installation must not acquire Node or a native Codex runtime dependency.
 
 Begin with TypeScript, a small test/build setup and existing platform WebSocket
 APIs. Pin concrete tooling during C1, using installed versions where appropriate.

@@ -1,0 +1,6 @@
+{
+  "name": "hp-mini-usage-task",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test test/usage.test.mjs" }
+}

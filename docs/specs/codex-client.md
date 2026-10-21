@@ -6,6 +6,25 @@ is implemented. The user requested this design and its
 Examples describe the proposed interface; they are not runnable examples yet.
 The [025–034 findings](../codex-client-findings.md) are the evidence baseline.
 
+**18 October update:** reviewed as a baseline. The [HP Agent findings](../hp-agent-findings.md)
+recommend MessagePort support, explicit runtime capability differences and reuse
+of the existing history package before construction. These refinements remain
+proposed; no production Codex client is implemented.
+The [second HP round](../hp-agent-behavior.md) supplies further implementation
+evidence for those boundaries, including coding tasks and real compaction.
+The [power-user parity pass](../hp-agent-parity.md) identifies the advanced native
+contracts to preserve and qualifies selected dynamic-control behavior in HP.
+The [parallel work findings](../hp-agent-work.md) add evidence for independent
+job observation/cancellation and distinguish native methods from HP job extensions.
+The [AIUI contract](hp-aiui-integration.md) permits upstream changes without
+making the generic client depend on Solid or AIUI.
+The [agent orchestrator component map](../plans/agent-orchestrator/index.md) is
+the proposed concrete application consumer. Its shared views preserve native
+capabilities; its host/profile management layer does not redefine this protocol.
+That layer is now the proposed [unified host coordinator](../plans/agent-orchestrator/components/21-host-coordinator.md).
+Its [recovery sketch](../plans/agent-orchestrator/failure-recovery.md) separates
+client rejoin from process rediscovery and a new history-based launch.
+
 ## Recommendation and decisions to review
 
 Build one framework-independent TypeScript package for browser and Node clients.
@@ -15,7 +34,7 @@ launcher responsible for profiles, authentication setup and app-server lifetime.
 
 | Decision | Recommended starting point |
 | --- | --- |
-| Package and layout | One proposed `@habemus-papadum/codex-client` package in a new `typescript/` pnpm workspace. Name/scope are provisional; no npm publication is authorized. |
+| Package and layout | One proposed `@habemus-papadum/codex-client` package in the existing `typescript/` pnpm workspace. Name/scope are provisional; no npm publication is authorized. |
 | API depth | Full generated protocol access immediately; conveniences share that connection. Enable experimental API negotiation by default, with an explicit opt-out. |
 | History versus live work | Reading history never calls resume. Joining explicitly calls native resume, which can activate a goal. |
 | Multiple clients | Support multiple listeners/responders. Expose native outcomes and uncertain submissions; no controller lease or automatic turn replay. |
@@ -28,6 +47,12 @@ and host policy remain authoritative; the client does not introduce another
 sandbox, approval or account-renewal policy.
 
 ## Ownership and upstream reuse
+
+The cross-component [runtime contracts](../runtime-contracts.md) are the
+canonical reference for lifecycle constraints and their evidence. This
+specification owns the API; reference relevant RC entries when implementing
+attachment, resume, background work and recovery instead of duplicating their
+research narratives here.
 
 | Component | Owns |
 | --- | --- |
@@ -290,6 +315,16 @@ not affect another client's subscription. Repeated explicit join calls update
 the same local view using a new native resume; they are not assumed harmless.
 
 ### Joining and reconciling state
+
+The [057 lifecycle qualification](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/057-launcher-inactive-turns.md)
+establishes that an attached idle thread does not expire merely because the user
+stops typing. Join/resume once per attachment or reconnect, then submit turns
+without a status request before each message. Native `turn/start` does not reload
+an unloaded thread. A future recovery helper should preserve the exact rejection,
+attachment state and explicit input intent; it must not replay after an ambiguous
+transport failure. Whether to recover a known rejected send automatically remains
+a client policy to review when that slice is implemented. The launcher stays
+transparent and already forwards the relevant errors and closure notifications.
 
 Install thread event/request routing before dispatching resume. Capture the
 resume response boundary in the connection's receive order. Merge the returned

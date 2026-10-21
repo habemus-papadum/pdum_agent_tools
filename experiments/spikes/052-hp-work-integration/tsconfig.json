@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext", "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true, "noEmit": true,
+    "types": ["node"], "lib": ["ES2024", "DOM"]
+  },
+  "include": ["src/**/*.ts", "build.ts"]
+}

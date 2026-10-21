@@ -1,0 +1,3 @@
+Fix the usage summarizer in this tiny JavaScript project. Read and follow the usage-accounting skill at .agents/skills/usage-accounting/SKILL.md before editing.
+
+The public function summarizeUsage(records) in src/usage.mjs should return correct per-session and overall usage summaries, handling updated request records, inherited history and input order without changing the caller's data. Preserve the existing API and use no external dependencies. Add meaningful regression tests in test/usage.test.mjs for the bugs you find, with at least four tests in total, run the actual test command, and update README.md with the accounting rules and your validation result. Do not edit package.json, AGENTS.md or the skill file. Finish with a concise summary of the change and tests run.

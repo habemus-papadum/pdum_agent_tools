@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HP Agent inventory delegation</title>
+<style>
+  :root { font: 16px/1.5 system-ui,sans-serif; color-scheme: light dark; }
+  body { max-width: 1000px; margin: 40px auto; padding: 0 24px; }
+  h1 { font-size: 28px; } h2 { margin-top: 28px; font-size: 21px; }
+  table { width: 100%; max-width: 560px; border-collapse: collapse; }
+  td, th { padding: 10px 16px; text-align: left; border-bottom: 1px solid #8886; }
+  #total { padding: 16px; border-left: 4px solid #4a8; font-size: 18px; }
+  button, select { font: inherit; padding: 9px 14px; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; padding: 16px; border: 1px solid #8886; border-radius: 8px; }
+</style></head><body>
+<h1>Inventory dashboard</h1>
+<p>The parent agent delegates this calculation to one child. The child reads the application data through a tool; the parent waits and updates the total below.</p>
+<table><thead><tr><th>Item</th><th>Units</th></tr></thead><tbody></tbody></table>
+<p id="total">No agent calculation yet.</p>
+<button id="run">Run live Luna delegation</button>
+<p>This explicit experiment makes paid model requests. The browser Worker owns both agent loops. The development relay supplies credentials without exposing an API key to the page.</p>
+<h2>Result and execution</h2><pre id="result">Ready. No request sent.</pre>
+<h2>Inspect model requests</h2><label>Request <select id="requests"></select></label>
+<details><summary>Canonical prompt text</summary><pre id="prompt-text">Run the task to inspect its prompts.</pre></details>
+<details><summary>Provenance and actual wire verification</summary><pre id="provenance"></pre></details>
+<p>Uses the real aiui-prompts inspector controller. Programmatic entry: <code>window.runHPDelegation({url})</code>; evidence: <code>window.hpDelegationEvidence</code>.</p>
+<script type="module" src="./browser-ui.js"></script></body></html>

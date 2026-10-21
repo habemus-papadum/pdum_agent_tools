@@ -19,3 +19,8 @@ Versions are pinned in `pnpm-workspace.yaml` catalogs with `catalogMode: strict`
 Biome formats and lints; Vitest runs every package as a project; Vite builds the
 libraries after `tsc` emits declarations. See the repository
 [development guide](../docs/development.md#typescript-workspace).
+
+For upcoming browser apps, `../scripts/link-aiui.sh` exposes the sibling AIUI
+checkout through the ignored `../.dev/aiui` source link. There is no production
+AIUI dependency yet; see [local AIUI development](../docs/development.md#local-aiui-source-and-future-browser-apps)
+before adding package links to a consuming app.

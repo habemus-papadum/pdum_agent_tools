@@ -1,0 +1,11 @@
+{
+  "name": "@agent-spike/048-hp-steering-edges",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "tsx --test src/edges.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": { "openai": "catalog:", "ws": "catalog:" },
+  "devDependencies": { "@types/ws": "catalog:" }
+}

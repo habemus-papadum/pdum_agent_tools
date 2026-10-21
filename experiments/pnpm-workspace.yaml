@@ -6,6 +6,8 @@ packages:
 catalogMode: strict
 
 catalog:
+  '@modelcontextprotocol/sdk': 1.32.1
+  '@openai/agents': 0.20.0
   '@anthropic-ai/claude-agent-sdk': 0.3.296
   '@types/node': 26.6.5
   esbuild: 0.28.2
@@ -13,10 +15,34 @@ catalog:
   typescript: 7.0.2
   vite: 8.3.4
   ws: 8.22.0
+  openai: 7.38.0
+  zod: 4.6.7
   '@types/ws': 8.18.2
+  solid-js: 2.0.0-rc.13
+  '@solidjs/web': 2.0.0-rc.13
+  '@solidjs/signals': 2.0.0-rc.13
+  vite-plugin-solid: 3.0.0-next.27
+  '@babel/core': 7.29.7
+  '@uwdata/vgplot': 0.28.1
+  '@uwdata/mosaic-core': 0.28.1
+  '@uwdata/mosaic-sql': 0.28.1
+  '@uwdata/flechette': 2.5.0
+  '@duckdb/duckdb-wasm': 1.33.1-dev64.0
+  vitest: 5.0.3
+  jsdom: 29.0.0
+  marked: 16.4.2
+  katex: 0.17.0
+  mermaid: 12.2.0
+  highlight.js: 11.12.0
 
 overrides:
   esbuild: 'catalog:'
+  '@solidjs/signals': 'catalog:'
+  '@duckdb/duckdb-wasm': 'catalog:'
+  '@uwdata/flechette': 'catalog:'
 
 allowBuilds:
   esbuild: true
+
+minimumReleaseAgeExclude:
+  - openai@7.38.0

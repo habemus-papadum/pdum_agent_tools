@@ -15,6 +15,12 @@ cleanup, a thin asynchronous inspection tap, no initial capture quotas, no-sidec
 defaults and reusable Typer CLIs. Processor hooks start small; detailed contracts
 and compatibility still require implementation evidence.
 
+The 19 October [orchestrator direction](plans/agent-orchestrator/components/21-host-coordinator.md)
+adds a proposed unified host coordinator over these libraries, foreground first
+and optionally daemon-hosted later. Its [recovery sketch](plans/agent-orchestrator/failure-recovery.md)
+accepts reported loss and history-based relaunch where seamless recovery is not
+practical. This is a composition plan, not an implemented change to process lifetimes.
+
 ## Start here
 
 The workspace has four independently useful parts:
@@ -71,11 +77,13 @@ recording on does not retrofit interception onto a direct/tunneled connection.
 | Document | What to review |
 | --- | --- |
 | [Agreed design principles](design-principles.md) | The settled trust/default/hygiene stance; do not reintroduce defensive defaults without discussing a requirements change. |
+| [Runtime contracts and gotchas](runtime-contracts.md) | Versioned backend behavior that constrains implementation, with owners, regression scenarios and explicitly open policies. |
 | [Launcher architecture](specs/codex-launcher.md) | Profile layout and selection, temporary profiles, upstream authentication, async ownership, transports, and relay behavior. |
 | [MITM architecture](specs/mitm.md) | Engine and process boundaries, proxy/trust configuration, capture fidelity/monitoring, processor hooks, and live controls. |
 | [Hostfork motivation](specs/hostfork/motivation.md) and [compatibility](specs/hostfork/host-compatibility.md) | Host-derived environments, storage choices and failure modes. Linux implementation: [guide](hostfork.md); future backends remain proposed. |
 | [Hostfork architecture](specs/hostfork/architecture.md) and [implementation plan](plans/hostfork.md) | Proposed library, host tools, Linux ownership/recovery and future backend boundaries, informed by spikes 020–024. |
 | [Joint implementation sequence](plans/implementation.md) | Dependencies between packages, shared acceptance gates, and what to implement first. |
+| [Unified host coordinator](plans/agent-orchestrator/components/21-host-coordinator.md) and [failure/recovery sketch](plans/agent-orchestrator/failure-recovery.md) | Accepted orchestration direction; management/session separation and pragmatic recovery policies still to qualify. |
 | [Launcher implementation plan](plans/codex-launcher.md) | Launcher work packages and their completion criteria. |
 | [MITM implementation plan](plans/mitm.md) | Sidecar work packages and their completion criteria. |
 
@@ -84,8 +92,9 @@ plan summarize composition, not a third competing API specification.
 
 Following spikes 025–034, the [Codex client API design](specs/codex-client.md) and
 [implementation plan](plans/codex-client.md) propose a separate browser/Node
-TypeScript client, with history, live control and shared analysis. They await
-review before implementation; the four Python packages above retain their owners.
+TypeScript client, with history, live control and shared analysis. They form a
+reviewed design baseline; production client implementation remains pending, now
+guided by the orchestrator component map. The provider libraries retain their owners.
 
 ## Requirements retained from the discussion
 
@@ -97,8 +106,8 @@ client-owned SDK queries and disconnect-ending worker lifetimes.
 | --- | --- |
 | `pdum-codex` CLI and a Python library; explicit profile directory or CLI name/root selection | Launcher |
 | Create, interview, list, and selectively import profiles; persist executable selection | Launcher |
-| One managed process per profile per machine, including crash recovery | Launcher |
-| Foreground/application-owned lifetime; PID/process identity and easy verified cleanup; no daemon or attach convenience | Launcher |
+| Per-run process identity and verified cleanup; several native processes may share a profile | Launcher |
+| Foreground/application-owned provider lifetimes; one optional unified host daemon is a proposed composition layer | Launcher libraries; unified coordinator for the later service |
 | `asyncio` subprocess control, bounded readiness and shutdown | Each package for its own child |
 | Dedicated ChatGPT login, API keys, and **API-platform** federation | Launcher |
 | No special interception or orchestration of client-initiated account login | Launcher relay |
@@ -113,7 +122,8 @@ client-owned SDK queries and disconnect-ending worker lifetimes.
 | Explicit processor hooks, small local/test sinks, optional discovery and CLI contributions | Each package's observation boundary; Codex interpretation in launcher or adjacent integration |
 | Exported mountable Typer apps/factories | All packages |
 | Optional small async FastAPI management adapter | Launcher follow-on using the existing owner |
-| Remote profile migration and daemon mode | Deferred, not initial delivery |
+| Remote profile migration | Deferred, not initial delivery |
+| Unified discovery/status/launch, partner-host routing and optional daemon hosting | Accepted coordinator direction; implementation and failure qualification pending |
 
 ## Cross-package invariants
 

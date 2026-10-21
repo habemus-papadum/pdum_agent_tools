@@ -1,0 +1,6 @@
+<!doctype html><html><head><meta charset="utf-8"><title>HP background jobs</title></head>
+<body><h1>HP background jobs</h1><pre id="result">Running portable job cases in a Worker…</pre><script type="module">
+const worker = new Worker('./worker.js', {type: 'module'});
+worker.onmessage = ({data}) => { window.hpJobResults = data; document.querySelector('#result').textContent = JSON.stringify(data, null, 2); };
+worker.onerror = event => { document.querySelector('#result').textContent = event.message; };
+</script></body></html>

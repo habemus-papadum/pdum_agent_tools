@@ -1,0 +1,21 @@
+/** Recheck recorded native-item preservation offline. Never opens a provider connection. */
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+const directory = process.argv[2];
+assert(directory, 'Supply the successful local artifact directory');
+const raw = JSON.parse(await readFile(resolve(directory, 'raw.json'), 'utf8'));
+const creates = raw.requests.filter((entry: any) => entry.event.type === 'response.create');
+const reasoningFork = creates.find((entry: any) => entry.connectionId === 2).event;
+assert(!reasoningFork.previous_response_id);
+assert.deepEqual(reasoningFork.input.slice(0, raw.compaction.originalContext.length), raw.compaction.originalContext);
+const opaqueBefore = raw.compaction.originalContext.filter((item: any) => item.type === 'reasoning' && item.encrypted_content);
+assert(opaqueBefore.length > 0);
+const compactedParent = creates.find((entry: any) => entry.connectionId === 3).event;
+assert(!compactedParent.previous_response_id);
+assert.deepEqual(compactedParent.input.slice(0, raw.compaction.nextContext.length), raw.compaction.nextContext);
+const compactedFork = creates.find((entry: any) => entry.connectionId === 4).event;
+assert(!compactedFork.previous_response_id);
+assert.deepEqual(compactedFork.input.slice(0, raw.compaction.nextContext.length), raw.compaction.nextContext);
+assert(compactedFork.input.some((item: any) => item.type === 'reasoning' && item.encrypted_content));
+console.log(JSON.stringify({ passed: true, reasoningForkNativeItemsUnchanged: true, compactedParentWindowUnchanged: true, compactedForkWindowUnchanged: true, generatedResponses: 0 }));

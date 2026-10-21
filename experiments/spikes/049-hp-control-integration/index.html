@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>HP dynamic control checks</title>
+<style>body{font:16px system-ui;margin:3rem;max-width:72rem}button{padding:.6rem}pre{white-space:pre-wrap;background:#eee;padding:1rem}</style>
+<h1>HP dynamic control checks</h1>
+<p>The same scenario code runs inside this browser Worker and under Node. Model events are scripted; these checks make no provider requests.</p>
+<button id="run">Run control checks</button><pre id="result">Ready</pre>
+<script type="module">
+window.runHPControls = () => new Promise((resolve,reject) => {
+ const worker=new Worker('./worker.js',{type:'module'});
+ document.querySelector('#result').textContent='Running…';
+ worker.onmessage=({data})=>{worker.terminate();window.hpControlResult=data;document.querySelector('#result').textContent=JSON.stringify(data,null,2);data.error?reject(Error(data.error)):resolve(data.report)};
+ worker.onerror=e=>{worker.terminate();reject(Error(e.message))};worker.postMessage({run:true});
+});
+document.querySelector('#run').onclick=()=>window.runHPControls().catch(()=>{});
+</script></html>

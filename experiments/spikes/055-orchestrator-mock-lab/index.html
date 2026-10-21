@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent desk · interaction studies</title><link rel="icon" href="data:,">
+<link rel="stylesheet" href="/__aiui-design/site.css"><link rel="stylesheet" href="/055-orchestrator-mock-lab/style.css"></head>
+<body><main>
+  <header><p class="eyebrow">Orchestrator · interaction studies</p><h1>A place to work with your agents.</h1>
+  <p class="lede">Explore the working set, read real history, and make the next action explicit.</p></header>
+  <aside class="fixture-note">Overview, live-session and authentication controls are simulations. Historical viewing reads local exports from native APIs. These pages do not resume agents, sign in or write profiles.</aside>
+  <section class="studies" aria-label="Interaction studies">
+    <article><p class="eyebrow">Study 01 · Overview</p><h2>Find the work that matters</h2><p>Scan a mixed fleet, filter it down, and move from a sign of activity to the evidence behind it.</p>
+    <a class="open" href="/053-orchestrator-overview/">Open overview study <span aria-hidden="true">↗</span></a>
+    <a class="notes" href="/053-orchestrator-overview/README.md">Read the interaction notes</a></article>
+    <article><p class="eyebrow">Study 02 · Session</p><h2>Turn context into intent</h2><p>Follow a file reference, select and annotate code, then say explicitly how your prompt should enter the conversation.</p>
+    <a class="open" href="/054-orchestrator-session/">Open session study <span aria-hidden="true">↗</span></a>
+    <a class="notes" href="/054-orchestrator-session/README.md">Read the interaction notes</a></article>
+    <article><p class="eyebrow">Round A · Native history</p><h2>Read what actually happened</h2><p>Inspect Codex and Claude conversations, tool results and native records. Compare real history with a labelled rich-content specimen.</p>
+    <a class="open" href="/059-historical-viewer/">Open historical viewer <span aria-hidden="true">↗</span></a>
+    <a class="notes" href="/059-historical-viewer/README.md">Read the interaction notes</a> · <a class="notes" href="/058-native-history-access/README.md">Access evidence</a></article>
+    <article><p class="eyebrow">Round A · Authentication</p><h2>Know where sign-in belongs</h2><p>Explore local and remote profile authentication using previews of the existing launcher operations.</p>
+    <a class="open" href="/060-authentication-flows/">Open authentication study <span aria-hidden="true">↗</span></a>
+    <a class="notes" href="/060-authentication-flows/README.md">Read the operation map and notes</a></article>
+  </section>
+  <footer><p>These pages explore behaviour and presentation. The accompanying Markdown keeps the useful ideas for a later specification; the implementation is disposable. <a href="/docs/plans/agent-orchestrator/next-mock-rounds.md">Follow the three-round plan</a>.</p><p id="instance" class="instance"></p></footer>
+</main><script type="module">const data=await(await fetch('/__instance')).json();document.querySelector('#instance').textContent=`Preview instance ${data.id.slice(0,8)} · separate port and temporary runtime record`;</script></body></html>

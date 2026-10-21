@@ -114,3 +114,28 @@ Worktrees: `git worktree remove ~/src/exp-evals/<run-id>` from the repository, t
 `git branch -D eval/<run-id>`. The patch in the run directory preserves the result.
 Profiles: delete `~/src/exp-evals/profiles/<run-id>`; they hold copied auth, so do not
 share them. Run directories under `$EVALS_HOME` are the record; keep them.
+
+## Small HP/native comparison and measurement revision (18 October 2026)
+
+The new `hp-mini` task repairs a dependency-free JavaScript usage summarizer. It
+has an explicit local skill, exact shared prompt, a small editable project and
+independent objective checks kept outside the agent's scratch directory. Use the
+[044 runbook](../spikes/044-hp-evaluation/README.md) to prepare isolated directories
+under `~/history/evals/` without Git branches, copied credentials or model calls.
+The execution harness records `run.json.root_thread_id`; `report.py RUN_ID` then
+uses the existing schema and task checks. `--root-thread-id ID` can override root
+selection for an individual report.
+
+The reporter now selects a lineage root rather than the thread with most model
+calls, excludes inherited rows from both tool-call and tool-byte metrics, and
+prices each response using its own model. It recognizes `node --test` in native
+and HP command records. Missing prices or required usage fields remain unknown,
+and subcent list estimates retain nine decimal places.
+
+New output identifies pricing revision `2026-10-18-standard-v2`; the dated Luna
+and Sol rates are corrected against official documentation. The original
+17 October baseline JSON is unchanged. When pricing revisions differ, the report
+warns and skips the cost-envelope comparison instead of silently repricing old
+results. Standard list equivalents and provider-reported ledger values remain
+separate from actual subscription billing. See the runbook for source links,
+long-context rates and explicit assumptions.

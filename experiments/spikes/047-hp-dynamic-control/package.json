@@ -1,0 +1,7 @@
+{
+  "name": "@agent-spike/047-hp-dynamic-control",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "tsx --test dynamic.test.ts", "probe": "tsx probe.ts", "typecheck": "tsc --noEmit" },
+  "devDependencies": { "tsx": "catalog:", "typescript": "catalog:", "@types/node": "catalog:" }
+}

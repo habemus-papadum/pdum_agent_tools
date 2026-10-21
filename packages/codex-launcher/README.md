@@ -54,6 +54,16 @@ The Python API accepts a directory. `async with launch(directory, LaunchOptions(
 owns the process and yields its endpoint, PID and async status/stop operations.
 `pdum.codex_launcher.cli.create_app()` returns a mountable Typer command tree.
 
+Conversation attachment belongs to the client. Native idle unloading can remove
+a thread's runtime while this app-server process keeps running; `turn/start`
+then requires a preceding `thread/resume`. An attached/subscribed idle thread is
+not unloaded just because the operator stops typing. The native startup setting
+can be passed through unchanged, for example `launch -c thread_unload_delay_secs=7200`
+or `LaunchOptions(config_overrides={"thread_unload_delay_secs": "7200"})`.
+Zero requests immediate eligibility, not disabled unloading. See the
+[versioned lifecycle qualification](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/057-launcher-inactive-turns.md)
+for native errors, background-terminal teardown and client recovery boundaries.
+
 MITM is absent by default. Install the `mitm` extra and use
 `--mitm --capture-dir PATH --capture` to record upstream traffic, or omit
 `--capture` and toggle it later with `capture on/off`.

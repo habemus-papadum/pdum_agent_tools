@@ -66,6 +66,29 @@ original scope, recommendations and cost ledgers.
 | 035 | A read-only filesystem ingester answers every analysis question from DuckDB in milliseconds; read RPCs return identical items but no usage, model or fork lineage. | [Historical analysis paths](spikes/035-codex-analysis.md) |
 | 036 | Both history files load into one MotherDuck database in 71 s with matching counts and bytes; simple queries answer in 25–80 ms, two writers commit concurrently, a thread replaces in under a second; substring search over the blobs is seven times slower than local. | [MotherDuck seed](spikes/036-motherduck-seed.md) |
 | 037 | Astra does not add context faster than Fable per step; Codex's 258k window (a catalog default, overridable to 872k) makes the same turn fill a third of it. One task run on three arms became the first eval baseline. | [Context burn](spikes/037-context-burn.md) |
+| 038 | Agents SDK handles ordinary tools but its current loop misses the required steering/freeform-tool behavior; direct Responses passes live checks. | [SDK fit](spikes/038-hp-sdk-fit.md) |
+| 039 | One portable runtime supports selected native messages, children, forks and replay; real MessagePorts and the existing history schema pass. | [HP runtime](spikes/039-hp-agent-runtime.md) |
+| 040 | Node and a real browser Worker complete live steering/tool/child/fork flows with prompt inspection and historical measurement. | [Combined integration](spikes/040-hp-integration.md) |
+| 041 | Actual aiui-prompts preserves imported Codex text and native tool JSON; source inventory distinguishes public Responses from native framing. | [Prompt and tool fidelity](spikes/041-hp-codex-fidelity.md) |
+| 042 | HP tools match eleven native patch cases; real process, skill and MCP checks pass, with explicit fidelity limits. | [Host tools, skills and MCP](spikes/042-hp-tools-skills.md) |
+| 043 | Real Luna compaction and fresh-connection reasoning/context forks retain the tested facts while preserving the original transcript. | [Compaction and context](spikes/043-hp-context-compaction.md) |
+| 044 | A small coding task and corrected root/usage/pricing measurements support comparisons without rewriting old baselines. | [Evaluation mechanics](spikes/044-hp-evaluation.md) |
+| 045 | HP and native Codex pass the same coding gates; model-selected child work updates a real browser dashboard. | [Behavioral integration](spikes/045-hp-behavior.md) |
+| 046 | A source-linked inventory preserves 36 advanced contracts and distinguishes raw pipe checks from native model-tool lifetime. | [Power-user audit](spikes/046-hp-power-user-audit.md) |
+| 047 | Shared session/agent/tool modules implement queue-only mail, follow-ups, wakeable waits and truthful interruption outcomes. | [Dynamic control](spikes/047-hp-dynamic-control.md) |
+| 048 | Provider steering order, correlated receipts, cancelled connections and duplicate finals pass real-SDK fault tests. | [Steering edges](spikes/048-hp-steering-edges.md) |
+| 049 | The portable control suites pass in Chrome; live mail/steer-wait, interrupt/resume and browser delegation pass. | [Control integration](spikes/049-hp-control-integration.md) |
+| 050 | Eligible tools overlap, exclusive calls preserve order, and per-step snapshots and cancellation retain truthful results. | [Parallel tools](spikes/050-hp-parallel-tools.md) |
+| 051 | Async JavaScript and shell jobs share independent lifetimes, input/output history and explicit cancellation. | [Background jobs](spikes/051-hp-background-jobs.md) |
+| 052 | Shared Node/browser cases and twelve live responses qualify parallel work, retained jobs and independent clients. | [Work integration](spikes/052-hp-work-integration.md) |
+| 053 | A disposable overview explores 36 fixture agents, filtering, attention and progressive evidence. | [Overview interaction mock](spikes/053-orchestrator-overview.md) |
+| 054 | A disposable session explores contextual source selection and explicit prompt delivery outcomes. | [Session interaction mock](spikes/054-orchestrator-session.md) |
+| 055 | A shared preview host serves both studies; real process/browser checks and development boundaries are recorded. | [Mock lab and development](spikes/055-orchestrator-mock-lab.md) |
+| 056 | Codex Inactive means an unloaded runtime; subscription/idle timers, background work and resume have distinct lifetimes. | [Inactive lifecycle](spikes/056-codex-inactive-lifecycle.md) |
+| 057 | Through our actual launcher: unloaded sends reject, explicit resume works, idle unload kills a managed terminal, and native configuration/hooks already pass through. | [Launcher inactivity boundary](spikes/057-launcher-inactive-turns.md) |
+| 058 | Native read APIs export 16 real Codex/Claude sessions without loading a runtime or submitting a turn; coverage gaps remain explicit. | [Native history access](spikes/058-native-history-access.md) |
+| 059 | A read-only viewer renders provider-native captures and a separately labelled rich-content specimen. | [Historical viewer](spikes/059-historical-viewer.md) |
+| 060 | Local/remote authentication simulations preview existing launcher operations and distinguish credential evidence from model access. | [Authentication flows](spikes/060-authentication-flows.md) |
 
 For the current Hostfork direction, read the [architecture findings](../../docs/specs/hostfork/spike-findings.md).
 Spikes 020–024 use only the Python research workspace and local Linux facilities;

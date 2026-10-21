@@ -1,0 +1,14 @@
+{
+  "name": "@agent-spike/042-hp-tools-skills",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "tsx --test src/*.test.ts",
+    "probe": "tsx src/probe.ts",
+    "native": "tsx src/native-probe.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "esbuild src/remote.ts --bundle --platform=browser --format=esm --outfile=../../artifacts/042-hp-tools-skills/remote.js"
+  },
+  "dependencies": { "@modelcontextprotocol/sdk": "catalog:" },
+  "devDependencies": { "@types/node": "catalog:", "esbuild": "catalog:", "tsx": "catalog:", "typescript": "catalog:" }
+}

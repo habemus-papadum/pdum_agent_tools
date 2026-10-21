@@ -13,9 +13,11 @@ coverage.xml
 htmlcov/
 .env
 .env.*
+.env~
 .emv
 .emv.*
 .DS_Store
 artifacts/
+/.dev/
 todo.md
 docs/reference/typescript/

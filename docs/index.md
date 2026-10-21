@@ -23,9 +23,11 @@ selective native imports, editable TOML and upstream authentication workflows.
   practical hygiene, thin native configuration, foreground ownership, asynchronous
   inspection without initial capture quotas, and reusable Typer CLIs.
 - [Architecture overview](architecture.md)
+- [Runtime contracts and gotchas](runtime-contracts.md): versioned behavior that
+  client, coordinator and background-job implementations must account for.
 - [Codex launcher](specs/codex-launcher.md)
 - [Codex client API design](specs/codex-client.md) and
-  [implementation plan](plans/codex-client.md), proposed for review before construction
+  [implementation plan](plans/codex-client.md), with follow-up refinements from the HP Agent spikes
 - [Claude launcher](claude.md), [architecture](specs/claude-launcher.md),
   [delivery plan](plans/claude-launcher.md), [qualification report](claude-validation.md)
   and [checkpoint/follow-up](claude-handoff.md)
@@ -39,6 +41,17 @@ selective native imports, editable TOML and upstream authentication workflows.
 - [Research and spikes](research.md)
 - [Codex client feasibility findings](codex-client-findings.md): combined results
   from spikes 025–034, before designing new client libraries.
+- [Agent orchestrator component map](plans/agent-orchestrator/index.md): the
+  proposed multi-provider web application, with twenty-two component stubs and
+  two throwaway web studies informing later specifications and live slices.
+- [HP Agent findings](hp-agent-findings.md): browser/Node execution, SDK choice,
+  faithful prompt records and implications for shared client/history code.
+- [HP Agent behavioral findings](hp-agent-behavior.md): host tools, skills/MCP,
+  real compaction, model-selected delegation and a first coding comparison.
+- [HP Agent parallel work](hp-agent-work.md): parallel tools, independent jobs,
+  client lifetimes and the [AIUI integration contract](specs/hp-aiui-integration.md).
+- [HP Agent power-user parity](hp-agent-parity.md): source-linked feature inventory,
+  shared runtime structure and advanced control edge cases.
 
 The proposals recommend concrete architecture, interfaces, defaults, and phased
 acceptance criteria. They are broader than the first implementation, with remaining

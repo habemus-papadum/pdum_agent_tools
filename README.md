@@ -37,6 +37,9 @@ security enforcement. Native Codex configuration stays native; credential reuse
 should be easy. A separate lockdown mode can come later.
 
 Launch is foreground/application-owned, with PID-aware cleanup; no daemon is needed.
+The [unified host coordinator proposal](docs/plans/agent-orchestrator/components/21-host-coordinator.md)
+adds an optional future daemon around the existing libraries, with pragmatic
+[history-based recovery](docs/plans/agent-orchestrator/failure-recovery.md).
 MITM is off by default. Optional inspection copies traffic into asynchronous
 processors without gating forwarding. Start with full captures, monitoring rather
 than size quotas, simple extension hooks, and reusable Typer CLI apps.
@@ -53,13 +56,30 @@ The [Codex client feasibility findings](docs/codex-client-findings.md) summarize
 the completed 025–034 round and link its history, administration, live-control,
 remote-operation and observability evidence.
 The follow-on [client API design](docs/specs/codex-client.md) and
-[implementation plan](docs/plans/codex-client.md) are drafted for review;
+[implementation plan](docs/plans/codex-client.md) form the reviewed design baseline;
 the TypeScript package has not been implemented.
+The [HP Agent findings](docs/hp-agent-findings.md) now add a working browser/Node
+research prototype, an SDK comparison, prompt inspection and history-schema evidence.
+The [behavioral follow-up](docs/hp-agent-behavior.md) adds real tools, compaction,
+model-selected delegation and a small matched coding comparison with native Codex.
+The [power-user parity pass](docs/hp-agent-parity.md) records 36 native contracts,
+source-aligned runtime structure, control edge fixes and remaining implementation gates.
+The [parallel work findings](docs/hp-agent-work.md) add parallel tools, independent
+background jobs and real Node/browser checks. The [AIUI integration contract](docs/specs/hp-aiui-integration.md)
+sets the next boundary, including pragmatic upstream changes to the young AIUI library.
 
 ## Architecture and implementation proposals
 
+- [Agent orchestrator component map](docs/plans/agent-orchestrator/index.md):
+  twenty-two editable design stubs for the multi-provider web application, SDKs,
+  management, live/history views, rich prompting, reusable UI and development
+  delivery. Two [throwaway web studies](experiments/spikes/055-orchestrator-mock-lab/README.md)
+  now support interaction review before a concrete specification.
 - [Implementation status](docs/implementation-status.md): current commands, APIs,
   live results and unimplemented/untested capabilities.
+- [Runtime contracts and gotchas](docs/runtime-contracts.md): the canonical list
+  of consequential backend behavior, implementation implications and regression
+  scenarios, starting with subscriptions, resume and background-job lifetime.
 - [Testing policy](docs/testing.md): real local integration tests and opt-in small
   live calls rather than mocked provider-success evidence.
 - [Architecture overview](docs/architecture.md): package boundaries, requirements,
@@ -115,6 +135,10 @@ See the [development guide](docs/development.md) for dependency changes, testing
 documentation, builds, CI, and the human-operated release process. Native Codex
 tests skip when no binary is installed; paid inference runs only through an
 explicitly invoked live probe.
+
+For UI work, `./scripts/link-aiui.sh` creates an ignored `.dev/aiui` link to the
+sibling framework checkout. See [local AIUI development](docs/development.md#local-aiui-source-and-future-browser-apps)
+for source access, existing prompt experiments and future app package linking.
 
 Start an isolated temporary app-server using available file-backed credentials:
 

@@ -1,0 +1,19 @@
+{
+  "name": "@agent-spike/038-hp-sdk-fit",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "probe": "tsx src/probe.ts && tsx src/direct-probe.ts && tsx src/compaction-probe.ts",
+    "live": "tsx src/live.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@openai/agents": "catalog:",
+    "openai": "catalog:",
+    "ws": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/ws": "catalog:"
+  }
+}

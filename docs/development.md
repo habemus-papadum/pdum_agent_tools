@@ -10,11 +10,26 @@ Python 3.14-only uv environment/lock and pnpm catalog/lock. Run research command
 from that directory, not the repository root. See [research and spikes](research.md)
 for setup and the distinction between research checks and package CI.
 
-A [Codex client workspace](plans/codex-client.md#proposed-repository-organization)
-is proposed under `typescript/`, with its own pnpm lock and browser/Node tests.
-It awaits design review and does not yet add setup commands or dependencies here.
+The production [TypeScript workspace](#typescript-workspace) already holds
+agent-history analysis. The [Codex client plan](plans/codex-client.md) is the
+reviewed baseline for later client packages. HP browser/Node prototypes remain
+in `experiments/`.
 
 ## Operating stance
+
+For the orchestrator, client SDKs and reusable UI, begin each slice with the
+[working method](plans/agent-orchestrator/methodology.md). It records when to ask
+open product questions, how mocks can explore them, and the explicit-intent-first
+rule. The [first-slice proposal](plans/agent-orchestrator/first-slices.md) is the
+current sequential starting recommendation.
+The [next mock rounds](plans/agent-orchestrator/next-mock-rounds.md) track the
+later three-round sequence and review checkpoints. For any configuration UI,
+begin with the existing ingestor/launcher/profile contract and document the
+mapping from form choice to native field or operation.
+The [runtime contracts and gotchas](runtime-contracts.md) are the shared memory
+of consequential backend behavior. Review applicable RC entries, attach their
+regression scenarios to the implementation plan, and update their evidence when
+qualifying a new backend version.
 
 Follow the [agreed design principles](design-principles.md). The default runtime
 trusts the operator, agent, plugins and clients inside the operator's network.
@@ -251,3 +266,80 @@ The schema contract flows one way: `uv run pdum-history schema --json` writes
 compares the copy with the live contract, and CI diffs them. The generated
 reference under `docs/reference/typescript/` is ignored by Git; run `pnpm run
 api-docs` before a strict MkDocs build, as the docs workflow does.
+
+### Local AIUI source and future browser apps
+
+Create the optional development source link from the repository root:
+
+```sh
+./scripts/link-aiui.sh                         # sibling ../pdum_aiui
+./scripts/link-aiui.sh ~/src/pdum_aiui          # explicit checkout
+```
+
+The ignored `.dev/aiui` symlink points at the actual checkout, including local
+edits. It does not copy files, pull that checkout, install packages, or change
+either workspace's lockfile. The script is idempotent and refuses to replace a
+conflicting path. To remove this connection, unlink `.dev/aiui`; do not remove
+its target directory.
+
+This checkout is the definitive local framework reference. Read its `AGENTS.md`
+before editing upstream and begin framework work with
+`packages/aiui-viz/CATALOG.md`, `skills/aiui-architecture/SKILL.md` and the linked
+package docs. The current source-first setup recipe is
+`skills/source-first-workspaces/SKILL.md` and
+`packages/aiui-build-config/docs/source-first-workspaces.md`, all under the link.
+Git-backed plugin caches are independent snapshots and can lag local work.
+
+The existing 041–052 prompt-related experiments already import actual
+`aiui-prompts` source and selected inspector source. Their shared loader now
+defaults to `.dev/aiui`; `AIUI_PROMPTS_CHECKOUT` can still override it with a
+repository root. For example, from `experiments/`:
+
+```sh
+pnpm --filter @agent-spike/041-hp-codex-fidelity test
+pnpm --filter @agent-spike/045-hp-behavior build
+```
+
+No production package currently declares an AIUI dependency. A filesystem link
+alone does not make `@habemus-papadum/aiui-viz` resolvable by package name, and
+this pass does not qualify a new app's HMR. When the first browser app is added,
+declare only its actual dependencies using this workspace's catalog policy and
+choose explicit local package links/overrides for that app. Keep the sibling
+workspaces and locks separate. Verify package exports resolve to source, the
+app compiles linked TSX, and Solid resolves consistently across both repos.
+Then test an actual source edit in the running browser. Do not add a global pnpm
+link, blanket aliases, or a second framework runtime in anticipation of that app.
+
+### Disposable orchestrator interaction studies
+
+From `experiments/`, run `node spikes/055-orchestrator-mock-lab/serve.mjs` and open
+the printed URL. It serves the overview and session/source/prompt studies with
+synthetic data; each page links to a Markdown note describing its interaction
+and unresolved choices. Separate preview launches have separate ports and
+temporary runtime records. No credentials or model calls are involved.
+
+See the [development-flow sketch](plans/agent-orchestrator/development-flow.md)
+for the proposed browser/backend and Electron lanes and the isolation required
+before live multi-agent development. The static mock host does not implement
+those future service lifetimes or HMR. The [O22 entry](plans/agent-orchestrator/components/22-development-delivery.md)
+keeps packaging questions open until they affect real implementation.
+
+### Refreshing Codex and Git-backed plugins
+
+Use the installed CLI's supported commands:
+
+```sh
+codex update
+codex plugin marketplace upgrade
+codex plugin list --json
+codex plugin add aiui@fai-labs
+```
+
+The marketplace command refreshes catalogs; installing an already-installed
+Git-backed plugin refreshes its own cached copy. Repeat the last command for the
+installed plugins being refreshed. Preserve configured refs/SHAs and plugin
+enablement choices; runtime-bundled and remote-directory plugins are separate.
+Start a new Codex session to load refreshed skills; this does not hot-replace the
+instructions of an already-running conversation. See the
+[official plugin setup guidance](https://developers.openai.com/plugins/build/plugins).
+CLI updates also leave `experiments/vendor/codex` at its deliberate research pin.

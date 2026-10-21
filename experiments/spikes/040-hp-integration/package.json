@@ -1,0 +1,16 @@
+{
+  "name": "@agent-spike/040-hp-integration",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "native": "node native-contract.mjs",
+    "build": "tsx build-browser.ts",
+    "test": "tsx build-browser.ts --test",
+    "serve": "node dev-server.mjs",
+    "live:node": "node --import tsx live-node.mjs --live"
+  },
+  "dependencies": {
+    "openai": "catalog:",
+    "ws": "catalog:"
+  }
+}

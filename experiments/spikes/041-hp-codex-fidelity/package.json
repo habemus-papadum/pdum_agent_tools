@@ -1,0 +1,17 @@
+{
+  "name": "@agent-spike/041-hp-codex-fidelity",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "probe": "tsx src/probe.ts",
+    "test": "tsx --test src/core.test.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "esbuild src/core.ts --bundle --platform=browser --format=esm --outfile=../../artifacts/041-hp-codex-fidelity/core.js"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "esbuild": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

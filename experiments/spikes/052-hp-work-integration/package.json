@@ -1,0 +1,17 @@
+{
+  "name": "@agent-spike/052-hp-work-integration",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "tsx --test src/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsx build.ts",
+    "live": "node --import tsx live.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "esbuild": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "@agent-spike/orchestrator-mock-lab",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node serve.mjs",
+    "build": "vite build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@habemus-papadum/aiui-viz": "link:../../../.dev/aiui/packages/aiui-viz",
+    "@habemus-papadum/aiui-design": "link:../../../.dev/aiui/packages/aiui-design",
+    "@habemus-papadum/aiui-dock": "link:../../../.dev/aiui/packages/internal/aiui-dock",
+    "@solidjs/web": "catalog:",
+    "solid-js": "catalog:",
+    "@uwdata/vgplot": "catalog:",
+    "@uwdata/mosaic-core": "catalog:",
+    "@uwdata/mosaic-sql": "catalog:",
+    "@duckdb/duckdb-wasm": "catalog:",
+    "marked": "catalog:",
+    "katex": "catalog:",
+    "mermaid": "catalog:",
+    "highlight.js": "catalog:"
+  },
+  "devDependencies": {
+    "@habemus-papadum/aiui-source-processor": "link:../../../.dev/aiui/packages/aiui-source-processor",
+    "@babel/core": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-solid": "catalog:",
+    "vitest": "catalog:",
+    "jsdom": "catalog:"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "package_dir": ".",
+  "search": ["src", "test"],
+  "min_tests": 4,
+  "must_contain": { "api": ["summarizeUsage", "uncachedInputTokens", "revision", "copied-context"] },
+  "rubric": [
+    "Correctness: the independent objective checks pass for identity, revisions, inherited records, cache accounting and ordering.",
+    "Regression tests: added tests exercise multiple meaningful failure modes, with evidence the agent ran them.",
+    "Scope: only the allowed source, test and README files changed; no dependencies were added.",
+    "Explanation: the README states the skill's accounting rules and accurately reports validation."
+  ]
+}

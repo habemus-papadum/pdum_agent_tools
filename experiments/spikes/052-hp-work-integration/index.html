@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>HP work integration</title>
+<style>body{font:16px system-ui;margin:3rem;max-width:72rem}button{padding:.6rem}pre{white-space:pre-wrap;background:#eee;padding:1rem}</style>
+<h1>HP work integration</h1>
+<p>Portable job and client checks run inside a browser Worker. The live check separately uses real Luna responses through the explicitly enabled experiment host.</p>
+<button id="local">Run local checks</button> <button id="live">Run live probe</button><pre id="result">Ready</pre>
+<script type="module">
+window.runHPWork = (live=false) => new Promise((resolve,reject) => {
+ const worker=new Worker('./worker.js',{type:'module'});
+ document.querySelector('#result').textContent='Running…';
+ worker.onmessage=({data})=>{worker.terminate();window.hpWorkResult=data;document.querySelector('#result').textContent=JSON.stringify(data,null,2);data.error?reject(Error(data.error)):resolve(data.report)};
+ worker.onerror=e=>{worker.terminate();reject(Error(e.message))};
+ worker.postMessage({live,url:`${location.protocol==='https:'?'wss':'ws'}://${location.host}/responses`});
+});
+document.querySelector('#local').onclick=()=>window.runHPWork().catch(()=>{});
+document.querySelector('#live').onclick=()=>window.runHPWork(true).catch(()=>{});
+</script></html>

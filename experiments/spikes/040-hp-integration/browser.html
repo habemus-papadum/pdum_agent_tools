@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HP browser Worker integration</title>
+<style>
+  :root { color-scheme: light dark; font: 16px/1.5 system-ui, sans-serif; }
+  body { max-width: 1080px; margin: 36px auto; padding: 0 24px; }
+  h1 { font-size: 28px; } h2 { font-size: 20px; margin-top: 28px; }
+  button, select { font: inherit; padding: 8px 12px; margin: 4px 8px 4px 0; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid #8886; border-radius: 8px; padding: 16px; max-height: 420px; overflow: auto; }
+  .note { color: #888; } summary { cursor: pointer; padding: 8px 0; }
+</style>
+<h1>HP browser Worker integration</h1>
+<p>The browser Worker owns the agent loop, host echo tool, steering, child and fork flows.
+The public Responses translation retains the imported native Luna prompt through actual aiui-prompts records.
+The host relay supplies credentials; this page receives no API key.</p>
+<p><button id="fixture">Run fixture</button><button id="live">Run live Luna demo</button></p>
+<p class="note">Live is explicit and uses the bounded development relay. Fixture results do not qualify provider compatibility.
+The inspector below uses the actual aiui-prompts-inspector headless controller with a plain DOM view.</p>
+<h2>Result</h2><pre id="result">Ready. No model request has been sent.</pre>
+<h2>Prompt inspection</h2><label>Request <select id="request"></select></label>
+<details open><summary>Canonical prompt text</summary><pre id="prompt-text">Run a demonstration to prepare a prompt.</pre></details>
+<details><summary>Validated provenance and wire verification</summary><pre id="prompt-provenance"></pre></details>
+<details><summary>Stored semantic operation JSON</summary><pre id="snapshot"></pre></details>
+<p class="note">Programmatic entry: window.runHPDemo({live: false}); captured data: window.hpEvidence.</p>
+<script type="module" src="./browser-ui.js"></script>
+</html>
