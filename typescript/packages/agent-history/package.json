@@ -11,7 +11,8 @@
   },
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./analysis": "./src/analysis.ts"
   },
   "main": "./src/index.ts",
   "module": "./src/index.ts",
@@ -37,6 +38,11 @@
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js",
         "default": "./dist/index.js"
+      },
+      "./analysis": {
+        "types": "./dist/analysis.d.ts",
+        "import": "./dist/analysis.js",
+        "default": "./dist/analysis.js"
       }
     }
   },

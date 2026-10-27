@@ -1,0 +1,1 @@
+{"name":"@agent-spike/071-claude-sdk-replay","private":true,"type":"module","dependencies":{"@anthropic-ai/claude-agent-sdk":"catalog:"},"devDependencies":{"esbuild":"catalog:"}}

@@ -4,6 +4,21 @@ The repository now has a tested local implementation, not just scaffolds. The
 architecture documents remain the broader target; they are not a claim that every
 planned option is available. This page records the implemented boundary.
 
+## Orchestrator S0 foundation
+
+The [working foundation](orchestrator.md) now includes `pdum.orchestrator`, portable
+`agent-core` contracts, `orchestrator-client`, a browser-safe `agent-history/analysis`
+entry, the AIUI application shell and a private dev supervisor. Two real instances
+can run with isolated state/profiles/caches and identity-targeted shutdown. The
+page reads actual metadata and prepares text through the current prompt toolkit.
+Actual browser source/HMR, stale-state and narrow-layout checks accompany the
+local tests. No provider model calls were made for this checkpoint.
+
+This is not yet the full host coordinator: provider launch/auth/history/session
+APIs, Codex client and Claude/HP production integration remain upcoming work.
+Current provider launcher behavior below is unchanged. CI configuration is updated;
+the new workflow has not been run remotely in this turn.
+
 ## Claude launcher
 
 The new, unreleased `pdum.claude_launcher` package implements profile creation,

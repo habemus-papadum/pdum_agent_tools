@@ -146,6 +146,32 @@ export class AgentRuntime {
   list(): Thread[] { return [...this.threads.keys()].map((id) => this.read(id, false)); }
   context(threadId: string): NativeItem[] { return copy(this.saved(threadId).context); }
   snapshots(): SavedThread[] { return [...this.threads.values()].map((saved) => copy({ ...saved, inputRecords: this.inspectInputs(saved.thread.id) })); }
+  /** Import inert saved conversations into a fresh owner; never replay tools, mail or jobs. */
+  restoreSnapshots(snapshots: SavedThread[]): void {
+    this.assertOpen();
+    if (this.threads.size || this.active.size) throw new Error('Restore requires a fresh empty runtime');
+    const ids = new Set<string>();
+    for (const saved of snapshots) {
+      if (ids.has(saved.thread.id)) throw new Error('Duplicate restored thread ID');
+      if (saved.thread.turns.some(turn => turn.status === 'inProgress')) throw new Error('Unfinished saved turn requires an explicit completed checkpoint');
+      ids.add(saved.thread.id);
+    }
+    for (const original of snapshots) {
+      const saved = copy(original);
+      saved.thread.status = { type: 'idle' };
+      // These are retained historical outcomes, not entries in a new live mailbox.
+      const records = (saved.inputRecords ?? []).map(record => {
+        if (['queued', 'sent', 'included'].includes(record.state)) return {
+          ...record, state: 'uncommitted' as const,
+          detail: 'Saved owner ended; pending input was not automatically delivered by restore',
+        };
+        return record;
+      });
+      this.threads.set(saved.thread.id, saved); this.inputs.set(saved.thread.id, records);
+      this.checkpoint(saved);
+    }
+    this.record('runtimeRestored', { threadIds: [...ids], jobsRestored: false, pendingInputsReplayed: false });
+  }
   inspectInputs(threadId: string): InputRecord[] { this.saved(threadId); return copy([...(this.inputs.get(threadId) ?? []), ...this.control.mailboxes.all(threadId)]); }
   /** Start an application computation; turn interruption only stops its waiter. */
   startJob(threadId: string, spec: Omit<JobSpec, 'ownerId' | 'threadId' | 'turnId'> & { turnId?: string }): JobSnapshot {

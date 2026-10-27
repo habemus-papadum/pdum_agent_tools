@@ -18,9 +18,9 @@ Preserve editable draft inputs, submitted snapshots and provider wire representa
 
 ## Candidate progression
 
-- **Mock:** A draft combining typed text, dictated text, a captured image and ink, with reorder/remove and final preview.
-- **First usable slice:** Text plus one supported image path through a real provider; reuse prompt construction/provenance rather than invent a second templating system.
-- **Later:** Templates, structured context selection, multimodal editing, prompt comparisons and reusable composition controls across applications.
+- **First usable slice:** A simple text-only placeholder producing a shared prompt record and structured rendered content; provider adapters format that content into native input messages.
+- **Independent disposable experiments:** Rich editing, images, voice, capture, pencil and prompt inspection, without gating the main workflow.
+- **Later integration:** Replace the placeholder through the same content boundary after review; retain templates, source/provenance and provider capability distinctions.
 
 These are discussion candidates, not scheduled work or implemented capabilities.
 
@@ -31,6 +31,16 @@ source code and comments from a read-only file viewer become draft prompt
 material. Preserve file/host/path and available content-version provenance.
 Prompt submission follows explicit target/timing choices in O09; composing a
 draft does not silently choose steer versus queue versus new work.
+
+## Recorded review — 26 October 2026
+
+Keep the initial UI very simple. Its output is the shared structured/rendered
+prompt, potentially containing ordered images and other parts in the future.
+Destination-specific adapters produce the proper client messages; the editor
+does not choose native turn/steer/queue behavior. Rich-content types do not imply
+that each provider already accepts those parts. The richer prompting design will
+be decided through separate, self-contained disposable experiments. See
+[D10 and the content boundary](../system/decisions.md#simple-composer-durable-content-boundary).
 
 ## Your additions
 

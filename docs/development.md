@@ -1,7 +1,7 @@
 # Development
 
 Run the commands on this page from the repository root. This is a workspace for
-four distributions; the root is not itself a distribution. See [implementation status](implementation-status.md)
+six distributions; the root is not itself a distribution. See [implementation status](implementation-status.md)
 for supported package behavior and [testing](testing.md) for the evidence policy.
 
 The imported `experiments/` tree is a separate research workspace, intentionally
@@ -41,6 +41,11 @@ backlog/storage rather than imposing initial payload limits or run quotas.
 Lockdown is a separately designed later mode, not a prerequisite for development.
 
 ## Environment
+
+For the working S0 browser/backend pair, follow the [orchestrator guide](orchestrator.md):
+link/install the AIUI source checkout, install the root Python workspace with
+management extras and the production TypeScript workspace, then run `pnpm dev`
+from `typescript/`. It prints actual URLs and owns only that instance's resources.
 
 Install uv and clone the repository, then run:
 
@@ -300,15 +305,14 @@ pnpm --filter @agent-spike/041-hp-codex-fidelity test
 pnpm --filter @agent-spike/045-hp-behavior build
 ```
 
-No production package currently declares an AIUI dependency. A filesystem link
-alone does not make `@habemus-papadum/aiui-viz` resolvable by package name, and
-this pass does not qualify a new app's HMR. When the first browser app is added,
-declare only its actual dependencies using this workspace's catalog policy and
-choose explicit local package links/overrides for that app. Keep the sibling
-workspaces and locks separate. Verify package exports resolve to source, the
-app compiles linked TSX, and Solid resolves consistently across both repos.
-Then test an actual source edit in the running browser. Do not add a global pnpm
-link, blanket aliases, or a second framework runtime in anticipation of that app.
+The S0 orchestrator app now declares actual AIUI dependencies through exact
+catalog pins and source overrides. A filesystem link alone is not package
+installation. Keep sibling workspaces/locks separate; CI checks out the qualified
+AIUI revision explicitly. Source imports, a real UI hot edit and a shared-library
+edit were checked in Chrome. Solid runtime and transitive compiler packages are
+pinned together. See [the guide](orchestrator.md#source-linking-and-hmr) for the
+explicit page remount boundary and remaining full-reload cases. Do not add global
+pnpm links, blanket aliases or duplicate framework runtimes.
 
 ### Disposable orchestrator interaction studies
 

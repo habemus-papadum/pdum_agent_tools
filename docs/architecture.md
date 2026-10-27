@@ -4,6 +4,11 @@
 [implementation status](implementation-status.md) for the supported subset and
 evidence; this proposal still contains future interfaces and qualification gates.
 
+For the multi-provider application and new client/UI library boundaries, begin
+with the [26 October system proposal](plans/agent-orchestrator/system-design.md).
+It composes and extends these existing backend packages after the completed spikes;
+the broad production system is not yet implemented.
+
 The maintainer has agreed the [trusted-operation principles](design-principles.md):
 one advanced operator and trusted agents/clients inside an operator-controlled
 network. Default sandbox off, approval prompts off, and TCP listeners on all

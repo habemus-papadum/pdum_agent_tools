@@ -25,7 +25,7 @@ export async function createMarkdownPage(aiuiRoot) {
     } });
     const content = parser.parse(source, { async: false });
     const title = headings.find(h => h.depth === 1)?.text ?? basename(pathname);
-    const study = pathname.match(/^\/(?:spikes\/)?(053-orchestrator-overview|054-orchestrator-session|059-historical-viewer|060-authentication-flows|history|auth)\//)?.[1];
+    const study = pathname.match(/^\/(?:spikes\/)?(053-orchestrator-overview|054-orchestrator-session|059-historical-viewer|060-authentication-flows|061-ingestion-statistics|062-launcher-connections|063-profile-workbench|067-live-session-workspace|history|auth|ingestion|connections|profiles|session-lab)\//)?.[1];
     const back = study ? `/${study}/` : '/';
     const toc = headings.filter(h => h.depth === 2 || h.depth === 3).map(h =>
       `<li class="depth-${h.depth}"><a href="#${escape(h.id)}">${h.label}</a></li>`).join('');

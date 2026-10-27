@@ -30,7 +30,18 @@ do not imply a complete transcript or filesystem rollback.
 
 These are discussion candidates, not scheduled work or implemented capabilities.
 
+## Closing evidence — 25 October 2026
+
+[064](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/064-history-continuation.md)
+now connects native history to real browser continuations for both providers.
+Resume retains identity; fork uses an explicit native turn/message boundary and
+preserves source content; the draft stays unsent. The initial scope keeps the
+source profile and working directory. RC-12 records those verified boundaries
+and the limits on active-source/cross-host continuation. These results inform
+the backend/client proposal rather than selecting a universal history schema.
+
 ## Your additions
+
 
 - What should search cover first: prompts, tool output, time, repository, tags, model or something else?
 - What should cloning preserve, and how should the workspace choice be presented when continuing old work?

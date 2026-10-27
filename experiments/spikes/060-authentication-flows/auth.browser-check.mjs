@@ -1,46 +1,39 @@
-/** Run in the real Vite page. Exercises declared controls/actions, never credentials or a provider. */
+/** Run in the served page. Exercises fixture actions only, never provider operations. */
 export async function runAuthBrowserChecks() {
-  const checks = [];
-  const check = (name, passed, detail) => checks.push({name, passed: Boolean(passed), ...(detail === undefined ? {} : {detail})});
-  const tick = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  const kit = window['__orchestrator-auth'];
-  const call = async (name, args) => {const result = await kit.call(name, args); await tick(); return result;};
-  const set = (name, value) => call('set', {name: `orchestrator-auth/${name}`, value});
-  const report = () => call('report', {format: 'full'});
-  await call('reset');
-  let r = await report();
-  check('two source-stamped scoped cells ready', r.cells.length === 2 && r.cells.every(c => c.state === 'ready' && c.loc));
-  check('five declared preview dependencies visible', r.edges.find(e => e.cell.endsWith('/preview'))?.reads.length === 5);
-  check('all controls and actions carry source locations', r.controls.every(c => c.loc) && r.actions.every(c => c.loc));
-  check('simulation boundary visible', document.body.innerText.includes('SIMULATION · no live operations'));
-  check('no free-text credential field', !document.querySelector('input:not([type=checkbox]),textarea'));
-  check('no provider URLs or hidden auth frames', ![...document.querySelectorAll('a,iframe')].some(el => /openai.com|anthropic.com|claude.ai/.test(el.href || el.src || '')));
-  for (const provider of ['codex', 'claude']) for (const host of ['local', 'remote']) for (const strategy of ['api-key', 'reuse-login', 'native']) {
-    await call('reset'); await set('provider', provider); await set('host', host); await set('strategy', strategy);
-    await set('apiKeyEnv', provider === 'codex' ? 'OPENAI_API_KEY' : 'ANTHROPIC_API_KEY');
-    await call('start'); await call('advance'); await call('advance');
-    r = await report();
-    check(`${provider}/${host}/${strategy}: source owner and explicit access gap`, r.authentication.receipt.plan.profile.host === host && r.authentication.receipt.phase === 'observed' && r.authentication.receipt.access === 'not-tested' && document.querySelector('.auth-progress').textContent.includes('Status observed'));
-    await call('validate-access'); r = await report(); check(`${provider}/${host}/${strategy}: separate synthetic access action`, r.authentication.receipt.access === 'passed');
+  const s=await import('./src/model/store.ts');
+  const {graph}=await import('./src/model/graph.ts');
+  const {profiles,methodsFor,usesBrowser}=await import('./src/model/journey.ts');
+  const checks=[];
+  const assert=(name,condition)=>{if(!condition)throw new Error(name);checks.push(name);};
+  const settle=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  const run=async(action,args)=>{await action.run(args);await settle();};
+  const select=async(id)=>{s.selected.set(id);await settle();};
+  for(const profile of profiles) for(const method of methodsFor(profile)) {
+    await run(s.reset);await select(profile.id);await run(s.start);s.method.set(method);await settle();await run(s.proceed);
+    if(s.flow.get().step==='timing')await run(s.chooseTiming,{timing:'now'});
+    if(usesBrowser(s.flow.get()))await run(s.signIn);
+    await run(s.complete);
+    assert(`${profile.id}/${method} returns to same profile`,s.flow.get().step==='done'&&s.flow.get().profile.id===profile.id&&s.flow.get().access==='untested');
+    assert(`${profile.id}/${method} updates only target`,Object.keys(s.updates.get()).join()===profile.id);
+    await run(s.finish);assert(`${profile.id}/${method} off-flow returns to inventory`,s.flow.get()===null&&document.querySelector('.auth-profile-detail'));
   }
-  await call('reset'); await call('start'); await set('host', 'remote'); r = await report();
-  check('draft target changes never retarget existing attempt', r.authentication.receipt.plan.profile.host === 'local' && r.authentication.preview.profile.host === 'remote');
-  await call('cancel'); check('local cancellation belongs to original attempt', (await report()).authentication.receipt.phase === 'cancelled');
-  await call('start'); await call('cancel'); r = await report();
-  check('remote stop-watching cannot claim host cancelled', r.authentication.receipt.phase === 'unknown' && document.querySelector('.auth-progress').textContent.includes('unconfirmed'));
-  for (const [scenario, phase] of [['expired', 'expired'], ['failure', 'failed'], ['connection-lost', 'unknown']]) {
-    await call('reset'); await set('scenario', scenario); await call('start'); await call('advance'); await call('advance');
-    r = await report(); check(`${scenario}: stable terminal outcome without replay`, r.authentication.receipt.phase === phase && r.authentication.receipt.attempt === 1 && r.authentication.receipt.access === 'not-tested');
+  await run(s.reset);await run(s.start);await run(s.proceed);await run(s.chooseTiming,{timing:'idle'});
+  assert('wait remains queued without a study event',s.flow.get().step==='queued');
+  await run(s.settleAgents);
+  assert('idle leaves background work visible',s.flow.get().profile.agents.some(a=>a.background)&&document.body.textContent.includes('background'));
+  await run(s.signIn);await run(s.complete);s.accessOutcome.set('denied');await settle();await run(s.validateAccess);
+  assert('model denial remains separate from successful authentication',s.flow.get().step==='done'&&s.flow.get().access==='denied');
+  for(const outcome of ['expired','failure','connection-lost']) {
+    await run(s.reset);await select('remote/review');s.scenario.set(outcome);await run(s.start);await run(s.proceed);await run(s.signIn);await run(s.complete);
+    assert(`${outcome} keeps profile unchanged`,Object.keys(s.updates.get()).length===0&&s.flow.get().step!== 'done');
   }
-  await call('reset'); await set('accessOutcome', 'denied'); await call('start'); await call('advance'); await call('advance'); await call('validate-access');
-  r = await report(); check('observed auth configuration can still fail model access', r.authentication.receipt.presence === 'configuration observed' && r.authentication.receipt.access === 'denied');
-  await call('reset'); await set('strategy', 'api-key'); await set('apiKeyEnv', 'TEAM_PROVIDER_KEY'); r = await report();
-  check('API reference appears in actual supported Codex edit command', r.authentication.preview.setup.endsWith('--env TEAM_PROVIDER_KEY'));
-  let rejected = false; try {await set('apiKeyEnv', 'sk-no-secret-values');} catch {rejected = true;}
-  check('enum reference rejects a pasted key-shaped value', rejected && (await report()).authentication.preview.selection.apiKeyEnv === 'TEAM_PROVIDER_KEY');
-  const sources = await call('sources', {filter: '060-authentication-flows/src/model', limit: 8});
-  check('compiler lists authentication model sources', sources.files.some(file => file.endsWith('/store.ts')));
-  await call('reset');
-  check('page has no horizontal overflow', document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1, {width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth});
-  return {checks, passed: checks.filter(c => c.passed).length, total: checks.length, allPassed: checks.every(c => c.passed), viewport: [innerWidth, innerHeight]};
+  await run(s.reset);await select('remote/review');await run(s.start);await run(s.proceed);await run(s.cancel);
+  assert('stop watching does not claim remote cancellation',s.flow.get().step==='unknown');
+  await run(s.reset);await run(s.start);await select('remote/review');
+  assert('selection cannot retarget open journey',s.flow.get().profile.id==='atlas/research');
+  await run(s.reset);
+  assert('inventory exposes actual profile hierarchy',graph().inventory.latest()?.length===7&&document.querySelectorAll('.auth-machine').length===2);
+  assert('no horizontal overflow',document.documentElement.scrollWidth===document.documentElement.clientWidth);
+  assert('no page boundary fault',!document.querySelector('.aiui-page-fault'));
+  return {passed:checks.length,checks,width:innerWidth,height:innerHeight};
 }

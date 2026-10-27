@@ -1,0 +1,15 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>HP storage qualification · 070</title></head>
+<body><h1>HP storage qualification</h1><p>Disposable test harness. Model calls require an explicit live action.</p><pre id="output">Ready</pre>
+<script type="module">
+const worker = new Worker('/browser-worker.js', {type:'module'});
+const pending = new Map(); let next = 0;
+worker.onmessage = ({data}) => {
+  const pair = pending.get(data.id); if (!pair) return; pending.delete(data.id);
+  document.querySelector('#output').textContent = JSON.stringify(data.result ?? data.error,null,2);
+  data.error ? pair.reject(Error(data.error)) : pair.resolve(data.result);
+};
+window.hp070 = {
+  call(action,options={}) {const id=++next;return new Promise((resolve,reject)=>{pending.set(id,{resolve,reject});worker.postMessage({id,action,...options});});},
+  terminate(){worker.terminate();},
+};
+</script></body></html>

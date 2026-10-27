@@ -1,6 +1,10 @@
 # Claude launcher delivery plan
 
-The [specification](../specs/claude-launcher.md) records the agreed architecture.
+The [specification](../specs/claude-launcher.md) records the implemented baseline
+and the 25 October revision under investigation. The upcoming architecture will
+use [068's evidence](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/068-claude-feed-replay.md)
+for multiple clients and launcher-owned process lifetime; the production package
+has not yet adopted that path.
 This plan tracks the first Python implementation and its acceptance gates. Browser
 and Node are the supported live clients; Python exposes management and launch APIs.
 

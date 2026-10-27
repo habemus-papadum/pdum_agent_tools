@@ -1,7 +1,14 @@
-import type { AgentRuntime, Json, SavedThread } from './runtime.ts';
+import type { Json, SavedThread, UsageRecord } from './runtime.ts';
+
+/** Serializable history facts; no execution owner or storage implementation is required. */
+export interface HistorySource {
+  runId: string;
+  snapshots(): SavedThread[];
+  usages: readonly UsageRecord[];
+}
 
 /** Rows named by the existing v5 history contract, with absent fields left NULL by the writer. */
-export function historyRows(runtime: AgentRuntime): { schemaVersion: 5; tables: Record<string, Json[]> } {
+export function historyRows(runtime: HistorySource): { schemaVersion: 5; tables: Record<string, Json[]> } {
   const tables: Record<string, Json[]> = { threads: [], turns: [], items: [], item_blobs: [], responses: [], fork_edges: [], spawn_edges: [], coverage: [], provenance: [] };
   const source = { source_id: runtime.runId, source: 'hp-agent', origin: 'runtime' };
   const snapshots = runtime.snapshots();

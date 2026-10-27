@@ -1,0 +1,27 @@
+{
+  "name": "@agent-spike/launcher-connections",
+  "private": true,
+  "type": "module",
+  "aiui": {
+    "sitePage": {
+      "title": "Launcher connections",
+      "desc": "Inspect real local profiles and existing provider management endpoints.",
+      "order": 62,
+      "card": "./card"
+    }
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./page": "./src/page.tsx",
+    "./card": "./src/card.tsx"
+  },
+  "dependencies": {
+    "@habemus-papadum/aiui-viz": "link:../../../.dev/aiui/packages/aiui-viz",
+    "@habemus-papadum/aiui-design": "link:../../../.dev/aiui/packages/aiui-design",
+    "solid-js": "catalog:",
+    "@solidjs/web": "catalog:"
+  },
+  "devDependencies": {
+    "vitest": "catalog:"
+  }
+}

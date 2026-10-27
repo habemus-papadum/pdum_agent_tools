@@ -1,5 +1,13 @@
 # Codex client API design
 
+**26 October system proposal:** the [library map](../plans/agent-orchestrator/system-design.md)
+preserves this provider-native API baseline while moving cross-provider analysis
+to `agent-history/analysis`, management to `orchestrator-client`, and reused
+contracts/mechanics to a small `agent-core`. Its [staged plan](../plans/agent-orchestrator/system/implementation.md)
+orders extraction against an actual application; type generation must use the
+selected current binary/source pin. The historical pin and examples below are
+design evidence, not an instruction to claim support for every installed server.
+
 **Status: proposed for review, 14 October 2026.** No client package or API below
 is implemented. The user requested this design and its
 [implementation plan](../plans/codex-client.md) before authorizing construction.
@@ -439,6 +447,16 @@ them through host file APIs. Missing local assets and missing model input remain
 visible independently from a successful turn acknowledgement.
 
 ## Recording, historical analysis and health
+
+**Scope clarification, 25 October 2026:** normal conversation history uses the
+provider-native history API. The observation/recording/replay facilities below
+are optional diagnostic and analysis inputs, not a requirement to save live-only
+events into a second product history. An early development application may enable
+debug capture by default so an agent can inspect a reported UI/interpretation
+problem through DevTools MCP and AIUI. Keep that explicit application choice
+separate from the SDK's opt-in recording interface. Missing native historical
+measurements remain missing; optional captures do not imply universal coverage.
+See the [working stance](../plans/agent-orchestrator/methodology.md#develop-the-application-with-inspectable-debug-evidence).
 
 Keep existing `pdum.codex_launcher.message/1` JSONL readable. Its source identity,
 connection ID, sequence, direction, timestamp and original payload are inputs,

@@ -1,5 +1,12 @@
 # Codex client implementation plan
 
+**26 October consolidation:** use the [system/library proposal](agent-orchestrator/system-design.md)
+and [S0–S6 delivery plan](agent-orchestrator/system/implementation.md) for package
+ownership and cross-provider sequencing. C1–C5 below remain the native Codex
+acceptance checklist. Shared analytics and unified management have separate
+owners. The system's library boundaries are now accepted and its review guidance
+is recorded; production client implementation has not yet started.
+
 **Status: proposed for review, 14 October 2026.** Implementation has not started.
 The user requested a design review before construction. Read the
 [API design](../specs/codex-client.md) for contracts and the
@@ -167,7 +174,15 @@ experimental gating and native errors on both binaries. Generate a compatibility
 report; exported-but-untested methods remain labelled as such. Schema regeneration
 is an explicit developer command, not a consumer-install or import side effect.
 
-### C2 — Deliver history, live participation and basic replay
+### C2 — Deliver native history, live participation and diagnostic replay
+
+The [25 October working stance](agent-orchestrator/methodology.md#develop-the-application-with-inspectable-debug-evidence)
+clarifies that recorded-event replay is an optional debugging/analysis exercise.
+It does not replace native history or require capturing live-only data for normal
+historical browsing. The first implementation should preserve inspection hooks
+for iterative AIUI/DevTools work without first building a complete diagnostic
+archive. Earlier replay acceptance cases below exercise an explicitly captured
+run, not mandatory recording of every conversation.
 
 - Add thin thread/history conveniences, explicit pagination and immutable local
   conversation views. Preserve full versus summary and legacy versus paginated
@@ -181,8 +196,9 @@ is an explicit developer command, not a consumer-install or import side effect.
 - Track pending human/dynamic requests across joins and race responses from two
   clients. Local response-sent state must not claim it won. Handle native
   connection-owned verification requests separately.
-- Add Node file recording and basic offline transcript reconstruction using the
-  same observation adapter. Offline request objects cannot send responses.
+- Add opt-in Node file recording and offline diagnostic reproduction using the
+  same observation adapter. Offline request objects cannot send responses; normal
+  historical browsing continues to use native history.
 - Build a small browser reference UI: endpoint entry, catalogue, history view,
   explicit join/create, prompt, pending questions, turn status and raw event panel.
   A second tab is a second real client. Add equivalent Node examples.

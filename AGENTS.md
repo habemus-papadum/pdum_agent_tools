@@ -9,8 +9,10 @@ for the project layout and commands.
 
 - The workspace contains `habemus-papadum-mitm` (`pdum.mitm`),
   `habemus-papadum-codex-launcher` (`pdum.codex_launcher`),
-  `habemus-papadum-hostfork` (`pdum.hostfork`), and
-  `habemus-papadum-claude-launcher` (`pdum.claude_launcher`).
+  `habemus-papadum-hostfork` (`pdum.hostfork`),
+  `habemus-papadum-claude-launcher` (`pdum.claude_launcher`),
+  `habemus-papadum-agent-history` (`pdum.agent_history`), and
+  `habemus-papadum-orchestrator` (`pdum.orchestrator`, S0 management foundation).
 - Implementation of the agreed architecture is authorized. Use `docs/specs/` and
   `docs/plans/` as the design baseline; record supported behavior and remaining
   gates honestly rather than claiming the whole proposal is implemented.
@@ -19,6 +21,9 @@ for the project layout and commands.
   the slice plan and connect them to acceptance checks. Keep new consequential
   findings versioned there, with evidence and unresolved policy clearly separated.
 - For orchestrator/SDK/UI slices, follow the [working method](docs/plans/agent-orchestrator/methodology.md).
+  The [system/library proposal](docs/plans/agent-orchestrator/system-design.md)
+  consolidates the spike evidence and proposed package boundaries; its implementation
+  stages and decision register distinguish reviewed direction from open choices.
   Read the [provisional visual preferences](docs/plans/agent-orchestrator/visual-direction.md)
   for UI work: compact, expressive experiments grounded in Habemus Papadum's
   source-linked design system, with useful patterns considered for upstream reuse.
@@ -30,10 +35,31 @@ for the project layout and commands.
   Default to small sequential slices; the user may explicitly request parallel
   disposable mocks with separate ownership and review notes. Make action target, timing and effect explicit first;
   later inferred intent must be visible, inspectable and easy to override.
+- The 26 October orchestrator review accepts the library boundaries. Seed launch
+  host/project/cwd from the action's UI context, visibly and overridably. Working
+  model/turn overrides carry to the next turn in that conversation; changing saved
+  profile/application defaults is a separate explicit action. Prefer qualified
+  native/existing worktree provisioning over a new custom worktree manager.
+- Do not retain a Codex host subscription for keepalive/observation. Expose longer
+  unload timing through its real server-start scope (RC-06), not a fictional
+  per-thread setting. Avoid a main Claude observer/election layer unless a concrete
+  callback makes it necessary. Credential changes stay independent across sessions:
+  no protective login coordination, draining, leases or busy-profile gates; expose
+  native outcomes. Keep the initial composer text-only behind the structured prompt
+  and provider-lowering boundary; richer authoring is a separate disposable study.
 - Keep MITM functionality independent of AI agents and Codex-specific concerns.
-- Claude live clients are the official browser and Node SDKs. The Python launcher
-  owns profiles/processes and relays bytes; it never owns a second conversation
-  query. Multiple workers may share one Claude profile. Disconnect ends its worker.
+- The existing Claude launcher uses official browser/Node SDK clients and ends
+  its worker on disconnect. The user revised the future direction on 25 October:
+  spike 068 investigates launcher-owned native stream-JSON processes, separate
+  launch/attach, multiple clients, and full running-session feed replay. Forward
+  client input unchanged; do not add server-side conversation validation,
+  acceptance echoes or semantic arbitration. Clients interpret native outcomes.
+  No official conversation SDK is required for that path. Keep implemented and
+  proposed lifetimes distinct until the replacement is qualified. Multiple
+  workers may share one Claude profile; no second host SDK query is needed.
+  Spike 071 also qualifies official SDK reuse behind a client replay/connection
+  adapter. Full raw replay is not safe executable SDK callback replay; keep
+  historical controls passive and reconcile shared native outcomes client-side.
   Use official SDK history helpers; do not reverse-engineer native recovery internals.
   API keys, explicit existing-login reuse and native dedicated-profile login are
   the first authentication strategies. Qualify login early with operator help.
@@ -82,6 +108,11 @@ for the project layout and commands.
   previews and cancellation must not mutate profiles.
 - Keep changes focused. Do not introduce shared abstractions or cross-package
   dependencies merely because packages live in this repository.
+- HP history storage must remain independent of filesystem versus browser storage.
+  Keep codecs, read/restore/fork semantics and accounting portable; host adapters
+  own persistence and execution bindings. Spike 070 qualifies filesystem and
+  IndexedDB examples, not a mandatory production engine. Stored context does not
+  restore running tools, jobs or pending input delivery.
 - `experiments/` contains the imported agent-spike research workspace and future
   spikes. Read its own `AGENTS.md` before editing it. Research findings are not
   automatically implementation contracts for the distributable packages.

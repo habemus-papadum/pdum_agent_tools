@@ -36,6 +36,13 @@ No policy is chosen by this research pass.
 See [Spike 056](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/056-codex-inactive-lifecycle.md)
 for the versioned source investigation and probe boundaries.
 
+## Evidence-first follow-up — 24 October 2026
+
+The [059 inventory](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/059-evidence-inventory.md)
+tracks parent/child activity, background tasks and message linkage. It separates observed native fields, prior probes, source-only
+capabilities and missing examples before the next mock. No new runtime or
+collection policy is implied; the original questions below remain open.
+
 ## Your additions
 
 - Should children be inline, in a tree, in separate tabs, or selectable among these?

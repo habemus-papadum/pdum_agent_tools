@@ -1,6 +1,6 @@
 # pdum_agent_tools
 
-This repository contains four Python packages being developed together in a uv
+This repository contains six Python packages being developed together in a uv
 workspace. The first local implementation is working, with real network/process
 tests and a live native-Codex-client interoperability check.
 
@@ -10,6 +10,8 @@ tests and a live native-Codex-client interoperability check.
 | [habemus-papadum-codex-launcher](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/packages/codex-launcher/README.md) | Named Codex profiles and app-server launch configuration. |
 | [habemus-papadum-hostfork](hostfork.md) | Host-derived Linux environments, private storage, process ownership and recovery. |
 | [habemus-papadum-claude-launcher](claude.md) | Isolated Claude profiles and independent workers for official browser/Node SDK clients; new, unreleased package. |
+| [habemus-papadum-agent-history](agent-history.md) | Native-history ingestion, shared analytical schema and local/MotherDuck publication, paired with the TypeScript analysis library. |
+| [habemus-papadum-orchestrator](orchestrator.md) | Foreground coordinator identity/management foundation and isolated browser development workflow; provider launching follows. |
 
 Start with [implementation status](implementation-status.md) for commands, APIs,
 observed results and remaining limitations. The [testing guide](testing.md) separates
@@ -19,6 +21,9 @@ selective native imports, editable TOML and upstream authentication workflows.
 
 ## Architecture and implementation proposals
 
+- [Full system and library proposal](plans/agent-orchestrator/system-design.md):
+  the current review entry point, with library responsibilities, design decisions
+  and [implementation dependencies](plans/agent-orchestrator/system/implementation.md).
 - [Agreed design principles](design-principles.md): trusted-network operation,
   practical hygiene, thin native configuration, foreground ownership, asynchronous
   inspection without initial capture quotas, and reusable Typer CLIs.

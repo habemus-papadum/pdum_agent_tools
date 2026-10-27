@@ -36,6 +36,13 @@ retain host/working-directory context, open a read-only source view, annotate or
 select code and carry the selection into a prompt. Historical evidence and
 current file contents must remain distinguishable.
 
+## Evidence-first follow-up — 24 October 2026
+
+The [059 inventory](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/059-evidence-inventory.md)
+tracks operation-specific rendering and image/message semantics. It separates observed native fields, prior probes, source-only
+capabilities and missing examples before the next mock. No new runtime or
+collection policy is implied; the original questions below remain open.
+
 ## Your additions
 
 - What should be collapsed by default, and what must remain visible during execution?

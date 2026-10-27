@@ -1,0 +1,10 @@
+{
+  "name": "@agent-spike/ingestion-statistics", "private": true, "type": "module",
+  "exports": {".": "./src/index.ts", "./page": "./src/page.tsx", "./card": "./src/card.tsx"},
+  "aiui": {"sitePage": {"title": "Ingestion", "desc": "Real local history ingestion and statistics", "order": 61, "card": "./card"}},
+  "dependencies": {
+    "@habemus-papadum/aiui-viz": "link:../../../.dev/aiui/packages/aiui-viz",
+    "@habemus-papadum/aiui-design": "link:../../../.dev/aiui/packages/aiui-design",
+    "@solidjs/web": "catalog:", "solid-js": "catalog:"
+  }
+}

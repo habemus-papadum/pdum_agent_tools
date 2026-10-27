@@ -1,6 +1,6 @@
 # Development flow and packaging: isolated first
 
-**Status: proposed development direction, 19 October 2026.** The user wants
+**Status: proposed development direction, updated 25 October 2026.** The user wants
 ephemeral development instances so multiple agents can work concurrently, even
 though the eventual coordinator/components should be shareable and robust.
 Browser/Electron packaging remains open. [O22](components/22-development-delivery.md)
@@ -9,17 +9,17 @@ or an Electron application.
 
 ## Mocks are independent of the delivery decision
 
-The current work is two throwaway web pages with separate Markdown descriptions
-of the interactions they explore. Those notes, plus user feedback, will feed a
-later concrete specification. Mock code is disposable and need not become the
-production SDK, component library or development stack.
+The current studies cover overview, conversation, native history, authentication,
+ingestion, connections, profiles and real owned live sessions. Their Markdown
+and reviewed interactions feed the architecture proposal. The implementation is
+disposable and need not become the production SDK, component library or dev stack.
 
-The latest mock iteration uses actual Solid/AIUI components, scoped controls,
-durable resources and cell graphs, compiled by Vite with AIUI's source plugin.
-The overview's DuckDB fixture database lives only in its browser tab. Both apps
-mount the requested internal AIUI dock as local study scaffolding; tools/source
-inspection is qualified, provider/oracle connections are not. No backend or
-Electron decision is needed to evaluate the interaction.
+The studies use actual Solid/AIUI components, scoped controls, durable resources
+and cell graphs, compiled by Vite with AIUI's source plugin. The overview's
+fixture DuckDB lives in its browser tab; later studies use real native history,
+ingestion/launcher libraries and browser provider sessions. Selected pages mount
+the requested internal AIUI dock as local scaffolding. This does not make the
+internal dock a production dependency or settle Electron packaging.
 
 Their [preview runbook](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/spikes/055-orchestrator-mock-lab/README.md)
 describes one foreground HTTP/Vite host. It allocates its port, temporary cache
@@ -29,6 +29,28 @@ acceptance marker was needed alongside `hotCellGraph`. Two concurrent preview
 processes and independent cleanup are tested. This establishes frontend-preview
 isolation, not isolation of a future coordinator or browser profiles. GitHub
 links become available when the changes are committed/pushed.
+
+## Joint debugging while using the application
+
+The [working method](methodology.md#develop-the-application-with-inspectable-debug-evidence)
+records the user's 25 October clarification. Native history remains the ordinary
+historical source. Optional development captures make UI/adapter problems
+reproducible and accessible to an agent through DevTools MCP and AIUI. They may
+include uncategorized messages, all observed records, or a selected full history;
+they do not establish a second product history service.
+
+Early development may enable debug capture by default, with its current scope and
+on/off state visible. The exact controls/storage are not implemented by this
+document. A useful handoff is a selected UI item plus the instance/run identity
+and evidence the agent can inspect, rather than requiring the operator to explain
+the wire protocol. HMR can help iterate on presentation over the same data; replay
+can exercise interpretation without new provider calls. Explicit reload/backend
+restart boundaries still apply and are not seamless runtime recovery.
+
+067 already retains local native/SDK records on explicit history/end operations
+and exposes source/tool inspection. It does not continuously persist every event,
+provide the proposed debug-mode switch, or recover capture lost with a browser.
+Extend these hooks pragmatically during real backend/client construction.
 
 ## Candidate development and delivery modes
 

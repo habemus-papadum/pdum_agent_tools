@@ -38,6 +38,14 @@ than claiming recovery succeeded.
 
 ## Existing provider lifetimes are the starting point
 
+**25 October revision:** the Claude row below is the implemented baseline.
+[068](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/068-claude-feed-replay.md)
+now investigates keeping the process alive across client disconnects and attaching
+multiple clients through full feed replay. This does not establish survival of
+the process owner or recovery of lost pipes. After process death, native history
+remains the continuation path. The upcoming architecture must incorporate the
+new evidence instead of treating the old disconnect policy as fixed.
+
 | Runtime | Current boundary | Consequence for the first coordinator |
 | --- | --- | --- |
 | Codex | Launcher context owns app-server cleanup; the implementation also owns log pipes and any selected relay/sidecar. Native saved-history resume exists. | Wrapping the library does not establish crash survival. Probe the actual launch path; accept history-based continuation when live management cannot be recovered. |

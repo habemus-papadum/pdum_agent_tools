@@ -86,9 +86,20 @@ original scope, recommendations and cost ledgers.
 | 055 | A shared preview host serves both studies; real process/browser checks and development boundaries are recorded. | [Mock lab and development](spikes/055-orchestrator-mock-lab.md) |
 | 056 | Codex Inactive means an unloaded runtime; subscription/idle timers, background work and resume have distinct lifetimes. | [Inactive lifecycle](spikes/056-codex-inactive-lifecycle.md) |
 | 057 | Through our actual launcher: unloaded sends reject, explicit resume works, idle unload kills a managed terminal, and native configuration/hooks already pass through. | [Launcher inactivity boundary](spikes/057-launcher-inactive-turns.md) |
-| 058 | Native read APIs export 16 real Codex/Claude sessions without loading a runtime or submitting a turn; coverage gaps remain explicit. | [Native history access](spikes/058-native-history-access.md) |
-| 059 | A read-only viewer renders provider-native captures and a separately labelled rich-content specimen. | [Historical viewer](spikes/059-historical-viewer.md) |
+| 058 | Native read APIs export 23 real Codex/Claude histories, including substantial everyday work and verified mathematical prose, without activating work. | [Native history access](spikes/058-native-history-access.md) |
+| 059 | Dense historical reading with prose detail levels, tool pills, a minimap and image lenses; an evidence inventory guides time, settings and multi-agent follow-ups. | [Historical viewer](spikes/059-historical-viewer.md), [evidence inventory](spikes/059-evidence-inventory.md), [families and duration](spikes/059-agent-family-evidence.md), [availability ledger](spikes/059-data-availability.md), [rich-message examples](spikes/059-rich-messages.md) |
 | 060 | Local/remote authentication simulations preview existing launcher operations and distinguish credential evidence from model access. | [Authentication flows](spikes/060-authentication-flows.md) |
+| 061 | A disposable working UI configures the existing ingestor, syncs real local captures and explores a separate DuckDB target. | [Ingestion and statistics](spikes/061-ingestion-statistics.md) |
+| 062 | Inspect actual local launcher/profile records and check existing provider management endpoints. | [Launcher connections](spikes/062-launcher-connections.md) |
+| 063 | Create and edit real lab profiles through existing launcher libraries, preserving native configuration. | [Profile workbench](spikes/063-profile-workbench.md) |
+| 064 | Native history resumes/forks into the live workspace with preserved drafts, scoped boundaries and unchanged fork sources. | [History into continuation](spikes/064-history-continuation.md) |
+| 065 | Interruption, disconnect, runtime end and owner crash have distinct measured effects; process survival need not preserve a client endpoint. | [Lifecycle and ownership](spikes/065-session-lifecycle.md) |
+| 066 | A supplied Claude setup token works across isolated SDK workers; replacement affects new allocations while an existing worker retains its credential. Eleven live checks passed, USD 0.000219 reported. | [Claude setup-token](spikes/066-claude-setup-token.md) |
+| 067 | Real Codex/Claude browser turns and tools work; live/saved content matches in selected runs while protocol records and usage coverage differ. USD 0.00292343 estimated. | [Live-session workspace](spikes/067-live-session-workspace.md) |
+| 068 | Native Claude supports a thin process-owned feed with multiple clients, full stdout replay and native acknowledgement/permission outcomes; no conversation SDK required. | [Claude feed replay](spikes/068-claude-feed-replay.md) |
+| 069 | Evidence matrices separate native history, live replay, ingestion and executable restoration across Codex, Claude and HP Node/browser. | [Provider/history compatibility](spikes/069-provider-history-matrix.md) |
+| 070 | One portable archive/restore path works with filesystem and IndexedDB; real resumed/forked context and existing DuckDB accounting agree. | [HP storage and backend parity](spikes/070-hp-backend-parity.md) |
+| 071 | Official Claude SDK works with a client replay/reconnection wrapper; naive replay reruns callbacks and shared permission UI needs native-response reconciliation. | [Official SDK with persistent replay](spikes/071-claude-sdk-replay.md) |
 
 For the current Hostfork direction, read the [architecture findings](../../docs/specs/hostfork/spike-findings.md).
 Spikes 020–024 use only the Python research workspace and local Linux facilities;

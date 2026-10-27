@@ -112,6 +112,61 @@ provider-level per-item billing guarantee is established by the mock.
 
 ## What might go upstream
 
+### Historical and live transcript density — 24 October review
+
+Use the same provisional vocabulary in both views: user/agent prose carries the
+main narrative; commands, file changes and other work can be small colored,
+icon-bearing pills, several on one line, expandable to exact inputs/results.
+Keep chronology and native identity intact. IDs, long paths and provenance belong
+in optional inspection, not a permanent extra row on every item. Differentiate
+progress and final responses only when the source establishes that distinction.
+
+For long traces, even prose needs an outline level: a brief excerpt or marker,
+with individual expansion and a fuller reading mode. A side minimap should help
+find turns, tools, errors, compaction and rich content. Unknown time/usage must
+not acquire invented chart coordinates. Inspection should be concise and optional.
+
+Choose real long examples with Mermaid, math, user images and agent-produced
+images; identify gaps and keep the synthetic bench separate. Images should use
+thumbnail → hover/focus preview → click detail, with optional pinning. Separate
+the recorded asset reference from its retrieval: local files, captured bytes
+and eventual S3-backed assets have different availability. A present-day file is
+not automatically the historical image. MotherDuck statistics and native history
+remain separate sources that can cross-link. Cloud retrieval and catalogue paging
+are follow-up investigations, not implemented guarantees.
+
+These are approved experiments, not fixed component contracts. The revision is
+tracked in the [059 study](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/spikes/059-historical-viewer/README.md).
+
+### Time, activity and multi-agent tracks — follow-up review
+
+Keep sequence order and actual calendar time as selectable navigation axes.
+Explore compressing long gaps, with visible break markers, the true elapsed
+duration and expansion on demand. Thirty minutes is an example threshold, not a
+chosen default. An automatic rule based on viewed extent should expose its value
+and allow an override. A gap in parent messages can contain child/job activity;
+missing observations should remain distinct from known inactivity.
+
+Duration joins cost/context as a useful compact display, with its basis visible.
+Distinguish reported tool elapsed, recorded intervals, waits and background job
+lifetime. Point events need no duration badge; a long-running task is not
+automatically unhealthy. Unknown endpoints remain unknown. See RC-10 and the
+[family evidence](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/059-agent-family-evidence.md).
+
+Explore selectable tracks and lane widths/densities for main and child agents:
+tool errors, tokens/cache, accumulated estimated cost, context occupancy, model,
+reasoning effort and service tier. Preserve which actor/request each setting or
+measurement describes. Drawing with SVG, Canvas or WebGPU remains an engineering
+choice after measuring representative traces. Shared evidence interpretation
+should survive a change of renderer.
+
+The user clarified that Codex's update/final labels were present; Claude's message
+semantics need the audit. Updates-as-pills remain a useful independent display
+choice. Expand image evidence to human prompts, assistant updates, final answers
+and tool outputs; don't treat these as equivalent or fill missing examples with
+unlabelled fixtures. The [evidence inventory](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/059-evidence-inventory.md)
+tracks operations, clocks, metadata and collection gaps before UI commitments.
+
 Keep a short candidate list and revisit it after operator review:
 
 | Candidate | What this iteration can teach us |

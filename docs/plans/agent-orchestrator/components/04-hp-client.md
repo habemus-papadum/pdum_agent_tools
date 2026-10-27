@@ -38,6 +38,32 @@ Local history is the starting recovery direction; reload behaviour and any
 future same-browser coordination still need discussion before implementation.
 Do not infer an account-wide or machine-wide browser-agent identity.
 
+## Storage and continuation evidence — 25 October 2026
+
+The user explicitly requires storage independence from filesystem versus browser
+technology. [070](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/070-hp-backend-parity.md)
+now runs the same archive/restore/fork logic with filesystem and IndexedDB
+adapters. Actual Luna context survives Node process exit and browser page/Worker
+reload; history reads remain passive and old tool calls are not repeated. A fork
+selects an exact completed checkpoint, preserving source history and opaque
+compaction context. Pending mail/jobs stay historical evidence, not restored work.
+
+Existing history writer and TypeScript/SQL pricing agree on real Node/browser
+archives, including child/fork attribution. Schema v5 already accepts the rows;
+one out-of-turn compaction invariant and pure-pricing module separation need
+production follow-up. Keep persistence, host bindings and analytical ingestion
+separate. This qualifies research helpers, not a production management protocol,
+automatic save policy, cross-tab execution host or seamless recovery. See [RC-14](../../../runtime-contracts.md#rc-14-hp-history-restores-context-through-host-independent-storage).
+
+## Initial persistence policy — 26 October 2026
+
+The user delegates the initial recommendation: portable storage, committed
+completed checkpoints and explicit fresh-owner restore, with no automatic replay
+of unfinished tools, jobs or pending mail. [D5](../system/decisions.md#initial-hp-persistence-policy-delegated-engineering-recommendation)
+records boundary-triggered asynchronous saves, visible commit failures and the
+limits of orderly versus abrupt shutdown. Broader cross-tab execution and
+durability guarantees remain separate later choices.
+
 ## Your additions
 
 - Where should locally hosted browser agents appear in the host/agent overview?

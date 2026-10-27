@@ -4,6 +4,6 @@ import { defineConfig } from "vitest/config";
 // `vitest run` at the workspace root runs the whole workspace at once.
 export default defineConfig({
   test: {
-    projects: ["packages/*"],
+    projects: ["packages/*", "apps/*", "tools/dev-instance"],
   },
 });

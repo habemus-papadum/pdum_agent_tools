@@ -39,6 +39,18 @@ chrome, semantic detail levels, expressive CSS and Habemus Papadum design reuse.
 The revised mock tests these preferences; accepted patterns may contribute back
 to AIUI. Exact density, colors, motion and component boundaries remain open to review.
 
+## Build while using the tool — 25 October 2026
+
+The [working stance](../methodology.md#develop-the-application-with-inspectable-debug-evidence)
+makes the AIUI/DevTools feedback loop part of normal development. A user can point
+to a wrong-looking message or interaction; an agent should be able to inspect its
+rendered state, controls/cells, source and available native evidence, then improve
+the component or adapter. Optional debug capture and replay help reproduce the
+case without another provider call. Keep those hooks while incrementally building
+the infrastructure; no exhaustive protocol interpretation or generic debugger is
+a prerequisite. The [architecture handoff](../next-mock-rounds.md#closing-studies-and-architecture-handoff)
+sets a proposed end to broad mock expansion.
+
 ## Your additions
 
 - Which components should be explored as standalone mocks first?

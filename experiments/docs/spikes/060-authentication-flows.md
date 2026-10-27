@@ -1,68 +1,73 @@
-# 060 — Authentication ownership and outcomes
+# 060 — Sign in a profile on a machine
 
-**19 October 2026 · Round A · interaction simulation.** The question was whether a
-compact authentication view could make provider, profile, host and credential
-location explicit while using the existing launcher operations. The runnable
-study is `/060-authentication-flows/` (alias `/auth/`) in the
-[shared mock lab](../../spikes/055-orchestrator-mock-lab/README.md).
+**24 October 2026 · Round A revision · disposable interaction mock.** The user
+question is “How do I make this profile ready to use?” The first version focused
+on native operation previews, ownership and response evidence. Review found the
+purpose unclear: the engineering explanation occupied the place where an ordinary
+sign-in journey should have been.
 
-The study offers Codex/Claude, local/remote hosts and API-reference, existing-login
-reuse and dedicated-native-login fixtures. Its operation preview expands real
-CLI names and flags into explicit synthetic paths. Setup provenance stays behind
-a disclosure; the current host-local operation and result owner stay visible.
-The [operation map](../../spikes/060-authentication-flows/README.md#configuration-and-operation-map)
-links each choice to the existing Python library, CLI and native fields.
+**User feedback after the revision:** the flow now makes sense and would work
+well. Preserve this interaction direction. A later styling pass should bring it
+closer to the other mocks and probably make the information denser. This is an
+interaction review, not a final visual specification or a decision on live auth
+policies. The [handoff note](../../spikes/060-authentication-flows/HANDOFF.md)
+records the changes and guidance for the original implementation agent.
 
-Source inspection found two differences the UI must preserve. Codex reuse copies
-`auth.json` during profile creation; it is not a reusable `auth configure` method.
-Claude borrows an access token and does not manage its refresh. Claude’s current
-CLI exposes creation choices, native login and status, without an existing-profile
-auth configuration interview. The mock therefore selects explicit prepared
-profiles and labels creation commands as provenance with an absent-target
-precondition. It does not invent a second durable configuration scheme.
+The revised direction starts with **machines → profiles → agents using each
+profile**. Seven fixed profiles across a local and remote machine show agent
+activity and separate authentication state, including illustrative known,
+expired and unknown credential lifetimes. Choosing another sign-in method keeps
+the profile identity fixed. The operator can follow a browser sign-in journey,
+select an API-key reference, or reuse an existing login. A local simulated
+provider page explores how signing a remote profile in from this browser could
+feel. Separate organization and Bedrock profiles expose exploratory Workforce
+Federation and AWS credential-source journeys.
 
-A simulated attempt freezes provider/profile/host, so later selection changes do
-not silently retarget it. Native response, authentication evidence and model
-access are separate. Codex status remains configuration evidence with authentication
-unchecked; Claude native status remains an upstream claim, not proof of model
-access. A synthetic access denial can follow a successful status observation.
-Cancellation of a local fixture differs from stopping observation of a remote
-fixture: the latter leaves an unknown host outcome. Expiry, failure and connection
-loss have explicit terminal states and no automatic replay. These acceptance
-cases carry [RC-07 and RC-08](../../../docs/runtime-contracts.md) without claiming
-new real-provider behavior.
+Commentary sits beside the proposed application and explains the concept and
+unresolved questions. Scenario controls, technical operation mappings and test
+machinery belong to that study layer. The interaction itself should remain
+understandable without reading an implementation report.
 
-The implementation follows pure model → durable scoped controls/actions →
-disposable cells → Solid components. It consumes source-linked HP design tokens
-and source tooling, and reuses the shared command palette. The toolkit namespace
-is `orchestrator-auth`; both cells and all controls/actions are source-stamped.
-The provider-capable dock is intentionally absent from this authentication study.
-Component and graph hot edits retained a frozen active receipt in the real page.
+Running agents make the timing question visible. “Continue now” and “Wait for
+idle” are explicit alternatives to explore, with a study control that can move
+fixture agents to idle. This is not a chosen scheduling policy. An idle agent may
+still own background work, and the mock does not establish whether reauthentication
+interrupts a request, changes credentials for a live worker, or requires relaunch.
 
-Reproduce from `experiments/` with
-`node spikes/055-orchestrator-mock-lab/serve.mjs`; open the printed URL at `/auth/`.
-Run the two colocated Vitest suites via the shared lab, then invoke
-`runAuthBrowserChecks()` from `auth.browser-check.mjs` in the live page. On 19
-October, shared TypeScript checking, 15 pure/graph tests and 41 browser/tool checks passed, including all 12
-provider/host/strategy combinations. Native launcher `--help` confirmed the shown
-Codex configure and Claude create flags. Separate keyboard, HMR and viewport
-checks cover the interaction; 360/390/414 CSS-pixel layouts had no horizontal
-overflow, and 1440 CSS pixels was inspected separately. The final clean browser
-run had no console warnings/errors. One rapid viewport/reset loop produced an
-8.1 ms Solid development scope-time warning, recorded in the README. The
-coordinating host owns the combined build.
+The [operation map and question register](../../spikes/060-authentication-flows/README.md)
+retain existing launcher ownership. Codex existing-login reuse is currently a
+creation-time `auth.json` snapshot; Claude reuse borrows an access token without
+managing refresh. Codex also has an AWS **workload** federation helper for OpenAI
+API access, with live exchange and renewal still unqualified. That is distinct
+from human **Workforce Federation** and Bedrock. Claude launcher Bedrock/federation
+adapters are not implemented. The conceptual UI introduces no replacement native
+configuration schema or new supported CLI operation.
 
-Environment: source checkout based on `470d04e` with uncommitted Round A work;
-Node 26.10.0, pnpm 11.9.0, Vitest 5.0.3, source-linked AIUI at `1de1c853`, and
-`solid-js` / `@solidjs/web` 2.0.0-rc.13. These are implementation/interaction checks, not upstream login
-compatibility tests. No credentials were read, profile state written, browser
-login opened, worker launched or provider called. Model usage and estimated
-inference spend: **0 / USD 0**.
+Before live work, answer how each native provider completes sign-in on a remote
+machine; what expiry information is reliable and renewable; when running agents
+notice changed credentials; what “idle” would mean across several agents and
+jobs; and what cancellation, reconnection and retry can confirm. The README
+records each question's owner and needed-by trigger. These remain open while the
+user evaluates the mock. RC-01/RC-04 preserve the distinction between idle and
+no dependent work; RC-07/RC-08 preserve unknown outcomes and provider-specific
+semantics. See the [runtime contracts](../../../docs/runtime-contracts.md).
 
-Remote completion, reconciliation, cancellation and refresh remain proposals or
-unqualified paths. Profile configuration work belongs to Round B/063; actual
-remote/native login qualification is needed before live control. Round A review
-should judge whether ownership and evidence are easy to see, and whether the
-compact source-linked preview teaches the important provider differences. The
-ownership strip and separated evidence receipt are possible reuse candidates;
-no upstream framework or production launcher edits were made.
+Run from `experiments/` with
+`node spikes/055-orchestrator-mock-lab/serve.mjs` and open `/auth/` (also
+`/060-authentication-flows/`). The view remains Solid/AIUI with durable controls,
+cells and the Habemus Papadum design system. The surface is entirely simulated:
+no credential reads, profile writes, native login, model calls or real remote
+handoff. Authentication status and expiry values are fixtures.
+
+**Evidence boundary:** the 19 October version passed 15 model/cell tests and 41
+browser checks, plus type, keyboard, HMR and phone/desktop layout checks. Those
+results describe the earlier interface, not this rewrite or provider compatibility.
+Its environment and detailed results remain in the README and Git history. The 24 October revision passed 15 model/graph/source-map checks and 62 browser
+assertions at desktop and three phone widths. Actual buttons and keyboard handling,
+component/graph HMR, type checking, the shared Vite build and strict documentation
+build were checked. The clean browser run had no errors or warnings after repairing
+list identity/equality diagnostics. See the README for reproduction and build
+limitations. No new provider inference was performed (experiment spend USD 0;
+development-agent service usage is separate). The interaction revision was
+reviewed positively; visual refinement and backend questions remain open.
+Round B/C remain behind their existing review gates.

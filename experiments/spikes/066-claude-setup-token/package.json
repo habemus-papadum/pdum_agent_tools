@@ -1,0 +1,6 @@
+{
+  "name": "@agent-spike/claude-setup-token",
+  "private": true,
+  "type": "module",
+  "dependencies": {"@anthropic-ai/claude-agent-sdk": "catalog:"}
+}

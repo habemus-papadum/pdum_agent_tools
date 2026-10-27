@@ -1,0 +1,14 @@
+{
+  "name": "@habemus-papadum/orchestrator-dev",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "vite": "catalog:"
+  },
+  "devDependencies": {
+    "vitest": "catalog:"
+  }
+}

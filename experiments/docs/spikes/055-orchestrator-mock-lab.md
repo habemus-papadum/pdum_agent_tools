@@ -62,9 +62,38 @@ unchanged. The exports stay in ignored artifacts and are not bundled into the
 application. Authentication previews map to existing launcher/configuration
 operations; no login, profile edit or provider request is executed by the mock.
 
-The combined Vitest set now passes 34 tests; host/read-adapter Node checks and
+The original Round A revision's combined Vitest set passed 34 tests; host/read-adapter Node checks and
 actual-export Python checks pass, as do typechecking, Vite compilation and strict
 documentation builds. See the [next-round tracker](../../../docs/plans/agent-orchestrator/next-mock-rounds.md)
 for per-study evidence and the review gates before ingestion/statistics and
 management work. The earlier measurements above remain the original two-study
 baseline.
+
+**24 October history revision:** 058 now supplies 23 captures (16 bounded
+experiments plus seven everyday histories). The host also serves explicitly
+listed exported raster assets over GET-only routes. The denser 059 reader uses
+prose detail levels, compact tool pills, a minimap and image lenses. This remains
+full-document transfer, not a history paging or S3 service. Two real local host
+checks qualify listed asset bytes, unknown assets, read-only methods and server
+isolation; see [059](059-historical-viewer.md) for browser results and limits.
+
+## Round B working applications — 24 October
+
+The lab adds [061 ingestion/statistics](061-ingestion-statistics.md) at
+`/ingestion/`, [062 connections](062-launcher-connections.md) at `/connections/`
+and [063 profiles](063-profile-workbench.md) at `/profiles/`. These use real
+data and existing library operations. Disposable describes the implementation,
+not a requirement to simulate the user journey.
+
+The host delegates `/__ingestion/` and `/__management-lab/` to experiment-owned
+handlers. The former uses the existing ingestor and TypeScript query toolkit;
+the latter uses launcher discovery/profile libraries and existing provider
+management APIs. New databases/configuration/profiles live under explicit ignored
+lab paths. Ordinary profiles remain read-only sources and native history GET
+routes retain their existing read-only behavior. No model turns or live sign-in
+are required to exercise these pages.
+
+Source attribution, concurrent sync requests, failed reconnects and native config
+preservation receive focused checks. The studies do not select a production
+coordinator protocol, cloud publishing flow or general testing strategy. Reports
+record their actual inputs, validation, unavailable features and next questions.

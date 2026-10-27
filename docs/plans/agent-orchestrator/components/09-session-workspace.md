@@ -6,6 +6,14 @@ The [session interaction study](https://github.com/habemus-papadum/pdum_agent_to
 now explores source selection and explicit delivery intent with fixtures. Its
 web page and Markdown inform later specification, not provider guarantees.
 
+The later [067 live workspace](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/067-live-session-workspace.md)
+now launches owned Codex/Luna and Claude/Haiku sessions in lab profiles, sends
+real prompts, renders real tool work and compares the same session's native saved
+history. It shares presentation while retaining provider/source adapters. This
+does not add external-session attachment, steering/queue policy or a production
+SDK. The user deliberately deferred those broader controls until this experience
+has been reviewed.
+
 ## Purpose
 
 Interact with a live conversation while retaining its context, pending work and effective settings. Support several open sessions and navigation between parent and child work.

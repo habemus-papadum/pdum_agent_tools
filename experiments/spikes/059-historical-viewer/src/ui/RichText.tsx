@@ -12,6 +12,7 @@ import json from 'highlight.js/lib/languages/json';
 import diff from 'highlight.js/lib/languages/diff';
 import {markdown, safeLink} from '../model/rich';
 import {imageURL} from '../model/native';
+import {ImageLens} from './ImageLens';
 import type {Token} from 'marked';
 
 for (const [name, language] of Object.entries({typescript, javascript, python, bash, json, diff})) hljs.registerLanguage(name, language);
@@ -25,7 +26,7 @@ export function Code(props: {text: string; language?: string; label?: string}) {
 
 // Marked's extensible token union intentionally permits custom math tokens.
 function Tokens(props: {tokens: Token[]}) {
-  return <For each={props.tokens}>{token => <TokenNode token={token}/>}</For>;
+  return <For each={props.tokens}>{token => <span class="history-token"><TokenNode token={token}/></span>}</For>;
 }
 function TokenNode(props: {token: Token}) {
   const t = props.token as any;
@@ -45,7 +46,7 @@ function TokenNode(props: {token: Token}) {
     case 'hr': return <hr/>;
     case 'escape': return <>{t.text}</>;
     case 'link': return safeLink(t.href) ? <a href={safeLink(t.href)} target="_blank" rel="noreferrer">{inline()}</a> : <span>{inline()} <small>(link retained in source)</small></span>;
-    case 'image': return imageURL(t.href) ? <figure><img src={imageURL(t.href)} alt={t.text} loading="lazy"/><figcaption>{t.text}</figcaption></figure> : <span class="history-image-reference">Image reference: {t.text || t.href} · original location in source</span>;
+    case 'image': return <ImageLens image={{url: imageURL(t.href), reference: t.href?.startsWith('data:') ? undefined : t.href, label: t.text, origin: 'Markdown image'}}/>;
     case 'code': return t.lang === 'mermaid' ? <figure class="history-diagram"><Mermaid text={t.text} config={mermaidTheme()}/><details><summary>Diagram source</summary><Code text={t.text} language="text"/></details></figure> : <Code text={t.text} language={t.lang}/>;
     case 'blockquote': return <blockquote><Tokens tokens={t.tokens}/></blockquote>;
     case 'list': return t.ordered ? <ol start={t.start}><For each={t.items}>{item => <li><Tokens tokens={(item as any).tokens}/></li>}</For></ol> : <ul><For each={t.items}>{item => <li><Tokens tokens={(item as any).tokens}/></li>}</For></ul>;

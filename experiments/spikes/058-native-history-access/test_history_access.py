@@ -1,5 +1,6 @@
 """Negative guard checks and validation of separately captured native exports."""
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -87,7 +88,7 @@ class TestNativeExport(unittest.TestCase):
             self.assertEqual(row, {key: value for key, value in doc.items() if key != "payload"})
             if doc["provider"] == "codex":
                 self.assertEqual(doc["sessionId"], doc["payload"]["thread"]["id"])
-                if doc["source"]["coverage"]["historyMode"] == "paginated":
+                if doc["source"]["coverage"].get("historyMode") == "paginated" and "itemPages" in doc["payload"]:
                     paged = [
                         entry["item"]
                         for page in doc["payload"]["itemPages"]
@@ -97,6 +98,48 @@ class TestNativeExport(unittest.TestCase):
                     self.assertEqual(paged, full)
             else:
                 self.assertEqual(doc["sessionId"], doc["payload"]["info"]["session_id"])
+
+    def test_everyday_corpus_contains_long_native_records_and_rich_content(self):
+        everyday = [doc for doc in self.documents if doc["source"].get("corpus") == "everyday"]
+        if not everyday:
+            self.skipTest("Run the explicit everyday-corpus extension first")
+        for provider in ("codex", "claude"):
+            self.assertTrue(
+                any(doc["provider"] == provider and doc["source"]["summary"]["items"] > 400 for doc in everyday)
+            )
+        features = {feature for doc in everyday for feature in doc["source"]["summary"]["features"]}
+        self.assertTrue({"math-in-prose", "mermaid", "image:user", "image:tool-result", "embedded-images"} <= features)
+        phases = {phase for doc in everyday for phase in doc["source"]["summary"]["phases"]}
+        self.assertTrue({"commentary", "final_answer"} <= phases)
+
+    def test_copied_asset_bytes_have_separate_retrieval_qualification(self):
+        assets = [
+            asset
+            for doc in self.documents
+            for asset in doc["source"].get("assets", [])
+            if asset["kind"] == "copied-at-export"
+        ]
+        if not assets:
+            self.skipTest("No copied image assets in this selected export")
+        for asset in assets:
+            path = self.directory / asset["path"]
+            self.assertEqual(path.parent, self.directory / "assets")
+            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), asset["sha256"])
+            self.assertEqual(path.stat().st_size, asset["bytes"])
+            self.assertIn("unverified", asset["qualification"])
+
+    def test_math_qualification_points_to_actual_assistant_prose(self):
+        qualified = [doc for doc in self.documents if doc["source"].get("summary", {}).get("mathProseItemIndexes")]
+        if not qualified:
+            self.skipTest("No separately qualified mathematical-prose capture")
+        for doc in qualified:
+            items = [item for turn in doc["payload"]["thread"]["turns"] for item in turn["items"]]
+            for index in doc["source"]["summary"]["mathProseItemIndexes"]:
+                item = items[index]
+                self.assertEqual(item["type"], "agentMessage")
+                self.assertIn(item["phase"], ("commentary", "final_answer"))
+                self.assertNotIn("[external_agent_", item["text"])
+                self.assertTrue("\\[" in item["text"] or "\\(" in item["text"])
 
 
 if __name__ == "__main__":

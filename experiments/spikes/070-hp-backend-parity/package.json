@@ -1,0 +1,21 @@
+{
+  "name": "@agent-spike/070-hp-backend-parity",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "tsx --test src/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsx build.ts",
+    "live": "node --import tsx live.mjs"
+  },
+  "dependencies": {
+    "openai": "catalog:",
+    "ws": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "esbuild": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

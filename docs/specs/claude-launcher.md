@@ -1,5 +1,21 @@
 # Claude launcher
 
+**Direction revision, 25 October 2026:** the user has requested multiple clients
+and process lifetime independent of attachment. [Spike 068](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/068-claude-feed-replay.md)
+investigates a native stream-JSON process, transparent stdin forwarding, and replay
+of its recorded feed. Semantic interpretation and shared-control handling belong
+in the browser/Node clients; this path does not require the official conversation
+SDK. The text below records the **implemented October 13 baseline**, not a
+requirement to retain disconnect-owned workers in the forthcoming architecture.
+Native history helpers remain usable independently of that live-client choice.
+
+**26 October qualification:** [071](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/071-claude-sdk-replay.md)
+now verifies official SDK reuse against the persistent 068 process with a
+client-side replay/connection wrapper. Independent lifetime does not require
+replacing the SDK; naive callback replay and shared permission reconciliation
+do require application handling. This remains research evidence, not a production
+change to the baseline below.
+
 **Agreed direction, 2026-10-13:** a Python library and mountable Typer CLI manage
 isolated Claude profiles and foreground native workers. Browser and Node clients
 use the official TypeScript Agent SDK for live conversations. Python live clients

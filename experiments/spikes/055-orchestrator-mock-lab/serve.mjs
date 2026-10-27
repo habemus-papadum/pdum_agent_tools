@@ -10,6 +10,7 @@ import { dirname } from 'node:path';
 import { createServer as createViteServer } from 'vite';
 import { createMarkdownPage } from './markdown-page.mjs';
 import { createHistoryReader } from '../058-native-history-access/read-adapter.mjs';
+import { createFamilyReader } from './family-reader.mjs';
 
 const directory = resolve(fileURLToPath(new URL('./', import.meta.url)));
 const repo = resolve(directory, '../../..');
@@ -20,7 +21,7 @@ const defaults = {
 const mime = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.mjs': 'text/javascript',
   '.json': 'application/json', '.md': 'text/plain', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.woff': 'font/woff', '.wasm': 'application/wasm' };
 
-/** Disposable static preview owner. No credentials, provider clients, server database or launch API. */
+/** Disposable application host. Native history is read-only; Round B owns separate lab writes. */
 export async function startMockServer(options = {}) {
   const host = options.host ?? '0.0.0.0';
   const port = options.port ?? 0;
@@ -30,7 +31,11 @@ export async function startMockServer(options = {}) {
   const fonts = resolve(aiuiRoot, 'packages/aiui-design/node_modules/@fontsource');
   const variableFonts = resolve(aiuiRoot, 'packages/aiui-design/node_modules/@fontsource-variable');
   const markdownPage = await createMarkdownPage(aiuiRoot);
-  const history = createHistoryReader(resolve(options.historyDirectory ?? process.env.PDUM_HISTORY_EXPORT_DIR ?? defaults.historyDirectory));
+  const historyDirectory = resolve(options.historyDirectory ?? process.env.PDUM_HISTORY_EXPORT_DIR ?? defaults.historyDirectory);
+  const history = createHistoryReader(historyDirectory);
+  const families = createFamilyReader(historyDirectory, {
+    configPath: options.familyConfig ?? process.env.PDUM_HISTORY_FAMILIES_CONFIG,
+  });
   // Consume Habemus Papadum styles/fonts from the source checkout; no upstream copies.
   await Promise.all([access(join(design, 'site.css')), access(join(fonts, 'cormorant-garamond/400.css')), access(join(fonts, 'libre-franklin/400.css'))]);
   const id = randomUUID();
@@ -51,16 +56,29 @@ export async function startMockServer(options = {}) {
     ['/058-native-history-access/', resolve(directory, '../058-native-history-access')],
     ['/059-historical-viewer/', resolve(directory, '../059-historical-viewer')],
     ['/060-authentication-flows/', resolve(directory, '../060-authentication-flows')],
+    ['/061-ingestion-statistics/', resolve(directory, '../061-ingestion-statistics')],
+    ['/062-launcher-connections/', resolve(directory, '../062-launcher-connections')],
+    ['/063-profile-workbench/', resolve(directory, '../063-profile-workbench')],
+    ['/064-history-continuation/', resolve(directory, '../064-history-continuation')],
+    ['/065-session-lifecycle/', resolve(directory, '../065-session-lifecycle')],
+    ['/067-live-session-workspace/', resolve(directory, '../067-live-session-workspace')],
     ['/history/', resolve(directory, '../059-historical-viewer')],
     ['/auth/', resolve(directory, '../060-authentication-flows')],
+    ['/ingestion/', resolve(directory, '../061-ingestion-statistics')],
+    ['/connections/', resolve(directory, '../062-launcher-connections')],
+    ['/profiles/', resolve(directory, '../063-profile-workbench')],
+    ['/session-lab/', resolve(directory, '../067-live-session-workspace')],
     ['/055-orchestrator-mock-lab/', directory],
     ...['053-orchestrator-overview', '054-orchestrator-session', '055-orchestrator-mock-lab',
-      '058-native-history-access', '059-historical-viewer', '060-authentication-flows']
+      '058-native-history-access', '059-historical-viewer', '060-authentication-flows',
+      '061-ingestion-statistics', '062-launcher-connections', '063-profile-workbench',
+      '064-history-continuation', '065-session-lifecycle', '067-live-session-workspace']
       .map(name => [`/spikes/${name}/`, resolve(directory, '..', name)]),
     ['/docs/spikes/', resolve(repo, 'experiments/docs/spikes')],
     ['/docs/', resolve(repo, 'docs')],
   ];
   let details;
+  let liveLab;
   const server = createServer();
   let vite;
   try {
@@ -73,15 +91,35 @@ export async function startMockServer(options = {}) {
   server.on('request', async (req, res) => {
     try {
       res.setHeader('Cache-Control', 'no-store');
-      if (!['GET', 'HEAD'].includes(req.method)) { res.writeHead(405); res.end(); return; }
       const url = new URL(req.url, 'http://localhost');
+      if (url.pathname.startsWith('/__session-lab/')) {
+        liveLab ??= await import('../067-live-session-workspace/server.mjs');
+        if (await liveLab.handleRequest(req, res, url)) return;
+        res.writeHead(404); res.end('Unknown live-session operation'); return;
+      }
+      // Each disposable working application owns its actual operations and lab
+      // state. Merely opening the host does not ingest, create profiles or log in.
+      if (url.pathname.startsWith('/__ingestion/')) {
+        const { handleIngestionRequest } = await import('../061-ingestion-statistics/server.mjs');
+        if (await handleIngestionRequest(req, res, url)) return;
+        res.writeHead(404); res.end('Unknown ingestion operation'); return;
+      }
+      if (url.pathname.startsWith('/__management-lab/')) {
+        const { handleRequest } = await import('../062-launcher-connections/server.mjs');
+        if (await handleRequest(req, res, url)) return;
+        res.writeHead(404); res.end('Unknown management operation'); return;
+      }
+      if (!['GET', 'HEAD'].includes(req.method)) { res.writeHead(405); res.end(); return; }
       if (url.pathname === '/favicon.ico') { res.writeHead(204); res.end(); return; }
       if (url.pathname === '/live/sessions') {
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({ available: false, reason: 'This mock lab has no server-side model-session backend.' })); return;
       }
       if (url.pathname === '/__instance') {
-        res.setHeader('Content-Type', 'application/json'); res.end(req.method === 'HEAD' ? undefined : JSON.stringify(details)); return;
+        res.setHeader('Content-Type', 'application/json'); res.end(req.method === 'HEAD' ? undefined : JSON.stringify({
+          ...details, providerCalls: liveLab ? null : 0,
+          providerCallTracking: liveLab ? 'Not aggregated here; use provider-specific usage evidence' : 'No live-session backend loaded',
+        })); return;
       }
       if (url.pathname === '/__history/catalog') {
         res.setHeader('Content-Type', 'application/json');
@@ -93,12 +131,42 @@ export async function startMockServer(options = {}) {
         }
         res.end(req.method === 'HEAD' ? undefined : JSON.stringify(catalog)); return;
       }
+      if (url.pathname === '/__history/families') {
+        res.setHeader('Content-Type', 'application/json');
+        const catalog = await families.catalog();
+        res.end(req.method === 'HEAD' ? undefined : JSON.stringify(catalog)); return;
+      }
+      const historyFamily = url.pathname.match(/^\/__history\/family\/([^/]+)$/);
+      if (historyFamily) {
+        res.setHeader('Content-Type', 'application/json');
+        const family = await families.family(decodeURIComponent(historyFamily[1]));
+        if (!family) {
+          res.writeHead(404); res.end(req.method === 'HEAD' ? undefined : JSON.stringify({available:false,reason:'Unknown selected family'})); return;
+        }
+        if (!family.available) res.writeHead(family.code === 'missing-export' ? 503 : 400);
+        res.end(req.method === 'HEAD' ? undefined : JSON.stringify(family)); return;
+      }
       const historyDocument = url.pathname.match(/^\/__history\/document\/([^/]+)$/);
       if (historyDocument) {
         res.setHeader('Content-Type', 'application/json');
         const document = await history.document(decodeURIComponent(historyDocument[1]));
         if (!document) { res.writeHead(404); res.end(JSON.stringify({ error: 'Unknown native-history document' })); return; }
         res.end(req.method === 'HEAD' ? undefined : JSON.stringify(document)); return;
+      }
+      if (url.pathname.startsWith('/__history/assets/')) {
+        const filename = url.pathname.slice('/__history/assets/'.length);
+        // Only explicit exported raster assets. Original machine paths are never HTTP routes.
+        const types = {png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', webp:'image/webp', gif:'image/gif'};
+        const match = filename.match(/^[a-f0-9]{64}\.(png|jpg|jpeg|webp|gif)$/);
+        let listed=false;
+        if(match)try {listed=(await history.catalog()).sessions.some(entry =>
+          entry.source?.assets?.some(asset => asset.path === `assets/${filename}`));}
+        catch(error){if(error?.code!=='ENOENT')throw error;}
+        if(listed){res.setHeader('Content-Type',types[match[1]]);
+          res.end(req.method==='HEAD'?undefined:await readFile(join(historyDirectory,'assets',filename)));return;}
+        const asset=match?await families.asset(filename):null;
+        if(!asset){res.writeHead(404);res.end('Unknown exported image');return;}
+        res.setHeader('Content-Type',asset.contentType);res.end(req.method==='HEAD'?undefined:asset.bytes);return;
       }
       let path = decodeURIComponent(url.pathname);
       if (path === '/') path = '/055-orchestrator-mock-lab/index.html';
@@ -137,6 +205,7 @@ export async function startMockServer(options = {}) {
       server.close(error => error ? reject(error) : done());
       server.closeIdleConnections();
     });
+    await liveLab?.closeLiveLab();
     await vite.close();
     await httpClosed;
     await rm(stateDirectory, { recursive: true, force: true });

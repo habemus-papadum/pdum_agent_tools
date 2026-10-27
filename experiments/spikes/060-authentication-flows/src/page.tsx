@@ -3,4 +3,4 @@ import {App} from './ui/App';
 import {appScope} from './model/store';
 import '../style.css';
 /** Mountable page; this fixture has no continuous work or live resources to park. */
-export const page: SitePage = {title: 'Authentication ownership', App, toolsNs: appScope.name};
+export const page: SitePage = {title: 'Profile authentication', App, toolsNs: appScope.name};

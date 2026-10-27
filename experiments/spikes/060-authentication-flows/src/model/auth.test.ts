@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {advance, begin, cancel, fixtures, initialReceipt, initialSelection, operationPreview, validateAccess, validReference, type Selection} from './auth';
+import {fixtures, initialSelection, operationPreview, validReference} from './auth';
 
 describe('source-grounded operation previews', () => {
   it('maps every provider/host/strategy fixture to its explicit owner and native root', () => {
@@ -38,40 +38,5 @@ describe('source-grounded operation previews', () => {
   it('limits native device auth to Codex', () => {
     expect(operationPreview({...initialSelection, deviceAuth: true}).command).toContain('--device-auth');
     expect(operationPreview({...initialSelection, provider: 'claude', deviceAuth: true}).command).not.toContain('--device-auth');
-  });
-});
-
-describe('explicit synthetic outcomes', () => {
-  it('requires a separate model access check after successful native status', () => {
-    let r = begin(initialReceipt(), initialSelection, 'success');
-    expect(() => validateAccess(r, 'passed')).toThrow('Observe native status');
-    r = advance(r); expect(r.phase).toBe('returned'); expect(r.access).toBe('not-tested');
-    r = advance(r); expect(r.phase).toBe('observed'); expect(r.presence).toBe('configuration observed'); expect(r.access).toBe('not-tested');
-    r = validateAccess(r, 'denied'); expect(r.presence).toBe('configuration observed'); expect(r.access).toBe('denied');
-    expect(advance(r)).toBe(r);
-  });
-  it('retains each provider’s different status claim', () => {
-    for (const provider of ['codex', 'claude'] as const) {
-      const r = advance(advance(begin(initialReceipt(), {...initialSelection, provider}, 'success')));
-      expect(r.events.at(-1)).toContain(provider === 'codex' ? 'authenticated = "not checked"' : 'logged_in = true');
-    }
-  });
-  it('freezes attempt identity and refuses replacement while it is pending', () => {
-    const selection: Selection = {...initialSelection};
-    const r = begin(initialReceipt(), selection, 'success'); selection.host = 'remote';
-    expect(r.plan?.selection.host).toBe('local');
-    expect(r.plan?.profile.host).toBe('local');
-    expect(() => begin(r, selection, 'success')).toThrow('Finish or cancel');
-  });
-  it('distinguishes cancellation of local work from stopping remote observation', () => {
-    expect(cancel(begin(initialReceipt(), initialSelection, 'success')).phase).toBe('cancelled');
-    const remote = cancel(begin(initialReceipt(), {...initialSelection, host: 'remote'}, 'success'));
-    expect(remote.phase).toBe('unknown'); expect(remote.presence).toBe('unknown'); expect(remote.events.at(-1)).toContain('unconfirmed');
-  });
-  it.each(['expired', 'failure', 'connection-lost'] as const)('keeps %s terminal with no implicit retry', scenario => {
-    const r = advance(begin(initialReceipt(), initialSelection, scenario));
-    expect(r.phase).toBe({expired: 'expired', failure: 'failed', 'connection-lost': 'unknown'}[scenario]);
-    expect(advance(r)).toBe(r); expect(r.access).toBe('not-tested');
-    expect(begin(r, initialSelection, 'success').attempt).toBe(2);
   });
 });

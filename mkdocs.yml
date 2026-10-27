@@ -15,6 +15,7 @@ nav:
   - Development: development.md
   - Implementation status: implementation-status.md
   - Runtime contracts and gotchas: runtime-contracts.md
+  - Orchestrator foundation: orchestrator.md
   - Profile setup and authentication: profiles.md
   - Claude launcher:
       - Operator and API guide: claude.md
@@ -32,6 +33,11 @@ nav:
   - HP Agent power-user parity: hp-agent-parity.md
   - HP Agent parallel work: hp-agent-work.md
   - Agent orchestrator design:
+      - System and library proposal: plans/agent-orchestrator/system-design.md
+      - Implementation dependencies and stages: plans/agent-orchestrator/system/implementation.md
+      - Decisions and evidence: plans/agent-orchestrator/system/decisions.md
+      - Backend library detail: plans/agent-orchestrator/system/backend.md
+      - Client and UI library detail: plans/agent-orchestrator/system/client-ui.md
       - Component map: plans/agent-orchestrator/index.md
       - Working method: plans/agent-orchestrator/methodology.md
       - Provisional visual direction: plans/agent-orchestrator/visual-direction.md

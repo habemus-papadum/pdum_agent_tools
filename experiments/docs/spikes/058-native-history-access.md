@@ -67,3 +67,58 @@ Acceptance applies RC-01/02/05/07/08 from the
 retention policy remain deferred to continuation/live-control slices; no product
 decision was needed for this passive read boundary. The rich rendering and
 content-stress fixture study is [059](059-historical-viewer.md).
+
+## Long-history review extension — 24 October 2026
+
+The catalogue now retains the original 16 experiments and adds **seven real
+everyday conversations**. Selection scanned existing local history read-only;
+only selected files were copied into isolated reader homes. No ordinary profile
+was passed to a provider process, and original hashes remained unchanged.
+
+| Native source | Returned size | Rich evidence |
+| --- | --- | --- |
+| Codex A | 1,290 items / 28 turns | Mermaid in three assistant messages, compaction and image references |
+| Codex B | 1,300 items / 19 turns | Tool work and compaction; math-like markers were source/tool content |
+| Codex C | 3,948 items / 51 turns | 40 embedded tool images, substantial command traffic and compaction |
+| Codex D | 634 items / 15 turns | Two user-image references and eight embedded tool images |
+| Codex E | 144 items / 5 turns | Actual display/inline TeX in two final responses, plus a commentary formula |
+| Claude A | 652 visible messages | Usage/cache fields, 298 tool calls and ten embedded tool-result images |
+| Claude B | 434 visible messages | Usage/cache fields, one user upload and twelve tool-result images |
+
+Codex **0.164.0** returned actual `agentMessage.phase` values `commentary` and
+`final_answer`; this distinction can be displayed without guessing. Its native
+history reads took **0.066–0.408 seconds** locally, excluding snapshot creation
+and browser work. Claude SDK **0.2.165** helper reads for the selected examples
+took approximately **0.4 seconds** each. Those are local observations, not remote
+latency commitments. The seven pretty-printed documents occupy **57.6 MB**; the
+viewer still transfers complete documents, including embedded images.
+
+The important coverage surprise is Claude's selected-chain semantics. A source
+file containing 5,767 user/assistant records yielded only four visible messages
+through the official helper. SDK source inspection explains that it follows the
+latest main parent chain and intentionally does not follow the logical parent
+across compaction. Pagination does not recover those excluded earlier messages.
+Additional native helper probes found the larger usable examples above. We did
+not add a private transcript/recovery parser to circumvent this behavior.
+
+Ten existing typed image references were copied with hashes and an explicit
+**current-file-at-export** qualification; other references remain unavailable.
+The copies do not establish historical byte equality. Payloads remain unchanged,
+and an additive asset sidecar tells the mock host which exported files it may
+serve. User uploads and tool-returned screenshots are represented; dedicated
+image-generation-result coverage has not been established. Initial math marker
+counts matched source/tool text and did not establish mathematical conversation
+coverage. UI review caught this; the supplemental Codex E capture was separately
+qualified against actual native assistant prose, excluding code and imported
+tool wrappers. Its explicit item positions are retained in the local evidence.
+
+These findings make long-trace density and navigation review meaningful. They
+also expose separate future work: incremental reads, asset retrieval, coverage
+across compaction and billing/context derivation. DuckDB/MotherDuck ingestion is
+still a separate path; this extension does not add a storage schema or S3 client.
+
+**Validation:** seven native-export Python checks, two Node transport checks and
+Ruff passed. The final private `long-corpus/qualified-run/evidence.json` records
+source hashes, empty Codex loaded registries before/after, allowed read methods
+and process cleanup. No turns, login or provider inference occurred; new provider
+spend was **USD 0**. See the [extension runbook](../../spikes/058-native-history-access/README.md#everyday-history-extension-24-october-2026).

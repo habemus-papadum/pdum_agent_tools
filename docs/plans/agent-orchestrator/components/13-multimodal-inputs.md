@@ -2,6 +2,12 @@
 
 **Status: design stub.** [Back to the component map](../index.md).
 
+**26 October review:** this work moves to independent, self-contained disposable
+experiments. The main application keeps a text-only placeholder composer with a
+structured-content/provider-lowering seam. Do not make voice, screen, pencil or
+image authoring a prerequisite for the main implementation; integrate a reviewed
+result later through that seam.
+
 ## Purpose
 
 Provide independent input surfaces that contribute deliberate material to the prompt composer. Voice, screen capture and ink should also be useful to other AIUI applications.

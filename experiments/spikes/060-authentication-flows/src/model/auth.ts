@@ -2,10 +2,6 @@
 export type Provider = 'codex' | 'claude';
 export type Host = 'local' | 'remote';
 export type Strategy = 'api-key' | 'reuse-login' | 'native';
-export type Scenario = 'success' | 'expired' | 'failure' | 'connection-lost';
-export type Phase = 'idle' | 'waiting' | 'returned' | 'observed' | 'validated' | 'cancelled' | 'expired' | 'failed' | 'unknown';
-export type Evidence = 'unchecked' | 'configuration observed' | 'native login reported' | 'unavailable' | 'unknown';
-export type Access = 'not-tested' | 'passed' | 'denied';
 export interface Selection { provider: Provider; host: Host; strategy: Strategy; apiKeyEnv: string; deviceAuth: boolean; }
 export interface ProfileFixture { id: string; provider: Provider; host: Host; strategy: Strategy; label: string; hostLabel: string; owner: string; path: string; source: string; workspace: string; }
 export const fixtures: readonly ProfileFixture[] = (['codex', 'claude'] as const).flatMap(provider =>
@@ -101,41 +97,4 @@ export function operationPreview(selection: Selection): OperationPreview {
   }
   return { selection: {...selection}, profile, valid, error: valid ? null : 'Enter an environment variable name, never a key value.', owner: `${profile.owner} on ${profile.hostLabel}`, credentialSource, result, browser, refresh,
     setup, setupMeaning, command, operation, status, fields, caveat, remoteProposal: selection.host === 'remote' };
-}
-export interface Receipt { phase: Phase; attempt: number; plan: OperationPreview | null; scenario: Scenario; presence: Evidence; access: Access; events: string[]; }
-export const initialReceipt = (): Receipt => ({phase: 'idle', attempt: 0, plan: null, scenario: 'success', presence: 'unchecked', access: 'not-tested', events: []});
-export function active(receipt: Receipt) { return receipt.phase === 'waiting' || receipt.phase === 'returned'; }
-export function begin(receipt: Receipt, selection: Selection, scenario: Scenario): Receipt {
-  if (active(receipt)) throw new Error('Finish or cancel the current attempt before starting another');
-  const plan = operationPreview(selection);
-  if (!plan.valid) throw new Error(plan.error!);
-  return {phase: 'waiting', attempt: receipt.attempt + 1, plan, scenario, presence: 'unchecked', access: 'not-tested', events: [
-    `SIMULATION ${receipt.attempt + 1} · frozen target ${plan.profile.id}`,
-    selection.strategy === 'native' ? 'Simulated native login started; operator interaction is pending.' : 'Simulated status inspection started; no login process is required.',
-  ]};
-}
-function record(receipt: Receipt, patch: Partial<Receipt>, message: string): Receipt { return {...receipt, ...patch, events: [...receipt.events, message]}; }
-export function advance(receipt: Receipt): Receipt {
-  if (!receipt.plan || !active(receipt)) return receipt;
-  if (receipt.phase === 'waiting') {
-    if (receipt.scenario === 'connection-lost') return record(receipt, {phase: 'unknown', presence: 'unknown'}, 'Connection lost: the host outcome is unknown. No automatic retry or claim that the host stopped.');
-    if (receipt.scenario === 'expired') return record(receipt, {phase: 'expired'}, receipt.plan.selection.strategy === 'native' ? 'Synthetic login challenge expired. A fresh explicit attempt is required.' : 'Synthetic credential expiry. Renew at the credential owner, then explicitly recheck.');
-    if (receipt.scenario === 'failure') return record(receipt, {phase: 'failed', presence: 'unavailable'}, 'Synthetic failure: native login failed or the selected credential reference was unavailable. No fallback identity was selected.');
-    return record(receipt, {phase: 'returned'}, receipt.plan.selection.strategy === 'native' ? 'Synthetic native login returned exit code 0. Model access has not been tested.' : 'Synthetic status command returned. Inspect the provider-specific evidence next.');
-  }
-  return record(receipt, {phase: 'observed', presence: receipt.plan.selection.provider === 'codex' ? 'configuration observed' : 'native login reported'}, receipt.plan.selection.provider === 'codex'
-    ? 'Codex fixture: selected configuration/auth-file presence observed; authenticated = "not checked".'
-    : 'Claude fixture: native auth status reports logged_in = true; inference and token refresh remain unproved.');
-}
-export function cancel(receipt: Receipt): Receipt {
-  if (!active(receipt) || !receipt.plan) return receipt;
-  if (receipt.plan.selection.host === 'remote') return record(receipt, {phase: 'unknown', presence: 'unknown'}, 'Stopped watching the remote attempt. Host login cancellation is unconfirmed; inspect the host before another attempt.');
-  return record(receipt, {phase: 'cancelled'}, 'Synthetic local cancellation: the owned login/status process was stopped. Saved settings are not rolled back.');
-}
-export function validateAccess(receipt: Receipt, outcome: 'passed' | 'denied'): Receipt {
-  if (receipt.phase !== 'observed') throw new Error('Observe native status before the separate model-access simulation');
-  return record(receipt, {phase: 'validated', access: outcome}, outcome === 'passed' ? 'Synthetic model request passed. This is fixture evidence only; no model was called.' : 'Synthetic model request denied despite credential presence. Check account/model entitlement at the provider.');
-}
-export function phaseLabel(receipt: Receipt): string {
-  return ({idle: 'Choose a profile and strategy', waiting: receipt.plan?.selection.strategy === 'native' ? 'Waiting for native login' : 'Inspecting authentication', returned: 'Native result returned', observed: 'Status observed · access untested', validated: receipt.access === 'passed' ? 'Simulated access passed' : 'Simulated access denied', cancelled: 'Cancelled locally', expired: 'Expired · explicit retry needed', failed: 'Failed · inspect the cause', unknown: 'Host outcome unknown'})[receipt.phase];
 }

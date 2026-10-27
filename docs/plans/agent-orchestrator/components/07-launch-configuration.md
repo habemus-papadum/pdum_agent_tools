@@ -31,6 +31,23 @@ history, preserving its lineage and uncertainty.
 
 These are discussion candidates, not scheduled work or implemented capabilities.
 
+## Recorded review — 26 October 2026
+
+Use the context where the launch action occurred to seed host, project and cwd;
+make the origin visible and let the user review/override. Conversation working
+model/effort/tier choices carry into the next turn, never silently into saved
+profile/application defaults. Saving those defaults has its own explicit action.
+
+Include existing-directory/worktree versus requested new-worktree intent. Prefer
+the selected provider's supported native launch option or an existing provisioner;
+qualify the actual headless/app-server route before claiming creation support.
+Do not build a worktree manager merely to expose the option. Record the resolved
+cwd and keep filesystem branching distinct from conversation forks.
+
+Offer longer Codex unload timing in creation, labelled with its actual shared
+server-start scope. No host keepalive subscription is wanted. See
+[D2/D3](../system/decisions.md) and [RC-06](../../../runtime-contracts.md#rc-06-idle-delay-is-native-server-configuration).
+
 ## Your additions
 
 - Should launch live in a quick drawer, a dedicated page, or both?

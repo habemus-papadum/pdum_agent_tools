@@ -16,7 +16,7 @@ const external = [
 export default defineConfig({
   build: {
     lib: {
-      entry: { index: "src/index.ts", cli: "src/cli.ts" },
+      entry: { index: "src/index.ts", cli: "src/cli.ts", analysis: "src/analysis.ts" },
       formats: ["es"],
       fileName: (_format, entry) => `${entry}.js`,
     },

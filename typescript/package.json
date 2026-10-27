@@ -16,6 +16,7 @@
     "pnpm": ">=11"
   },
   "scripts": {
+    "dev": "node tools/dev-instance/cli.mjs",
     "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck",
     "lint": "biome check .",

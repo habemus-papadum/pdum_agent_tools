@@ -43,6 +43,35 @@ Keep both cheap everyday summaries and agent-readable forensic detail. The
 [first-slice investigations](../first-slices.md#focused-investigations-before-committing-live-boundaries)
 make this a measured recommendation, not a guessed universal API.
 
+## Evidence for future types — 24 October 2026
+
+Before extracting production history/family types, consult the evolving
+[native availability ledger](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/059-data-availability.md).
+It records source/version scope, missing versus uncollected values, actor identity,
+clock/duration meanings and repeated usage. The mock's temporary projections are
+evidence for API design, not an already settled cross-provider schema.
+
+## Development evidence and convergence — 25 October 2026
+
+The [working stance](../methodology.md#develop-the-application-with-inspectable-debug-evidence)
+keeps ordinary native history separate from optional development captures.
+Preserving unknown native messages and exposing inspectable adapter state does
+not require a second historical event store. The [closing studies and handoff](../next-mock-rounds.md#closing-studies-and-architecture-handoff)
+prioritize agreement on backend ownership and browser/Node interfaces after two
+narrow integration studies. Continue refining individual message interpretations
+through AIUI and DevTools while building the real system.
+
+## Revised Claude attachment input — 25 October 2026
+
+The user now wants multiple clients per running Claude process, separate
+launch/attach and full native-output replay. [068](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/068-claude-feed-replay.md)
+tests a thin process/feed service without an official conversation SDK dependency.
+Clients interpret native acknowledgements and shared state; the service does not
+validate conversation commands or synthesize acceptance. [069](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/069-provider-history-matrix.md)
+assembles provider/source capabilities for the client design. Keep the existing
+SDK launcher contract distinct from this next direction, and keep replayed
+protocol evidence separate from native historical records and ingestion.
+
 ## Your additions
 
 - Which connection information should always be visible, and which belongs in an inspector?

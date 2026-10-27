@@ -30,6 +30,24 @@ This evidence supports [agent-assisted recovery](../failure-recovery.md).
 
 These are discussion candidates, not scheduled work or implemented capabilities.
 
+## Evidence-first follow-up — 24 October 2026
+
+The [059 inventory](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/059-evidence-inventory.md)
+tracks time axes, gap compression, settings, coverage and per-agent metrics. It separates observed native fields, prior probes, source-only
+capabilities and missing examples before the next mock. No new runtime or
+collection policy is implied; the original questions below remain open.
+
+## Development capture stance — 25 October 2026
+
+The user does not want routine historical browsing to depend on saving live-only
+data. Reuse computations over the evidence each source actually provides, and
+keep missing coverage explicit. Optional debug captures serve joint operator/agent
+diagnosis through the MCP-connected development browser and AIUI tools; they may
+be enabled by default early on and can retain unclassified records or a complete
+selected observation/history. This is separate from normal native history and
+existing ingestion analytics. See the [canonical working stance](../methodology.md#develop-the-application-with-inspectable-debug-evidence).
+No new retention, capture or export service is implemented by this clarification.
+
 ## Your additions
 
 - Which conditions should draw attention automatically, and which should remain available only on inspection?

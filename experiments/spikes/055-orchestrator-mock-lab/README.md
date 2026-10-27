@@ -12,9 +12,14 @@ experiments whose notes will feed a later specification.
 | Conversation, source and usage | `/054-orchestrator-session/` | [Session note](../054-orchestrator-session/README.md) |
 | Read-only native history | `/history/` (`/059-historical-viewer/`) | [History note](../059-historical-viewer/README.md), [native access evidence](../058-native-history-access/README.md) |
 | Authentication ownership | `/auth/` (`/060-authentication-flows/`) | [Auth operation map and note](../060-authentication-flows/README.md) |
+| Ingestion and statistics | `/ingestion/` (`/061-ingestion-statistics/`) | [Real ingestion/query study](../061-ingestion-statistics/README.md) |
+| Launcher connections | `/connections/` (`/062-launcher-connections/`) | [Local discovery and endpoint study](../062-launcher-connections/README.md) |
+| Profile workbench | `/profiles/` (`/063-profile-workbench/`) | [Native lab profile operations](../063-profile-workbench/README.md) |
+| Owned live sessions | `/session-lab/` (`/067-live-session-workspace/`) | [Real Codex/Claude prompts and live/history comparison](../067-live-session-workspace/README.md) |
 
 The [three-round tracker](../../../docs/plans/agent-orchestrator/next-mock-rounds.md)
-records the next phase. Round A is ready for review; B/C remain queued. Configuration
+records the next phase. Round A is reviewed; Round B builds disposable working
+applications over real local data and operations. Round C remains queued. Configuration
 choices map to existing tool owners, including the ingestor's `history.yaml` and
 the launcher/profile APIs. The mock host's export-directory option is only a local
 reader input, not another ingestor configuration schema.
@@ -27,6 +32,18 @@ From `experiments/`, with the AIUI checkout linked and its dependencies installe
 pnpm install
 node spikes/055-orchestrator-mock-lab/serve.mjs
 ```
+
+Round B's working backends also use the repository-root Python environment and,
+for statistical queries, the separate `typescript/` workspace installation.
+They invoke those existing owners directly; dependencies are not merged into
+the experimental workspace. Follow the 061/062/063 runbooks for input preparation
+and supported operations. Captured data and lab profiles are ignored local files;
+a fresh checkout shows unavailable/empty data until explicitly prepared.
+
+For concurrent development, `PDUM_INGESTION_LAB_DIR` and
+`PDUM_PROFILE_LAB_DIR` select different lab data directories. Preview instances
+already have independent HTTP ports and Vite caches; they must also use different
+data directories when testing independent writable scenarios.
 
 The root repository's `./scripts/link-aiui.sh` creates `.dev/aiui`, normally pointing
 to `~/src/pdum_aiui`. The private study manifests explicitly link AIUI's
@@ -41,7 +58,7 @@ state directory. Ctrl-C/SIGTERM shuts down this instance. A final CLI exit sweep
 removes late cache writes from Vite's optimizer. Real two-process checks verify
 separate ports/state and that stopping one leaves the other available.
 
-Vite runs `aiui()` before the Solid compiler, with all four sibling apps in
+Vite runs `aiui()` before the Solid compiler, with all eight sibling apps in
 `stampRoots`. It supplies actual factory/source attribution, source browsing and
 hot updates. Shared framework imports resolve through the host's declared
 package exports so the linked checkout and app use the same runtime. Versions:
@@ -60,11 +77,15 @@ Dependencies and lockfile stay in `experiments/`, separate from production.
 | Dock | Actual `VoiceDock`, tool log, key/source panels and oracle/live UI from the linked AIUI checkout. |
 | Historical reader | GET-only access to 058's provider-native exports, retaining raw payloads and source/coverage; a separately labelled rendering specimen covers rich content. |
 | Authentication | Simulation with exact existing launcher operation previews; no credentials read, login started or profile configuration written. This study omits the provider-capable dock. |
+| Round B operations | Separate `/__ingestion/` and `/__management-lab/` handlers use existing ingestion/launcher libraries. Writes target explicit lab state; native history routes stay GET-only. See each study for exact supported operations and evidence. |
+| Live workspace | `/__session-lab/` lazily owns a Python service composing existing launchers. Explicit launch creates only owned lab sessions; browser Codex RPC / official Claude SDK own conversation control. The preview closes the service and its provider runtimes on graceful shutdown. |
 | Agent activity and usage | Overview/session fixtures are synthetic; historical usage is shown only when captured. Study controls do not drive a real orchestrator or conversation. |
 
 The history routes read `experiments/artifacts/058-native-history-access` by default;
 `PDUM_HISTORY_EXPORT_DIR` selects an explicit different export. Generate it through
-058's documented native-reader workflow. Missing exports produce an honest empty
+058's documented native-reader workflow. Listed raster copies under the export's
+`assets/` directory are served by `/__history/assets/<hash>.<extension>`; arbitrary
+original machine paths are not routes. Missing exports produce an honest empty
 catalogue; the rendering specimen remains available. `/__history/catalog` returns
 metadata and `/__history/document/<key>` reads a catalogue-listed document. Opening
 or refreshing the viewer neither regenerates exports nor resumes a provider runtime.
@@ -116,13 +137,16 @@ The Markdown files remain authoritative; the reader is disposable lab plumbing.
 
 ## Verification and limits
 
-Round A additionally passed 058's four actual-export Python checks and two Node
+The original Round A implementation passed 058's four actual-export Python checks and two Node
 transport checks; 059's nine adapter/cell tests and 23 browser assertions at
 360/390/414/1440 CSS widths; and 060's 15 model/cell tests and 41 browser checks.
-The combined Vitest set now has 34 tests. The host has an additional actual HTTP
+That revision's combined Vitest set had 34 tests. The host has an additional actual HTTP
 test for GET-only catalogue/document access, unchanged exports and unknown keys.
 Each report distinguishes real API evidence from renderer/authentication fixtures.
-Round A typechecking, Vite compilation and documentation validation pass. The
+That revision's typechecking, Vite compilation and documentation validation passed.
+The 24 October [history handoff](../059-historical-viewer/HANDOFF.md) and
+[authentication handoff](../060-authentication-flows/HANDOFF.md) record later
+review changes and their validation. The
 earlier overview/session validation below remains the recorded baseline.
 
 ```sh
@@ -179,3 +203,24 @@ and [visual direction](../../../docs/plans/agent-orchestrator/visual-direction.m
 record the remaining browser/Electron, live coordinator and reusable-component
 questions. These mocks now exercise real frontend primitives; their fixture
 schemas and local host still do not settle production package boundaries.
+
+
+### Family transport — 24 October iteration
+
+`GET /__history/families` lists metadata for three explicitly selected captured
+families; `GET /__history/family/<id>` reads one complete bundle. Native documents
+and provider-specific relationship evidence remain unchanged. Claude child keys
+retain their separate agent identity even when native session IDs are shared.
+Missing selected runs are explicit, and all operations remain GET-only.
+
+`PDUM_HISTORY_FAMILIES_CONFIG` can select different local export directories using
+`{"families":[{"id":"study","title":"Study","provider":"codex","directory":"relative/run"}]}`.
+Relative directories resolve against that file. This is disposable lab input
+selection, not a coordinator/profile configuration scheme. Default runs are the
+qualified 058 Codex family and the two Claude families. No capture is regenerated
+or provider contacted by browsing.
+
+Metadata currently requires parsing the selected native files; full family loading
+is not paginated. The Codex response is approximately 74.5 MB. Eight reader/real
+HTTP checks passed; see `family-reader.test.mjs`, `server.test.mjs` and the
+[availability ledger](../../docs/spikes/059-data-availability.md).

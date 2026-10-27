@@ -1,19 +1,34 @@
 # Agent orchestrator: component map
 
-**Status: design stubs for discussion, updated 19 October 2026.** This is the working map
+**Status: design stubs and reviewed study evidence, updated 26 October 2026.** This is the working map
 for a web application that becomes an everyday place to find, launch, observe
 and interact with Codex, Claude Code and HP agents across configured machines
 and profiles. HP has one portable runtime with Node and browser hosts.
+
+Start with the [system and library proposal](system-design.md)
+and its [implementation sequence](system/implementation.md). They consolidate
+the evidence through 071 into library boundaries and dependencies. These cards
+remain the original requirements/comment owners; they have not been replaced
+with an assumption that every product question is settled.
+The user accepted the library boundaries and supplied [D1–D10 guidance](system/decisions.md)
+on 26 October: contextual defaults, conversation-scoped overrides, simple independent
+credential behavior and a text-only initial composer. Rich authoring remains a
+separate disposable experimental lane.
 
 The application will drive development of the client SDKs and reusable UI
 components. We will shape the experience through small mocks and real vertical
 slices, then add sophistication. This map creates reviewable component stubs;
 it does not establish a production application, new packages or a fixed public
-API. Two disposable browser mocks now explore overview and session interaction;
-their notes and feedback will feed a later concrete specification. The
+API. Disposable studies now cover overview, conversation, native history,
+authentication, ingestion, connections, profiles and real owned live sessions;
+their notes and feedback feed the backend/client architecture proposal. The
 application's final name and packaging remain open.
 The [next mock rounds](next-mock-rounds.md) track the agreed three-round sequence,
-starting with native history access, rich read-only rendering and authentication.
+including the completed [closing studies](next-mock-rounds.md#closing-studies-and-architecture-handoff)
+and the focused 068–071 architecture follow-ups. Individual message types and visual details
+can keep improving through the [AIUI/DevTools development loop](methodology.md#develop-the-application-with-inspectable-debug-evidence)
+while the real infrastructure is built. Optional debug captures do not create a
+second ordinary historical data source.
 The [runtime contracts and gotchas](../../runtime-contracts.md) collect subtle
 backend behavior to retain during implementation, including subscriptions,
 resume side effects and background-job teardown. Use their RC IDs in slice plans.
@@ -65,7 +80,7 @@ Add, split, merge or rename cards as the application becomes clearer.
 | --- | --- | --- |
 | Client foundation | [O01 — Connections and shared client mechanics](components/01-client-foundation.md) | How does an app connect, observe, detach and recover its view without duplicating actions? |
 | Provider SDK | [O02 — Codex client](components/02-codex-client.md) | How do we expose the complete native protocol and useful session handles? |
-| Provider SDK | [O03 — Claude client integration](components/03-claude-client.md) | How does the official SDK fit the app and launcher lifetimes? |
+| Provider client | [O03 — Claude client integration](components/03-claude-client.md) | How do several clients replay and attach to one launcher-owned process? |
 | Provider SDK | [O04 — HP client and execution hosts](components/04-hp-client.md) | How does the same client experience reach Node and browser-owned agents? |
 | Unified management | [O21 — Host coordinator and management client](components/21-host-coordinator.md) | How does one host service compose launchers, expose status and recover useful work? |
 | Management | [O05 — Hosts, discovery and tracked sources](components/05-hosts-discovery.md) | Which machines/profiles/runtimes are in view, and how current is the inventory? |
@@ -141,9 +156,10 @@ gain coordinator-independent lifetimes merely by being composed here.
 | Job | Work such as a command or async computation; stopping a wait, a turn, a job or an owner can have different effects. |
 | Observation | Evidence from a named source and time. Missing/stale evidence is not proof that an agent stopped. |
 
-Codex retains full typed/raw protocol access, including experimental APIs. Claude
-uses its official browser/Node SDKs; the Python relay does not own a second
-query. HP has a shared core and explicit host adapters. Shared views should
+Codex retains full typed/raw protocol access, including experimental APIs. Claude's
+existing implementation uses official browser/Node SDKs; the revised [O03 direction](components/03-claude-client.md)
+investigates native stream clients, process-owned lifetime and complete replay
+without a second host SDK query. HP has a shared core and explicit host adapters. Shared views should
 reuse meaningful concepts while preserving native fields and capability
 differences. Unsupported controls need an explanation, not a simulated success.
 
@@ -160,6 +176,8 @@ can appear as inventory/history where supported; live attachment needs a
 qualified provider path. In particular, Claude's current managed worker ends
 when its owning SDK client disconnects. Browsing saved Claude history is a
 different operation, and arbitrary native-session attachment is not established.
+The new managed-process attachment path is being qualified in 068; it does not
+change that external-discovery limitation or the current package behavior.
 
 Multiple views and clients are part of the intended experience. Where a provider
 supports several live participants, preserve that. Do not impose a blanket

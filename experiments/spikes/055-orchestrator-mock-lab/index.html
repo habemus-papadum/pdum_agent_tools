@@ -6,8 +6,11 @@
 <body><main>
   <header><p class="eyebrow">Orchestrator · interaction studies</p><h1>A place to work with your agents.</h1>
   <p class="lede">Explore the working set, read real history, and make the next action explicit.</p></header>
-  <aside class="fixture-note">Overview, live-session and authentication controls are simulations. Historical viewing reads local exports from native APIs. These pages do not resume agents, sign in or write profiles.</aside>
+  <aside class="fixture-note">The live workspace runs real agents through our launchers. History reads native exports; ingestion and profile work use real tools with separate lab state. The earlier overview, session interaction and authentication studies retain their labelled simulations.</aside>
   <section class="studies" aria-label="Interaction studies">
+    <article><p class="eyebrow">Live · Codex &amp; Claude</p><h2>Work with a real session</h2><p>Launch in a selected directory, send a prompt, and compare streaming work with the conversation's saved native history.</p>
+    <a class="open" href="/session-lab/">Open live-session workspace <span aria-hidden="true">↗</span></a>
+    <a class="notes" href="/067-live-session-workspace/README.md">Read the study boundaries</a></article>
     <article><p class="eyebrow">Study 01 · Overview</p><h2>Find the work that matters</h2><p>Scan a mixed fleet, filter it down, and move from a sign of activity to the evidence behind it.</p>
     <a class="open" href="/053-orchestrator-overview/">Open overview study <span aria-hidden="true">↗</span></a>
     <a class="notes" href="/053-orchestrator-overview/README.md">Read the interaction notes</a></article>
@@ -20,6 +23,15 @@
     <article><p class="eyebrow">Round A · Authentication</p><h2>Know where sign-in belongs</h2><p>Explore local and remote profile authentication using previews of the existing launcher operations.</p>
     <a class="open" href="/060-authentication-flows/">Open authentication study <span aria-hidden="true">↗</span></a>
     <a class="notes" href="/060-authentication-flows/README.md">Read the operation map and notes</a></article>
+    <article><p class="eyebrow">Round B · Ingestion &amp; statistics</p><h2>Find patterns in the history</h2><p>Configure the existing ingestor, sync real captured sources into a local DuckDB target, and inspect usage, coverage and individual sessions.</p>
+    <a class="open" href="/ingestion/">Open ingestion &amp; statistics <span aria-hidden="true">↗</span></a>
+    <a class="notes" href="/061-ingestion-statistics/README.md">Read the operation map and findings</a></article>
+    <article><p class="eyebrow">Round B · Connections</p><h2>Know where the work lives</h2><p>Inspect real local launcher profiles and process records, or check an existing management endpoint on another host.</p>
+    <a class="open" href="/connections/">Open launcher connections <span aria-hidden="true">↗</span></a>
+    <a class="notes" href="/062-launcher-connections/README.md">Read the connection boundaries</a></article>
+    <article><p class="eyebrow">Round B · Profiles</p><h2>Prepare a place to run</h2><p>Create a lab profile from scratch or an existing configuration, edit native settings, and distinguish defaults from launch overrides.</p>
+    <a class="open" href="/profiles/">Open profile workbench <span aria-hidden="true">↗</span></a>
+    <a class="notes" href="/063-profile-workbench/README.md">Read the profile operation map</a></article>
   </section>
   <footer><p>These pages explore behaviour and presentation. The accompanying Markdown keeps the useful ideas for a later specification; the implementation is disposable. <a href="/docs/plans/agent-orchestrator/next-mock-rounds.md">Follow the three-round plan</a>.</p><p id="instance" class="instance"></p></footer>
 </main><script type="module">const data=await(await fetch('/__instance')).json();document.querySelector('#instance').textContent=`Preview instance ${data.id.slice(0,8)} · separate port and temporary runtime record`;</script></body></html>

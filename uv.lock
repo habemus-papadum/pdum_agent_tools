@@ -13,6 +13,7 @@ members = [
     "habemus-papadum-codex-launcher",
     "habemus-papadum-hostfork",
     "habemus-papadum-mitm",
+    "habemus-papadum-orchestrator",
 ]
 
 [manifest.dependency-groups]
@@ -1304,6 +1305,32 @@ requires-dist = [
     { name = "mitmproxy", specifier = "==12.2.3" },
     { name = "typer", specifier = ">=0.16,<1" },
 ]
+
+[[package]]
+name = "habemus-papadum-orchestrator"
+version = "0.1.0+dev"
+source = { editable = "packages/orchestrator" }
+dependencies = [
+    { name = "psutil" },
+    { name = "rich" },
+    { name = "typer" },
+]
+
+[package.optional-dependencies]
+management = [
+    { name = "fastapi" },
+    { name = "uvicorn" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", marker = "extra == 'management'", specifier = ">=0.115,<1" },
+    { name = "psutil", specifier = ">=6,<8" },
+    { name = "rich", specifier = ">=14,<16" },
+    { name = "typer", specifier = ">=0.16,<1" },
+    { name = "uvicorn", marker = "extra == 'management'", specifier = ">=0.35,<1" },
+]
+provides-extras = ["management"]
 
 [[package]]
 name = "hatch"

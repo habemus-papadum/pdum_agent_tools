@@ -20,9 +20,13 @@ the wider architecture proposals are not all implemented.
 | [habemus-papadum-claude-launcher](packages/claude-launcher/README.md) | `pdum.claude_launcher` | Isolated Claude profiles, foreground workers for official browser/Node SDK clients, and saved-history management. New, unreleased package. |
 | [habemus-papadum-agent-history](packages/agent-history/README.md) | `pdum.agent_history` | Sync Codex homes, Claude Code directories and launcher profiles into one DuckDB schema, incrementally, into local files or MotherDuck, with lineage, provenance and a six-month window. Pairs with the TypeScript `@habemus-papadum/agent-history` checks, questions, SQL and session renderer, which read either target. New, unreleased package. |
 
+The new [orchestrator package](packages/orchestrator/README.md) (`pdum.orchestrator`)
+adds foreground instance/management ownership. Its S0 service is implemented;
+composing provider launch operations is the next slice.
+
 The Codex and Claude launchers use MITM only when selected; their `mitm` extras
 install that integration. Their `management` extras add optional FastAPI adapters.
-All five packages export standalone and mountable Typer CLIs.
+All six packages export standalone and mountable Typer CLIs.
 The Codex launcher's Rich/Questionary interview manages selective native imports and
 upstream authentication; the optional `federation` extra supports an AWS credential
 helper. See [profile setup and authentication](docs/profiles.md).
@@ -67,14 +71,27 @@ source-aligned runtime structure, control edge fixes and remaining implementatio
 The [parallel work findings](docs/hp-agent-work.md) add parallel tools, independent
 background jobs and real Node/browser checks. The [AIUI integration contract](docs/specs/hp-aiui-integration.md)
 sets the next boundary, including pragmatic upstream changes to the young AIUI library.
+The [HP persistence findings](experiments/docs/spikes/070-hp-backend-parity.md)
+add storage-independent history, resume/fork and accounting evidence in Node and
+a real browser, using filesystem and IndexedDB adapters over the same core.
 
 ## Architecture and implementation proposals
 
+- [Working orchestrator foundation](docs/orchestrator.md): `pnpm dev` starts a
+  real isolated coordinator and AIUI app. Status, prompt preparation and source/HMR
+  tooling work; native agent launching/conversations are not connected yet.
+- [Full system and library proposal](docs/plans/agent-orchestrator/system-design.md):
+  the review entry point after the spikes—backend, provider, shared-analysis and
+  UI libraries, their governing decisions, dependency diagrams and a staged plan.
+  Detailed notes are linked beneath the short library map. Library boundaries are
+  accepted; the decision register records the review guidance for construction.
 - [Agent orchestrator component map](docs/plans/agent-orchestrator/index.md):
   twenty-two editable design stubs for the multi-provider web application, SDKs,
   management, live/history views, rich prompting, reusable UI and development
-  delivery. Two [throwaway web studies](experiments/spikes/055-orchestrator-mock-lab/README.md)
-  now support interaction review before a concrete specification.
+  delivery. [Disposable web studies](experiments/spikes/055-orchestrator-mock-lab/README.md)
+  cover overview, conversation, native history, authentication, ingestion,
+  launcher connections and profiles before a concrete specification. The latest
+  studies use real local data and existing tools with separate lab state.
 - [Implementation status](docs/implementation-status.md): current commands, APIs,
   live results and unimplemented/untested capabilities.
 - [Runtime contracts and gotchas](docs/runtime-contracts.md): the canonical list

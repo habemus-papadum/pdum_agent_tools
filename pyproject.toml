@@ -8,6 +8,7 @@ habemus-papadum-codex-launcher = { workspace = true }
 habemus-papadum-hostfork = { workspace = true }
 habemus-papadum-claude-launcher = { workspace = true }
 habemus-papadum-agent-history = { workspace = true }
+habemus-papadum-orchestrator = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -34,7 +35,7 @@ extend-exclude = ["experiments"]
 select = ["E", "F", "W", "I"]
 
 [tool.pytest.ini_options]
-testpaths = ["packages/mitm/tests", "packages/codex-launcher/tests", "packages/hostfork/tests", "packages/claude-launcher/tests", "packages/agent-history/tests"]
+testpaths = ["packages/mitm/tests", "packages/codex-launcher/tests", "packages/hostfork/tests", "packages/claude-launcher/tests", "packages/agent-history/tests", "packages/orchestrator/tests"]
 addopts = "-s --import-mode=importlib"
 asyncio_mode = "auto"
 markers = [
@@ -49,7 +50,7 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 
 [tool.coverage.run]
-source = ["pdum.mitm", "pdum.codex_launcher", "pdum.hostfork", "pdum.claude_launcher", "pdum.agent_history"]
+source = ["pdum.mitm", "pdum.codex_launcher", "pdum.hostfork", "pdum.claude_launcher", "pdum.agent_history", "pdum.orchestrator"]
 relative_files = true
 patch = ["subprocess"]
 parallel = true

@@ -1,0 +1,31 @@
+{
+  "name": "@agent-spike/live-session-workspace",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./page": "./src/page.tsx",
+    "./card": "./src/card.tsx"
+  },
+  "aiui": {
+    "sitePage": {
+      "title": "Live workspace",
+      "desc": "Owned Codex and Claude sessions with live/history comparison",
+      "order": 67,
+      "card": "./card"
+    }
+  },
+  "dependencies": {
+    "@habemus-papadum/aiui-viz": "link:../../../.dev/aiui/packages/aiui-viz",
+    "@habemus-papadum/aiui-design": "link:../../../.dev/aiui/packages/aiui-design",
+    "@anthropic-ai/claude-agent-sdk": "catalog:",
+    "solid-js": "catalog:",
+    "@solidjs/web": "catalog:",
+    "marked": "catalog:",
+    "katex": "catalog:",
+    "mermaid": "catalog:"
+  },
+  "devDependencies": {
+    "vitest": "catalog:"
+  }
+}

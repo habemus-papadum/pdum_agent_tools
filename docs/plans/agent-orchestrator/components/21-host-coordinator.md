@@ -64,6 +64,30 @@ without forcing thousands of live detail subscriptions. Browser-local HP agents
 are outside this coordinator's administration; optional log ingestion is a
 separate concern.
 
+## Closing ownership evidence — 25 October 2026
+
+[065](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/065-session-lifecycle.md)
+measured graceful cleanup and abrupt loss of the actual lab owner. Codex native
+processes could survive while their public relay disappeared; Claude's worker
+exited. A distinct endpoint URL alone does not establish independent hosting or
+recoverable handles. Current-owner observations and prior-owner records are now
+separate in the working UI. The architecture review can start from foreground
+ownership, graceful cleanup and explicit history-based continuation, with crash
+reconciliation and independent endpoint hosting left as deliberate later work.
+The user still reviews policy recommendations before they become guarantees.
+
+## Revised Claude ownership input — 25 October 2026
+
+The user's next Claude direction separates launcher-owned process lifetime from
+client attachment. [068](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/068-claude-feed-replay.md)
+tests transparent stdin forwarding, native-output fanout and replay for multiple
+clients. Process/profile management and transport remain host responsibilities;
+conversation interpretation and conflicting action handling remain client
+responsibilities. This revises the target client-disconnect policy, not the
+already measured production behavior or the unresolved owner-crash policy.
+Use [069's provider matrices](https://github.com/habemus-papadum/pdum_agent_tools/blob/main/experiments/docs/spikes/069-provider-history-matrix.md)
+when choosing which ownership and history facts the management API can expose.
+
 ## Your additions
 
 - Which work should survive a normal coordinator exit, versus a crash?

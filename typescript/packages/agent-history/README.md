@@ -1,9 +1,58 @@
 # @habemus-papadum/agent-history
 
 Checks, questions and forensics over the DuckDB files that the Python
-`pdum-history` ingesters write from Codex homes and Claude Code directories. It
-only needs a DuckDB connection, so the same code can later run in a browser
-through DuckDB-WASM or against MotherDuck. It never writes a history file.
+`pdum-history` ingesters write from Codex homes and Claude Code directories.
+The existing root/CLI uses the Node DuckDB adapter. The `/analysis` entry below
+is already portable; broader query-driver/browser integration remains future work.
+It never writes a history file.
+
+## Portable pricing
+
+Browser and Node clients can import shared pricing without loading filesystem,
+CLI or native database code:
+
+```ts
+import {
+  estimateResponseCost,
+  summarizeResponseCosts,
+} from "@habemus-papadum/agent-history/analysis";
+
+const observation = {
+  model: "gpt-6-luna",
+  usage: { uncached: 1000, cached: 2000, cacheWrite: 0, cacheWrite1h: 0, output: 100 },
+};
+const estimate = estimateResponseCost(observation);
+const summary = summarizeResponseCosts([observation]);
+// Inspect estimate.status / summary.complete before displaying the known subtotal as complete.
+```
+
+`/analysis` exports the same snapshot, model resolution, rate lookup and cache
+arithmetic as the existing pricing module, plus explicit per-record and aggregate
+coverage. Missing usage, invalid counters and unknown/incomplete prices remain
+distinct; their USD values are `null`, not zero. The `<synthetic>` sentinel is
+explicitly excluded. Every estimate/summary records the table's date.
+
+Callers must first normalize provider-specific counters into `Usage`: uncached
+input, cache-read input, total cache-write input (including its one-hour subset),
+and output. Do not add inclusive input to its cached portion again. The helpers
+accept already-deduplicated observations; native response/source identity,
+inherited fork exclusion and the completeness of captured traffic remain with
+the adapter. `complete` describes only the supplied records and selected table,
+not all provider work, context occupancy or an actual subscription bill. These
+helpers do not infer service-tier or context-tier pricing from token totals.
+
+Source-first development resolves `/analysis` to `src/analysis.ts`; built consumers
+use `dist/analysis.js` and declarations through the matching publish map. A real
+multi-entry build test traverses that entry's output graph and rejects Node/native
+database dependencies. The Node root still exposes `refreshSnapshot` and the
+existing CLI surface; snapshot refresh remains an explicit I/O operation.
+
+This is the S0 pricing boundary, guided by RC-09/10/14 and spike 070. Full shared
+health reducers, source-scoped query fixes, HP source registration and the known
+out-of-turn compaction invariant remain later work; this extraction does not
+claim those have been implemented.
+
+## Node CLI and existing database tools
 
 ```sh
 pnpm -C packages/agent-history cli check ~/history/codex.duckdb

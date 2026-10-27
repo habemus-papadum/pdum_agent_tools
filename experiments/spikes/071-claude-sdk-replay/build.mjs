@@ -1,0 +1,3 @@
+import{build}from'esbuild';import{mkdir,writeFile}from'node:fs/promises';
+await mkdir('dist',{recursive:true});await build({entryPoints:['browser.mjs'],outfile:'dist/browser.js',bundle:true,platform:'browser',format:'esm',target:'es2024'});
+await writeFile('dist/index.html','<!doctype html><html><meta charset="utf-8"><title>071 SDK replay check</title><body><h1>Official SDK replay qualification</h1><p>Controlled from DevTools; no model input on page load.</p><script>globalThis.process={platform:"browser",env:{},argv:[],on(){}};</script><script type="module" src="/browser.js"></script></body></html>');
