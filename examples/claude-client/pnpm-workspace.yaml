@@ -1,0 +1,3 @@
+# pnpm blocks dependency build scripts by default; esbuild's install script is trusted.
+allowBuilds:
+  esbuild: true
