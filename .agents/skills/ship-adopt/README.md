@@ -23,11 +23,14 @@ uv run ship deps check
   manifest says `0.4.0+dev` until the next release. The suffix is valid in both
   ecosystems (a PEP 440 local version; semver build metadata). PyPI refuses to
   accept it, and `ship` refuses to publish it anywhere, so a development build
-  cannot be published by accident.
+  cannot be published by accident. npm would accept it: `pnpm pack` and
+  `pnpm publish` strip `+dev` and produce a plain `0.4.0`, so the guard on
+  the npm side is ship's alone.
 - **Floors on our own packages.** A consumer declares one of our packages
   with a lower bound (`my-lib>=0.4`, `"@scope/lib": ">=0.4.0"`), never an
-  exact version. The lockfile holds the exact version; `ship deps refresh`
-  moves it.
+  exact version and never a cap (`~=0.4.0`, `^0.4.0`, `~0.4.0`), which
+  blocks the next minor of a 0.x package for no reason the consumer knows.
+  The lockfile holds the exact version; `ship deps refresh` moves it.
 - **Lockfiles change only on command.** `uv run`, `uv sync` and `pnpm install`
   keep locked versions. `ship deps refresh` is the one command that upgrades.
 - **An exact pin needs a reason.** A pin on one of our packages is allowed
@@ -69,6 +72,11 @@ github-release = true
 # package's `uv run --locked pytest` or `pnpm --filter <name> test`.
 test = ["uv run --locked pytest", "pnpm -r test"]
 
+# Directory of the pnpm workspace when it is not the repository root. ship
+# reads its pnpm-workspace.yaml and package.json, runs pnpm there and commits
+# its pnpm-lock.yaml; the reusable workflow reads the same setting. Default ".".
+pnpm-root = "widgets"
+
 # Release every package at one version instead of independently. Give the
 # reason; the default is independent releases.
 # coupled = "the plugins share a generated protocol file"
@@ -80,13 +88,21 @@ test = ["uv run --locked pytest", "pnpm -r test"]
 tag = "my-package"          # tag component; default: the unscoped name
 test = ["uv run --locked pytest packages/my-package"]
 publish = true               # false: version and tag, never upload
+# Shell commands run from the repository root before ship's own build step,
+# for a distribution whose build needs generated inputs (a widget bundle).
+before-build = ["pnpm -C widgets build:anywidget"]
+# false: ship writes the version, tests, commits, tags and pushes, and another
+# workflow builds and publishes from the tag (platform wheels the release
+# runner cannot build). Implies publish = false.
+build = true
 ```
 
 `ship` discovers packages itself: the root `pyproject.toml` and every
 `[tool.uv.workspace]` member that has a `[project]` table and is not
-`package = false`; the root `package.json` and every `pnpm-workspace.yaml`
-member that is not `"private": true`. For a scoped npm package the tag
-component is the unscoped name (`@scope/core` tags as `core-v1.2.0`).
+`package = false`; the `package.json` of the pnpm workspace root (the
+repository root, or `pnpm-root`) and every `pnpm-workspace.yaml` member that
+is not `"private": true`. For a scoped npm package the tag component is the
+unscoped name (`@scope/core` tags as `core-v1.2.0`).
 
 ## Commands
 
@@ -103,10 +119,12 @@ In order:
    exist yet (`--no-registry-check` skips the question).
 3. Write the version. Python goes through `uv version --package`, so
    `uv.lock` follows. npm edits `package.json` in place.
-4. Build. Python: `uv build --package`, refusing any built file that still
-   carries a development version. npm: the package's `build` script and those
-   of its workspace dependencies (`pnpm --filter "<name>..." run build`), so
-   `pnpm publish` packs fresh output.
+4. Build. First the package's `before-build` commands, if any. Python:
+   `uv build --package`, refusing any built file that still carries a
+   development version. npm: the package's `build` script and those of its
+   workspace dependencies (`pnpm --filter "<name>..." run build`), so
+   `pnpm publish` packs fresh output. A package with `build = false` is
+   neither built nor published here; its own workflow does both from the tag.
 5. Run the test commands.
 6. Publish: `uv publish` with the credentials in the environment
    (`UV_PUBLISH_TOKEN`, or `UV_PUBLISH_USERNAME`/`UV_PUBLISH_PASSWORD`), or
