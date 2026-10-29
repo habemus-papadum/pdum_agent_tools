@@ -14,7 +14,6 @@ habemus-papadum-orchestrator = { workspace = true }
 dev = [
     "aiohttp>=3.12,<4",
     "httpx>=0.28,<1",
-    "hatch>=1.14.2",
     "pytest>=8.0.0",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.0.0",
@@ -24,6 +23,7 @@ dev = [
     "mkdocstrings>=0.26.1",
     "mkdocstrings-python>=1.11.1",
     "pre-commit>=3.7.0",
+    "habemus-papadum-ship>=0.7.0",
 ]
 
 [tool.ruff]
@@ -55,3 +55,11 @@ relative_files = true
 patch = ["subprocess"]
 parallel = true
 omit = ["*/tests/*", "*/testing.py"]
+
+# ship releases this workspace's packages: one version per package, the tag is the
+# truth, the manifest carries <last release>+dev between releases. See the README.
+[tool.ship]
+ours = ["habemus-papadum-*"]
+shared-paths = [".github/workflows/**"]
+ignore-subjects = ["back to dev"]
+test = ["uv run --locked pytest -m 'not live'"]

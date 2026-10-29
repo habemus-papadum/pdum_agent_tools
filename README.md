@@ -148,8 +148,34 @@ uv run --frozen mkdocs build --strict
 uv build --all-packages
 ```
 
+### Releasing
+
+Releases run from the `release` GitHub Actions workflow, which calls
+[ship](https://github.com/habemus-papadum/pdum_ship). Each package releases on
+its own:
+
+```sh
+# Plan first (the default), then release for real
+gh workflow run release.yml -f package=habemus-papadum-mitm -f bump=minor -f dry_run=true
+gh workflow run release.yml -f package=habemus-papadum-mitm -f bump=minor -f dry_run=false
+```
+
+Each release is tagged `<package>-v<version>` on the commit it was built from.
+Between releases a package's `pyproject.toml` carries `<last release>+dev`; a
+package that has never released carries `0.0.0+dev`, and its first minor release
+is `0.1.0`. `ship` sets the release version, builds, runs the tests, publishes to
+PyPI, tags, and restores the development marker. To see the plan locally:
+
+```sh
+uv run ship release habemus-papadum-mitm --bump minor --dry-run
+uv run ship deps check
+```
+
+`./scripts/setup.sh` installs the pre-commit hooks, including the `ship-check`
+hook, from the dev group.
+
 See the [development guide](docs/development.md) for dependency changes, testing,
-documentation, builds, CI, and the human-operated release process. Native Codex
+documentation, builds, CI, and releasing. Native Codex
 tests skip when no binary is installed; paid inference runs only through an
 explicitly invoked live probe.
 
@@ -181,7 +207,7 @@ examples/claude-client/    Official browser/Node SDK compatibility examples
 experiments/              Independent pnpm/uv research workspace and spike reports
 docs/                     MkDocs source
 scripts/setup.sh          Local environment and hook setup
-.github/workflows/        CI, Pages, and manual releases
+.github/workflows/        CI, Pages, and the release workflow
 pyproject.toml            Workspace and shared development configuration
 uv.lock                   Shared dependency lockfile
 ```
@@ -201,4 +227,5 @@ from `typescript/` with pnpm; see [agent history](docs/agent-history.md).
   [CLAUDE.md](CLAUDE.md) points to the same guidance.
 
 The [documentation site](https://habemus-papadum.github.io/pdum_agent_tools/) is
-published through GitHub Pages after changes are pushed. No release is automatic.
+published through GitHub Pages after changes are pushed. Packages release only
+from the `release` workflow; see [Releasing](#releasing).

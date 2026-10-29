@@ -32,6 +32,8 @@ jobs:
             python-version: "3.14"
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # ship's version-marker check reads the release tags
       - uses: astral-sh/setup-uv@v7
         with:
           version: "0.12.17"
@@ -39,6 +41,8 @@ jobs:
           enable-cache: true
       - name: Install workspace
         run: uv sync --frozen --all-packages --all-extras
+      - name: Release policy check
+        run: uv run --frozen ship deps check
       - name: Lint and format checks
         run: |
           uv run --frozen ruff check .

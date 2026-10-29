@@ -82,6 +82,7 @@ are under ignored `artifacts/claude-launcher-validation/`; they are not distribu
 with the repository. Do not assume those credentials or artifacts survive a
 checkout or remain valid when work resumes.
 
-Publication remains a separate maintainer action through the existing
-[human-operated lockstep release workflow](development.md#releases). The first
-three packages were published as v0.1.0; the Claude package awaits a future release.
+Publication remains a separate maintainer action through the
+[release workflow](development.md#releases), which releases each package on its
+own. The first three packages were published as 0.1.0; `habemus-papadum-claude-launcher`
+has not released and carries `0.0.0+dev` until its first release.

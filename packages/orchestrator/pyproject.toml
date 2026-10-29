@@ -1,6 +1,6 @@
 [project]
 name = "habemus-papadum-orchestrator"
-version = "0.1.0+dev"
+version = "0.0.0+dev"
 description = "Foreground host coordination for agent launchers and development instances"
 readme = "README.md"
 requires-python = ">=3.12"

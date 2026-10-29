@@ -171,60 +171,56 @@ concurrency and profile-isolation checks. It submits no model prompts and receiv
 no provider credentials. This newly prepared job has not yet run on GitHub.
 
 The `Deploy documentation` workflow builds and deploys the MkDocs site to GitHub
-Pages on pushes to `main`; it also declares published-release and manual triggers.
+Pages on pushes to `main`; it also has a manual trigger.
 Deployment requires the repository's Pages source to be **GitHub Actions**, which
 is already configured. Local edits are not published until pushed and deployed.
 
 ## Releases
 
-Releases are **human-operated** through the `release` workflow on `main`. Agents
-must not dispatch it or publish packages. No release is part of normal setup or checks.
+[ship](https://github.com/habemus-papadum/pdum_ship) (`habemus-papadum-ship`)
+releases this workspace's packages, one at a time, from the `release` workflow on
+`main`. Agents do not dispatch it or publish packages; releases are the maintainer's.
+No release is part of normal setup or checks.
 
-The four distributions share a version in lockstep. Between releases their manifests
-carry the last release version plus `+dev`; the initial marker is `0.0.0+dev`.
-Do not edit versions by hand or use built development artifacts as release artifacts.
+Each package has its own version and its own tag series, `<package>-v<version>`,
+for example `habemus-papadum-mitm-v0.1.0`. The tag is the truth: the next version is
+the last tag plus the requested bump. Between releases a package's manifest carries
+`<last release>+dev`; a package that has never released carries `0.0.0+dev` and no
+tag, and its first minor release is `0.1.0`. Do not edit versions by hand.
+`uv run ship deps check`, which CI and the `ship-check` pre-commit hook run, reports a
+manifest that disagrees with its tag, a stale lockfile, a development link in
+`[tool.uv.sources]` or an unexplained exact pin on a `habemus-papadum-*` package.
+Dependencies between the packages here are floors (`habemus-papadum-mitm>=0.1.0`),
+resolved from the workspace during development.
 
-The workflow accepts `bump` (`patch`, `minor`, or `major`), `skip_ci_check` (default
-false), and `dry_run` (default true). It uses the highest `vX.Y.Z` tag as the last
-release, or `0.0.0` when no tag exists. It requires successful **push-triggered**
-`ci.yml` and `hostfork.yml` runs for the selected commit unless the maintainer explicitly overrides
-the gate; a manual CI run does not satisfy that particular gate.
-The prepared Hostfork workflow runs on every push to `main`, including documentation
-changes, so both gates can qualify the same release commit. Pull requests retain
-path filtering for the prepared workflow.
+The workflow takes `package` (the distribution name), `bump` (`patch`, `minor` or
+`major`), `dry_run` (default true), `skip_ci_check` and `skip_tests`. It calls the
+reusable workflow in `habemus-papadum/pdum_ship`, which waits for the push-triggered
+`ci.yml` run on the selected commit to succeed and then runs `ship release`: it writes
+the release version into the package's `pyproject.toml` and `uv.lock`, builds the
+package, runs `uv run --locked pytest -m 'not live'`, publishes to PyPI with the
+`PYPI_API_TOKEN` repository secret, commits, tags and pushes commit and tag together,
+creates the GitHub release, and writes `<version>+dev` back. A dry run plans and
+prints without writing anything and needs no secret. The prepared Hostfork workflow
+is not part of that gate; check it before releasing `habemus-papadum-hostfork`.
 
-A dry run prepares the version changes and builds all four distributions on the
-runner but does not commit, tag, or publish. A real release requires the
-`PYPI_API_TOKEN` repository secret, builds before creating public refs, checks that
-`main` still matches the selected commit, commits all versions and the lockfile,
-tags and pushes, publishes the prepared distributions to PyPI, creates a GitHub
-release, and returns the manifests to the new version plus `+dev`.
+```sh
+gh workflow run release.yml -f package=habemus-papadum-mitm -f bump=minor -f dry_run=true
+uv run ship release habemus-papadum-mitm --bump minor --dry-run   # the same plan, locally
+uv run ship changed                                               # packages with commits since their last tag
+```
 
-For a first release, configure the publishing credential, select `main` in the
-workflow UI, and run with `dry_run=true`. After reviewing the planned version and
-successful builds, the maintainer can run the same bump with `dry_run=false` and
-leave `skip_ci_check=false`. The default minor bump starts at `0.1.0` when there
-are no release tags. Development wheels containing `+dev` are not the artifacts
-to upload.
+The release workflow pushes with `GITHUB_TOKEN`, whose pushes
+[do not trigger other workflows](https://docs.github.com/en/actions/concepts/security/github_token),
+so the release and back-to-development commits do not redeploy Pages or run CI.
 
-The release workflow uses `GITHUB_TOKEN` for its Git pushes and GitHub release.
-Those events [do not trigger other workflows](https://docs.github.com/en/actions/concepts/security/github_token),
-so its release event does not automatically redeploy Pages or run CI on the
-version-only commits. Source documentation is deployed by the preceding human
-push; use a manual documentation deployment if a release-specific refresh is needed.
-
-There is no automatic publishing on ordinary pushes or tag events. The original three packages were published successfully as v0.1.0 on 2026-10-13.
-The new Claude launcher has not been published yet; it joins the lockstep workflow
-for a future maintainer-operated release. If a release
-fails partway through, inspect its run, pushed tags, and registry state before any
-retry; these steps are not a single atomic transaction. In particular, a failure
-after the tag is pushed can leave manifests at the release version, so a blind
-rerun fails the normal `+dev` baseline check. If upload was partial, recover the
-original release artifacts and publish only the missing files, verify every published
-project and the GitHub release, then restore the lockstep development versions
-with `uv version` and `uv lock`. Release artifacts are uploaded before PyPI
-publication; a build or earlier upload failure has no PyPI artifacts to recover.
-Do not delete or reuse a published version to conceal a partial release.
+`habemus-papadum-mitm`, `habemus-papadum-codex-launcher` and `habemus-papadum-hostfork`
+were published as 0.1.0 on 2026-10-13 by the earlier lockstep workflow (tag `v0.1.0`);
+the per-package baseline tags `<package>-v0.1.0` point at the same commit. The Claude
+launcher, agent history and orchestrator packages have not been published. A failure
+before publishing is reverted by `ship`; a failure after publishing is not, because
+the registry already has the version, and `ship` prints the remaining commands
+instead. Do not delete or reuse a published version to conceal a partial release.
 
 ## Claude client qualification
 

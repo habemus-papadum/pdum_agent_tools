@@ -19,7 +19,7 @@ dependencies = [
 pdum-codex = "pdum.codex_launcher.cli:app"
 
 [project.optional-dependencies]
-mitm = ["habemus-papadum-mitm"]
+mitm = ["habemus-papadum-mitm>=0.1.0"]
 management = ["fastapi>=0.115,<1"]
 federation = ["httpx>=0.28,<1"]
 

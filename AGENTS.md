@@ -202,9 +202,19 @@ for the project layout and commands.
 ## Git and releases
 
 - Do not commit, push, or create branches unless asked.
-- Do not hand-edit package versions. All distributions follow the lockstep
-  version managed by the human-operated release workflow.
-- Do not dispatch the release workflow, publish packages, or create/rewrite release
-  tags. Explain the process when asked; leave release execution to the maintainer.
+- `ship` (habemus-papadum-ship) releases this workspace's packages. Each package
+  has its own version and tag (`<package>-v<version>`); between releases its
+  manifest says `<last release>+dev`, and a package that has never released says
+  `0.0.0+dev` with no tag. Never edit a version field by hand.
+- To release, ask the operator. When they agree, run the release workflow
+  (`gh workflow run release.yml -f package=<name> -f bump=minor -f dry_run=false`,
+  after a `dry_run=true` to see the plan). Do not publish from this machine and do
+  not create or rewrite release tags.
+- Do not update repositories that consume a package you changed; their scheduled
+  refresh does that. The one exception: if your change needs a newer release of
+  another `habemus-papadum-*` package, raise that package's floor here.
+- Do not pin a `habemus-papadum-*` package to an exact version without a reason on
+  the same line or in `[tool.ship.pins]`. Never commit a `path` or `editable` entry
+  in `[tool.uv.sources]`. Run `uv run ship deps check` before you finish.
 - Do not add automatic publishing on push or tag events. Release secrets belong
   in GitHub configuration, never in this repository.
