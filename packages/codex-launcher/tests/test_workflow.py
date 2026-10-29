@@ -1,4 +1,5 @@
 import asyncio
+import shutil
 import sys
 import threading
 import tomllib
@@ -21,6 +22,8 @@ from pdum.codex_launcher import (
 )
 from pdum.codex_launcher.layout import launcher_toml
 from pdum.codex_launcher.runtime import mutation_lock
+
+CODEX = shutil.which("codex")
 
 
 async def test_create_filters_and_edits_remainder_without_source_changes(tmp_path):
@@ -206,6 +209,8 @@ async def test_redirected_launcher_parent_does_not_mutate_external_tree(tmp_path
     assert (directory / "config.toml").read_text() == draft.native_toml
 
 
+@pytest.mark.codex
+@pytest.mark.skipif(CODEX is None, reason="Native Codex executable is not installed")
 async def test_editing_a_bare_home_adopts_it_without_changing_native_behavior(tmp_path, monkeypatch):
     home = tmp_path / "bare-home"
     home.mkdir()

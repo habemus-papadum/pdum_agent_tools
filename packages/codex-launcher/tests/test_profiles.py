@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import shutil
 import sys
 import tomllib
 
@@ -18,6 +19,8 @@ from pdum.codex_launcher.profiles import (
     resolve_profile,
     temporary_profile,
 )
+
+CODEX = shutil.which("codex")
 
 
 async def test_create_clone_keeps_native_unknowns_and_only_settings(tmp_path):
@@ -94,6 +97,8 @@ def test_selection_is_explicit_and_aliases_resolve(tmp_path, monkeypatch):
     assert resolve_profile(default=True) == (tmp_path / ".codex").resolve()
 
 
+@pytest.mark.codex
+@pytest.mark.skipif(CODEX is None, reason="Native Codex executable is not installed")
 async def test_bare_home_defaults_mirror_the_users_cli(tmp_path):
     home = tmp_path / "bare"
     home.mkdir()
