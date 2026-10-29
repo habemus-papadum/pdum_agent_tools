@@ -57,6 +57,23 @@ jobs:
         with:
           name: coverage-${{ matrix.os }}-${{ matrix.python-version }}
           path: coverage.xml
+      # The strict docs build needs the generated TypeScript API reference, as in docs.yml.
+      - uses: pnpm/action-setup@v4
+        if: ${{ matrix.python-version == '3.14' && matrix.os == 'ubuntu-latest' }}
+        with:
+          version: "11.9.0"
+      - uses: actions/setup-node@v5
+        if: ${{ matrix.python-version == '3.14' && matrix.os == 'ubuntu-latest' }}
+        with:
+          node-version-file: typescript/.nvmrc
+          cache: pnpm
+          cache-dependency-path: typescript/pnpm-lock.yaml
+      - name: Generate the TypeScript API reference
+        if: ${{ matrix.python-version == '3.14' && matrix.os == 'ubuntu-latest' }}
+        working-directory: typescript
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run api-docs
       - name: Build documentation
         if: ${{ matrix.python-version == '3.14' && matrix.os == 'ubuntu-latest' }}
         run: uv run --frozen mkdocs build --strict
