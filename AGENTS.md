@@ -218,3 +218,12 @@ for the project layout and commands.
   in `[tool.uv.sources]`. Run `uv run ship deps check` before you finish.
 - Do not add automatic publishing on push or tag events. Release secrets belong
   in GitHub configuration, never in this repository.
+
+## Weekly dependency maintenance
+
+The scheduled/manual `deps-refresh.yml` workflow uses Ship's shared refresh action.
+`[tool.ship] refresh-test` owns its explicit maintenance checks; release tests keep
+their existing scope. See [dependency maintenance](docs/dependency-maintenance.md)
+for commands, outcomes and verification limits. No package release or deployment
+is part of a dependency refresh. Keep generated reports out of Git and preserve
+human/agent edits on an existing repair PR.

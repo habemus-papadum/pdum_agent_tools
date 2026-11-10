@@ -23,7 +23,7 @@ dev = [
     "mkdocstrings>=0.26.1",
     "mkdocstrings-python>=1.11.1",
     "pre-commit>=3.7.0",
-    "habemus-papadum-ship>=0.7.0",
+    "habemus-papadum-ship>=0.12.0",
 ]
 
 [tool.ruff]
@@ -59,6 +59,7 @@ omit = ["*/tests/*", "*/testing.py"]
 # ship releases this workspace's packages: one version per package, the tag is the
 # truth, the manifest carries <last release>+dev between releases. See the README.
 [tool.ship]
+refresh-test = ["uv run --locked --all-packages --all-extras pytest -q -m 'not live'"]
 ours = ["habemus-papadum-*"]
 shared-paths = [".github/workflows/**"]
 ignore-subjects = ["back to dev"]

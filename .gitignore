@@ -21,3 +21,6 @@ artifacts/
 /.dev/
 todo.md
 docs/reference/typescript/
+
+# Weekly refresh diagnostics are retained as workflow artifacts.
+.ship-refresh/
